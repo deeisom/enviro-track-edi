@@ -121,6 +121,7 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
       const proj = projects.find(p => p.id === projectId);
       if (proj) {
         setProjectSummary(proj.description);
+        setPoNumber(proj.projectNumber);
         if (proj.clientId) {
           const cl = getClient(proj.clientId);
           if (cl) {
