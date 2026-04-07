@@ -114,41 +114,57 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     };
   }
 
+  // Print-critical borders: use medium weight so they survive scaling
+  const printBorder = { style: 'medium' as const, color: { argb: 'FF000000' } };
+
   // Right border on column F, rows 12-45
   for (let r = 12; r <= 45; r++) {
     const cellF = ws.getCell(`F${r}`);
-    const existingBorder = cellF.border || {};
     cellF.border = {
-      top: existingBorder.top,
-      bottom: existingBorder.bottom,
-      left: existingBorder.left,
-      right: thinBorder,
+      top: cellF.border?.top,
+      bottom: cellF.border?.bottom,
+      left: cellF.border?.left,
+      right: printBorder,
     };
   }
 
   // Bottom border on row 16 (above Project Summary), columns A-F
   ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
     const cell = ws.getCell(`${col}16`);
-    const existingBorder = cell.border || {};
     cell.border = {
-      top: existingBorder.top,
-      left: existingBorder.left,
-      right: existingBorder.right,
-      bottom: thinBorder,
+      top: cell.border?.top,
+      left: cell.border?.left,
+      right: cell.border?.right,
+      bottom: printBorder,
     };
   });
 
   // Bottom border on row 45, columns A-F
   ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
     const cell = ws.getCell(`${col}45`);
-    const existingBorder = cell.border || {};
     cell.border = {
-      top: existingBorder.top,
-      left: existingBorder.left,
-      right: existingBorder.right,
-      bottom: thinBorder,
+      top: cell.border?.top,
+      left: cell.border?.left,
+      right: cell.border?.right,
+      bottom: printBorder,
     };
   });
+
+  // Page setup: auto fit-to-page so user doesn't need to manually select scaling
+  ws.pageSetup = {
+    ...ws.pageSetup,
+    printArea: 'A1:F45',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    paperSize: 1 as any, // Letter
+    orientation: 'portrait',
+    margins: {
+      left: 0.5, right: 0.5,
+      top: 0.5, bottom: 0.5,
+      header: 0.3, footer: 0.3,
+    },
+  };
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
