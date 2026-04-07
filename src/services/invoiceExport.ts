@@ -114,6 +114,18 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     };
   }
 
+  // Right border on column F, rows 12-45
+  for (let r = 12; r <= 45; r++) {
+    const cellF = ws.getCell(`F${r}`);
+    cellF.border = { ...cellF.border, right: thinBorder };
+  }
+
+  // Bottom border on row 45, columns A-F
+  ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+    const cell = ws.getCell(`${col}45`);
+    cell.border = { ...cell.border, bottom: thinBorder };
+  });
+
   const buf = await wb.xlsx.writeBuffer();
   saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
     `${invoice.invoiceNumber}.xlsx`);
