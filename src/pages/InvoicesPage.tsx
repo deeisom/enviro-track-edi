@@ -68,7 +68,7 @@ function InvoiceList({ onNew }: { onNew: () => void }) {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}>
                         <FileSpreadsheet className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="PDF" onClick={() => exportInvoiceToPDF(inv)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="PDF" onClick={() => { exportInvoiceToPDF(inv); }}>
                         <FileText className="h-3.5 w-3.5" />
                       </Button>
                       <AlertDialog>
