@@ -51,7 +51,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   }
 
   // Widen column A to fit longer item names like "Program Administration"
-  ws.getColumn('A').width = 25;
+  ws.getColumn('A').width = 35;
 
   // Line items — dynamic row heights based on description length
   const B_C_WIDTH_CHARS = 52;
