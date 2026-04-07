@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectStatus, getStatusDef } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Edit, Clock, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Trash2, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();

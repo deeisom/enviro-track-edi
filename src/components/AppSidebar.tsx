@@ -4,6 +4,8 @@ import {
   Plus,
   Users,
   Leaf,
+  DollarSign,
+  FileText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -25,6 +27,8 @@ const mainItems = [
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "New Project", url: "/projects/new", icon: Plus },
   { title: "Clients", url: "/clients", icon: Users },
+  { title: "Rate Table", url: "/rates", icon: DollarSign },
+  { title: "Invoices", url: "/invoices", icon: FileText },
 ];
 
 export function AppSidebar() {
