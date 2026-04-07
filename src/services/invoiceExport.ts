@@ -28,25 +28,56 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Project Summary
   ws.getCell("A17").value = invoice.projectSummary;
 
-  // Clear all line item rows (21-43) to remove phantom/template content
+  // Unmerge all existing B:C merges in rows 21-43
   const startRow = 21;
-  for (let r = startRow; r <= 43; r++) {
-    ws.getCell(`A${r}`).value = null;
-    ws.getCell(`B${r}`).value = null;
-    ws.getCell(`D${r}`).value = null;
-    ws.getCell(`E${r}`).value = null;
-    ws.getCell(`F${r}`).value = null;
+  const endRow = 43;
+  const merges = ws.model?.merges ? [...ws.model.merges] : [];
+  for (const merge of merges) {
+    // merge format like "B21:C23"
+    const match = merge.match(/^[BC](\d+):[BC](\d+)$/i);
+    if (match) {
+      const r1 = parseInt(match[1]);
+      const r2 = parseInt(match[2]);
+      if (r1 >= startRow && r2 <= endRow) {
+        try { ws.unMergeCells(merge); } catch {}
+      }
+    }
   }
 
-  // Line items — spaced every 3 rows to match template layout
-  invoice.lineItems.forEach((item, i) => {
-    const row = startRow + (i * 3);
-    if (row > 43) return;
-    ws.getCell(`A${row}`).value = item.name;
-    ws.getCell(`B${row}`).value = item.description;
-    ws.getCell(`D${row}`).value = item.qty;
-    ws.getCell(`E${row}`).value = item.rate;
-    ws.getCell(`F${row}`).value = { formula: `E${row}*D${row}`, result: item.amount };
+  // Clear all line item rows (21-43) including column C
+  for (let r = startRow; r <= endRow; r++) {
+    ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+      ws.getCell(`${col}${r}`).value = null;
+    });
+  }
+
+  // Line items — dynamic row heights based on description length
+  const B_C_WIDTH_CHARS = 52;
+  let rowCursor = startRow;
+
+  invoice.lineItems.forEach((item) => {
+    if (rowCursor > endRow) return;
+    const rowsNeeded = Math.max(1, Math.ceil((item.description?.length || 1) / B_C_WIDTH_CHARS));
+
+    // Item name in column A with wrap text
+    ws.getCell(`A${rowCursor}`).value = item.name;
+    ws.getCell(`A${rowCursor}`).alignment = { wrapText: true, vertical: 'middle' };
+
+    // Description in merged B:C with wrap text
+    if (rowsNeeded > 1) {
+      ws.mergeCells(`B${rowCursor}:C${rowCursor + rowsNeeded - 1}`);
+    } else {
+      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+    }
+    ws.getCell(`B${rowCursor}`).value = item.description;
+    ws.getCell(`B${rowCursor}`).alignment = { wrapText: true, vertical: 'top', horizontal: 'left' };
+
+    // Qty, Rate, Amount
+    ws.getCell(`D${rowCursor}`).value = item.qty;
+    ws.getCell(`E${rowCursor}`).value = item.rate;
+    ws.getCell(`F${rowCursor}`).value = { formula: `E${rowCursor}*D${rowCursor}`, result: item.amount };
+
+    rowCursor += rowsNeeded + 1; // 1 blank row separator
   });
 
   const buf = await wb.xlsx.writeBuffer();
@@ -71,8 +102,8 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
       reader.onloadend = () => resolve(reader.result as string);
       reader.readAsDataURL(blob);
     });
-  } catch {
-    console.warn("Could not load accreditation logos");
+  } catch (err) {
+    console.error("Could not load accreditation logos:", err);
   }
 
   // Header
