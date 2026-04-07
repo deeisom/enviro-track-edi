@@ -1,50 +1,37 @@
 
 
-# Fix Invoice Line Items & Add Accreditation Images
+# Fix Excel Line Item Layout & Accreditation Image
 
-## Problems Identified
+## Changes
 
-1. **Excel export: line items crammed together** — The template uses 3 rows per line item (1 data row + 2 empty spacer rows showing `$-`), but our code writes items to consecutive rows (21, 22, 23...). Need to space them every 3 rows (21, 24, 27...) and clear any pre-existing content in the template rows.
+### 1. Fix Excel description column layout
+**File: `src/services/invoiceExport.ts` — `exportInvoiceToExcel`**
 
-2. **Phantom items in Excel** — The template likely has pre-filled text in some rows (category headers like "Lab Fees", "Equipment", etc.). The export code doesn't clear these rows before writing, so template content bleeds through.
+- **Unmerge all existing B:C merges** in rows 21-43 before writing (template has pre-existing merged ranges that conflict with new data)
+- **Clear column C** in the existing clear loop (currently only clears A, B, D, E, F)
+- **Dynamic row calculation**: For each line item, estimate rows needed for the description based on ~52 chars per line. Merge B:C for that span. Leave exactly 1 blank row between items (not fixed 3-row spacing).
+- **Wrap text + alignment**: Set `wrapText: true` on both column A (Item) and merged B:C (Description) cells. Column A gets vertical center alignment. This fixes "Program Administration" being truncated to "Program".
 
-3. **Missing accreditation images** — Three logos (BBB, EPA Lead-Safe, SDVOSB) should appear at the bottom of the invoice. These need to be added to both the PDF export and preserved/embedded in Excel.
-
-## Plan
-
-### 1. Fix Excel export spacing and phantom items
-**File: `src/services/invoiceExport.ts`**
-- Clear all line item rows (21-43) before writing — set columns A, B, D, E, F to empty
-- Space line items every 3 rows: item 0 at row 21, item 1 at row 24, item 2 at row 27, etc. (matching the template's visual spacing pattern)
-
-### 2. Add accreditation images
-- Copy the uploaded image (`image-2.png`) to `public/images/accreditation-logos.png`
-- **PDF export**: Embed the image near the bottom of the page using `jsPDF.addImage()`, positioned below the footer text
-- **Excel export**: The template file should already contain these images; if ExcelJS strips them, we'll note that as a known limitation (ExcelJS has limited image preservation support from templates)
-
-### 3. Copy corrected template
-- Copy the uploaded `EDI_Invoice_Draft_LIW-2.xlsx` to inspect if the template itself needs updating to match the correct layout with images
-
-## Technical Details
-
-**Row spacing formula for Excel:**
-```
-row = startRow + (index * 3)  // 21, 24, 27, 30, ...
+**Row cursor logic:**
+```text
+For each line item:
+  rowsNeeded = max(1, ceil(description.length / 52))
+  Write item name in A{row} with wrapText
+  Merge B{row}:C{row + rowsNeeded - 1} with wrapText
+  Write qty, rate, amount in D, E, F at {row}
+  rowCursor += rowsNeeded + 1  (1 blank row separator)
 ```
 
-**Clear rows loop:**
-```
-for (let r = startRow; r <= 43; r++) {
-  ws.getCell(`A${r}`).value = null;
-  ws.getCell(`B${r}`).value = null;
-  ws.getCell(`D${r}`).value = null;
-  ws.getCell(`E${r}`).value = null;
-}
-```
+### 2. Fix accreditation logos in PDF
+**File: `src/services/invoiceExport.ts` — `exportInvoiceToPDF`**
 
-**PDF image embedding:**
-```
-doc.addImage(imgData, 'PNG', x, y, width, height);
-```
-Positioned centered at the bottom of the page, below the tagline text.
+- Debug the image fetch/load logic — the PNG file exists and is valid (73KB) but isn't rendering
+- Add console error logging instead of silent `catch` to surface failures
+- Verify the fetch path resolves correctly in the Vite dev server
+
+### Technical details
+
+- ExcelJS `ws.unMergeCells(range)` will be used to remove template merges before writing
+- Column A width in the template is ~18 chars — with `wrapText: true`, longer item names like "Program Administration" will display fully across multiple lines within the cell
+- The PDF logo is fetched as a blob, converted to base64 data URL, then passed to `doc.addImage()` — need to verify this pipeline completes successfully
 
