@@ -157,7 +157,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     fitToPage: true,
     fitToWidth: 1,
     fitToHeight: 0,
-    paperSize: 1, // Letter
+    paperSize: 1 as any, // Letter
     orientation: 'portrait',
     margins: {
       left: 0.5, right: 0.5,
