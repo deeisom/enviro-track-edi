@@ -33,7 +33,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const endRow = 43;
   const merges = ws.model?.merges ? [...ws.model.merges] : [];
   for (const merge of merges) {
-    // merge format like "B21:C23"
     const match = merge.match(/^[BC](\d+):[BC](\d+)$/i);
     if (match) {
       const r1 = parseInt(match[1]);
