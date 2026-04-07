@@ -24,7 +24,7 @@ export default function RatesPage() {
   const [filterCat, setFilterCat] = useState<string>("all");
 
   const load = () => setRates(getAllRates());
-  useEffect(load, []);
+  useEffect(() => { seedRatesIfEmpty(); load(); }, []);
 
   const filtered = filterCat === "all" ? rates : rates.filter(r => r.category === filterCat);
 
