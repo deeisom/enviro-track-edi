@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectStatus, getStatusDef } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Edit, Clock, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Trash2, FileText } from "lucide-react";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +88,11 @@ export default function ProjectDetail() {
           <h1 className="text-xl font-semibold mt-1">{project.name}</h1>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to={`/invoices?new=1&projectId=${project.id}`}>
+              <FileText className="h-4 w-4 mr-1" /> Create Invoice
+            </Link>
+          </Button>
           <Button variant="outline" onClick={handleEdit}>
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>

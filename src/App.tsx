@@ -9,6 +9,8 @@ import ProjectsList from "@/pages/ProjectsList";
 import CreateProject from "@/pages/CreateProject";
 import ProjectDetail from "@/pages/ProjectDetail";
 import ClientsPage from "@/pages/ClientsPage";
+import RatesPage from "@/pages/RatesPage";
+import InvoicesPage from "@/pages/InvoicesPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +29,8 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/:id" element={<ClientsPage />} />
+            <Route path="/rates" element={<RatesPage />} />
+            <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>
