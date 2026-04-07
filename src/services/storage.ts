@@ -191,3 +191,7 @@ function addActivity(data: Omit<ActivityLogEntry, "id" | "timestamp">) {
   activity.push({ ...data, id: genId(), timestamp: new Date().toISOString() });
   write(KEYS.activity, activity);
 }
+
+export function deleteActivity(id: string) {
+  write(KEYS.activity, read<ActivityLogEntry>(KEYS.activity).filter(a => a.id !== id));
+}
