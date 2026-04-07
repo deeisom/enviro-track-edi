@@ -117,13 +117,37 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Right border on column F, rows 12-45
   for (let r = 12; r <= 45; r++) {
     const cellF = ws.getCell(`F${r}`);
-    cellF.border = { ...cellF.border, right: thinBorder };
+    const existingBorder = cellF.border || {};
+    cellF.border = {
+      top: existingBorder.top,
+      bottom: existingBorder.bottom,
+      left: existingBorder.left,
+      right: thinBorder,
+    };
   }
+
+  // Bottom border on row 16 (above Project Summary), columns A-F
+  ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+    const cell = ws.getCell(`${col}16`);
+    const existingBorder = cell.border || {};
+    cell.border = {
+      top: existingBorder.top,
+      left: existingBorder.left,
+      right: existingBorder.right,
+      bottom: thinBorder,
+    };
+  });
 
   // Bottom border on row 45, columns A-F
   ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
     const cell = ws.getCell(`${col}45`);
-    cell.border = { ...cell.border, bottom: thinBorder };
+    const existingBorder = cell.border || {};
+    cell.border = {
+      top: existingBorder.top,
+      left: existingBorder.left,
+      right: existingBorder.right,
+      bottom: thinBorder,
+    };
   });
 
   const buf = await wb.xlsx.writeBuffer();
