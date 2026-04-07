@@ -57,6 +57,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        status: {
+          proposal: "hsl(var(--status-proposal))",
+          planning: "hsl(var(--status-planning))",
+          fieldwork: "hsl(var(--status-fieldwork))",
+          deliverables: "hsl(var(--status-deliverables))",
+          billing: "hsl(var(--status-billing))",
+          closed: "hsl(var(--status-closed))",
+          cancelled: "hsl(var(--status-cancelled))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,20 +74,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
