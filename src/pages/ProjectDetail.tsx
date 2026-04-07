@@ -88,6 +88,11 @@ export default function ProjectDetail() {
           <h1 className="text-xl font-semibold mt-1">{project.name}</h1>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to={`/invoices?new=1&projectId=${project.id}`}>
+              <FileText className="h-4 w-4 mr-1" /> Create Invoice
+            </Link>
+          </Button>
           <Button variant="outline" onClick={handleEdit}>
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>
