@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAllRates, createRate, updateRate, deleteRate } from "@/services/invoiceStorage";
+import { getAllRates, createRate, updateRate, deleteRate, seedRatesIfEmpty } from "@/services/invoiceStorage";
 import { RateItem, RateCategory, RATE_CATEGORIES } from "@/types/invoice";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2 } from "lucide-react";
