@@ -54,16 +54,26 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     `${invoice.invoiceNumber}.xlsx`);
 }
 
-export function exportInvoiceToPDF(invoice: Invoice) {
+export async function exportInvoiceToPDF(invoice: Invoice) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const isEstimate = invoice.type === "estimate";
   const docLabel = isEstimate ? "Estimate" : "Invoice";
 
-  // Header
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("Environmental Design Inc.", 14, 20);
+  // Load accreditation logos
+  let logosImg: string | null = null;
+  try {
+    const resp = await fetch("/images/accreditation-logos.png");
+    const blob = await resp.blob();
+    logosImg = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    console.warn("Could not load accreditation logos");
+  }
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
   doc.text("Professional Environmental Consultants", 14, 26);
