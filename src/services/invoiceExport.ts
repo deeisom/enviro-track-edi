@@ -188,4 +188,3 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
 
   doc.save(`${invoice.invoiceNumber}.pdf`);
 }
-}
