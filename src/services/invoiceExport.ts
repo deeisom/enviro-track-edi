@@ -28,16 +28,24 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Project Summary
   ws.getCell("A17").value = invoice.projectSummary;
 
-  // Line items — rows 21-43
+  // Clear all line item rows (21-43) to remove phantom/template content
   const startRow = 21;
+  for (let r = startRow; r <= 43; r++) {
+    ws.getCell(`A${r}`).value = null;
+    ws.getCell(`B${r}`).value = null;
+    ws.getCell(`D${r}`).value = null;
+    ws.getCell(`E${r}`).value = null;
+    ws.getCell(`F${r}`).value = null;
+  }
+
+  // Line items — spaced every 3 rows to match template layout
   invoice.lineItems.forEach((item, i) => {
-    const row = startRow + i;
+    const row = startRow + (i * 3);
     if (row > 43) return;
     ws.getCell(`A${row}`).value = item.name;
     ws.getCell(`B${row}`).value = item.description;
     ws.getCell(`D${row}`).value = item.qty;
     ws.getCell(`E${row}`).value = item.rate;
-    // F column has formulas already (=E*D), but set value too
     ws.getCell(`F${row}`).value = { formula: `E${row}*D${row}`, result: item.amount };
   });
 
@@ -46,11 +54,26 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     `${invoice.invoiceNumber}.xlsx`);
 }
 
-export function exportInvoiceToPDF(invoice: Invoice) {
+export async function exportInvoiceToPDF(invoice: Invoice) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const isEstimate = invoice.type === "estimate";
   const docLabel = isEstimate ? "Estimate" : "Invoice";
+
+  // Load accreditation logos
+  let logosImg: string | null = null;
+  try {
+    const resp = await fetch("/images/accreditation-logos.png");
+    const blob = await resp.blob();
+    logosImg = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    console.warn("Could not load accreditation logos");
+  }
 
   // Header
   doc.setFontSize(16);
@@ -153,6 +176,15 @@ export function exportInvoiceToPDF(invoice: Invoice) {
   doc.setFont("helvetica", "italic");
   doc.text("EDI is a Service Disabled Veteran Owned Small Business!", pageWidth / 2, finalY + 15, { align: "center" });
   doc.text("If you have any questions please call 856-616-9516", pageWidth / 2, finalY + 20, { align: "center" });
+
+  // Accreditation logos
+  if (logosImg) {
+    const imgWidth = 120;
+    const imgHeight = 30;
+    const imgX = (pageWidth - imgWidth) / 2;
+    const imgY = pageHeight - imgHeight - 10;
+    doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
+  }
 
   doc.save(`${invoice.invoiceNumber}.pdf`);
 }
