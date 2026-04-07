@@ -28,16 +28,24 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Project Summary
   ws.getCell("A17").value = invoice.projectSummary;
 
-  // Line items — rows 21-43
+  // Clear all line item rows (21-43) to remove phantom/template content
   const startRow = 21;
+  for (let r = startRow; r <= 43; r++) {
+    ws.getCell(`A${r}`).value = null;
+    ws.getCell(`B${r}`).value = null;
+    ws.getCell(`D${r}`).value = null;
+    ws.getCell(`E${r}`).value = null;
+    ws.getCell(`F${r}`).value = null;
+  }
+
+  // Line items — spaced every 3 rows to match template layout
   invoice.lineItems.forEach((item, i) => {
-    const row = startRow + i;
+    const row = startRow + (i * 3);
     if (row > 43) return;
     ws.getCell(`A${row}`).value = item.name;
     ws.getCell(`B${row}`).value = item.description;
     ws.getCell(`D${row}`).value = item.qty;
     ws.getCell(`E${row}`).value = item.rate;
-    // F column has formulas already (=E*D), but set value too
     ws.getCell(`F${row}`).value = { formula: `E${row}*D${row}`, result: item.amount };
   });
 
