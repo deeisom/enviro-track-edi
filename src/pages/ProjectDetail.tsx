@@ -14,11 +14,15 @@ import {
 import { StatusBadge, StatusTimeline } from "@/components/StatusBadge";
 import {
   getProject, updateProject, changeProjectStatus, getProjectActivity,
-  getClient, getContactsByClient, getAllClients,
+  getClient, getContactsByClient, getAllClients, deleteActivity,
 } from "@/services/storage";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectStatus, getStatusDef } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Edit, Clock } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Trash2 } from "lucide-react";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -171,6 +175,25 @@ export default function ProjectDetail() {
                     <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
                     {a.note && <p className="text-muted-foreground mt-1">{a.note}</p>}
                   </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto shrink-0 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete activity log entry?</AlertDialogTitle>
+                        <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { deleteActivity(a.id); toast({ title: "Activity entry deleted" }); load(); }}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ))}
             </div>
