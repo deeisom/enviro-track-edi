@@ -74,6 +74,11 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   } catch {
     console.warn("Could not load accreditation logos");
   }
+
+  // Header
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("Environmental Design Inc.", 14, 20);
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
   doc.text("Professional Environmental Consultants", 14, 26);
@@ -172,5 +177,15 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   doc.text("EDI is a Service Disabled Veteran Owned Small Business!", pageWidth / 2, finalY + 15, { align: "center" });
   doc.text("If you have any questions please call 856-616-9516", pageWidth / 2, finalY + 20, { align: "center" });
 
+  // Accreditation logos
+  if (logosImg) {
+    const imgWidth = 120;
+    const imgHeight = 30;
+    const imgX = (pageWidth - imgWidth) / 2;
+    const imgY = pageHeight - imgHeight - 10;
+    doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
+  }
+
   doc.save(`${invoice.invoiceNumber}.pdf`);
+}
 }
