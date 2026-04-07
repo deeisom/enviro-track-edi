@@ -53,6 +53,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Widen column A to fit longer item names like "Program Administration"
   ws.getColumn('A').width = 35;
 
+  // Consistent font for all line item cells
+  const itemFont = { name: 'Calibri', size: 11 };
+
   // Line items — dynamic row heights based on description length
   const B_C_WIDTH_CHARS = 52;
   let rowCursor = startRow;
@@ -62,8 +65,10 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     const rowsNeeded = Math.max(1, Math.ceil((item.description?.length || 1) / B_C_WIDTH_CHARS));
 
     // Item name in column A with wrap text
-    ws.getCell(`A${rowCursor}`).value = item.name;
-    ws.getCell(`A${rowCursor}`).alignment = { wrapText: true, vertical: 'middle' };
+    const cellA = ws.getCell(`A${rowCursor}`);
+    cellA.value = item.name;
+    cellA.alignment = { wrapText: true, vertical: 'middle' };
+    cellA.font = itemFont;
 
     // Description in merged B:C with wrap text
     if (rowsNeeded > 1) {
@@ -71,16 +76,29 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     } else {
       ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
     }
-    ws.getCell(`B${rowCursor}`).value = item.description;
-    ws.getCell(`B${rowCursor}`).alignment = { wrapText: true, vertical: 'top', horizontal: 'left' };
+    const cellB = ws.getCell(`B${rowCursor}`);
+    cellB.value = item.description;
+    cellB.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' };
+    cellB.font = itemFont;
 
     // Qty, Rate, Amount
-    ws.getCell(`D${rowCursor}`).value = item.qty;
-    ws.getCell(`E${rowCursor}`).value = item.rate;
-    ws.getCell(`F${rowCursor}`).value = { formula: `E${rowCursor}*D${rowCursor}`, result: item.amount };
+    const cellD = ws.getCell(`D${rowCursor}`);
+    cellD.value = item.qty;
+    cellD.font = itemFont;
+    const cellE = ws.getCell(`E${rowCursor}`);
+    cellE.value = item.rate;
+    cellE.font = itemFont;
+    const cellF = ws.getCell(`F${rowCursor}`);
+    cellF.value = { formula: `E${rowCursor}*D${rowCursor}`, result: item.amount };
+    cellF.font = itemFont;
 
     rowCursor += rowsNeeded + 1; // 1 blank row separator
   });
+
+  // Merge & Center all remaining blank B:C rows in the line item area
+  for (let r = rowCursor; r <= endRow; r++) {
+    ws.mergeCells(`B${r}:C${r}`);
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
