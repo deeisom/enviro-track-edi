@@ -96,10 +96,12 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   let logosImg: string | null = null;
   try {
     const resp = await fetch("/images/accreditation-logos.png");
+    if (!resp.ok) throw new Error(`Failed to fetch logos: ${resp.status}`);
     const blob = await resp.blob();
-    logosImg = await new Promise<string>((resolve) => {
+    logosImg = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(blob);
     });
   } catch (err) {
