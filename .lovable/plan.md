@@ -1,26 +1,72 @@
 
+Goal: make the exported Excel invoice print correctly without the user having to manually choose “Fit All Columns on One Page,” and keep the key borders visible if scaling is applied anyway.
 
-# Fix Row 16 Border and Column Overlap
+Why the current fix is not enough:
+- The code already adds those borders.
+- Since they still disappear only when print-scaling is used, the real issue is likely Excel print setup + very thin edge borders being reduced/faded at print time.
+- In other words, this is now more of a print-layout problem than a “missing border assignment” problem.
 
-## Problems
-1. **Row 16 bottom border missing** — The code reads `cell.border?.top` etc. from template cells, but ExcelJS returns `undefined` for these, which explicitly nullifies existing template borders when reassigned.
-2. **Rate/Amount columns overlapping** — Column A was widened to 35 but columns D/E/F have no explicit widths, causing them to be squeezed.
+Plan
 
-## Changes
+1. Add print settings directly to the exported worksheet
+- Configure the invoice sheet so it opens already set to print one page wide.
+- Set:
+  - print area to the actual invoice block only (`A1:F45`)
+  - fit-to-page enabled
+  - fit-to-width = 1
+  - fit-to-height = automatic/unlimited
+  - paper size + margins appropriate for the invoice template
+- This should remove the need for you to manually pick “Fit All Columns on One Page.”
 
-**File: `src/services/invoiceExport.ts`**
+2. Strengthen the borders that matter for printing
+- Replace the current hairline-style edge treatment with a stronger explicit print border for:
+  - Row 16 bottom border (`A16:F16`)
+  - Column F right border (`F12:F45`)
+  - Row 45 bottom border (`A45:F45`)
+- Use a darker, slightly heavier border style (for example `medium` + black) for those print-critical boundaries only.
+- Keep interior formatting unchanged so the sheet still looks the same on screen.
 
-1. **Simplify border assignments** — For row 16, row 45, and column F borders, stop reading existing border properties. Just set the one side that matters:
-   - Row 16: `cell.border = { bottom: printBorder }`
-   - Row 45: `cell.border = { bottom: printBorder }`
-   - Column F: `cell.border = { right: printBorder }`
+3. Make the border assignment fully explicit
+- Do not rely on template leftovers or partial spread merges for print-critical cells.
+- Rebuild each affected border object with explicit sides so ExcelJS writes them consistently.
+- This avoids cases where a border exists visually in the template but is not retained reliably after export changes.
 
-2. **Add explicit column widths** for D, E, F after the existing column A width:
-   ```
-   ws.getColumn('D').width = 8;
-   ws.getColumn('E').width = 12;
-   ws.getColumn('F').width = 12;
-   ```
+4. Preserve the current line-item layout logic
+- Keep:
+  - column A width
+  - merged B:C item description rows
+  - Calibri 11 formatting
+  - existing left-border continuity in column B
+- Only change print behavior and print-visible border strength.
 
-This replaces lines 120–151 with simpler, more reliable border code and adds 3 lines for column widths after the existing `ws.getColumn('A').width = 35` line.
+5. Fallback if Excel printing still varies by printer
+- If desktop Excel still renders borders inconsistently on certain printers/drivers, the reliable fallback is to use the existing PDF export for printing.
+- I would keep Excel for editing/accounting use and use PDF as the print-perfect version.
 
+Technical details
+
+```text
+In src/services/invoiceExport.ts:
+
+A) Add worksheet page setup
+- printArea: 'A1:F45'
+- fitToPage: true
+- fitToWidth: 1
+- fitToHeight: 0 (or undefined/unlimited)
+- paperSize/margins set for invoice print layout
+
+B) Create a stronger print border
+- const printBorder = { style: 'medium', color: { argb: 'FF000000' } }
+
+C) Apply it to:
+- F12:F45 => right border
+- A16:F16 => bottom border
+- A45:F45 => bottom border
+
+D) Keep existing line-item formatting logic intact
+```
+
+Expected result
+- The exported workbook should already be print-configured when opened.
+- You should no longer need to manually select “Fit All Columns on One Page.”
+- If you do use scaling, the right edge, bottom edge, and line above “Project Summary” should remain visible much more reliably.

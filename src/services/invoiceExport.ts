@@ -52,9 +52,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
   // Widen column A to fit longer item names like "Program Administration"
   ws.getColumn('A').width = 35;
-  ws.getColumn('D').width = 8;
-  ws.getColumn('E').width = 12;
-  ws.getColumn('F').width = 12;
 
   // Consistent font for all line item cells
   const itemFont = { name: 'Calibri', size: 11 };
@@ -122,17 +119,35 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
   // Right border on column F, rows 12-45
   for (let r = 12; r <= 45; r++) {
-    ws.getCell(`F${r}`).border = { right: printBorder };
+    const cellF = ws.getCell(`F${r}`);
+    cellF.border = {
+      top: cellF.border?.top,
+      bottom: cellF.border?.bottom,
+      left: cellF.border?.left,
+      right: printBorder,
+    };
   }
 
   // Bottom border on row 16 (above Project Summary), columns A-F
   ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
-    ws.getCell(`${col}16`).border = { bottom: printBorder };
+    const cell = ws.getCell(`${col}16`);
+    cell.border = {
+      top: cell.border?.top,
+      left: cell.border?.left,
+      right: cell.border?.right,
+      bottom: printBorder,
+    };
   });
 
   // Bottom border on row 45, columns A-F
   ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
-    ws.getCell(`${col}45`).border = { bottom: printBorder };
+    const cell = ws.getCell(`${col}45`);
+    cell.border = {
+      top: cell.border?.top,
+      left: cell.border?.left,
+      right: cell.border?.right,
+      bottom: printBorder,
+    };
   });
 
   // Page setup: auto fit-to-page so user doesn't need to manually select scaling
