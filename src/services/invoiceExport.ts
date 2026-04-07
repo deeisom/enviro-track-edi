@@ -104,37 +104,14 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }
   }
 
-  // Apply full thin borders to all cells in the line item area (A-F, rows 21-43)
+  // Ensure left border on all B cells in the line item area for visual continuity
   const thinBorder = { style: 'thin' as const };
-  const fullBorder = {
-    top: thinBorder,
-    bottom: thinBorder,
-    left: thinBorder,
-    right: thinBorder,
-  };
   for (let r = startRow; r <= endRow; r++) {
-    ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
-      const cell = ws.getCell(`${col}${r}`);
-      cell.border = fullBorder;
-    });
-  }
-
-  // Add correct accreditation logos image at the bottom
-  try {
-    const logoResp = await fetch("/images/accreditation-logos.png");
-    if (logoResp.ok) {
-      const logoBuffer = await logoResp.arrayBuffer();
-      const imageId = wb.addImage({
-        buffer: logoBuffer,
-        extension: 'png',
-      });
-      ws.addImage(imageId, {
-        tl: { col: 1.5, row: 45.5 },
-        ext: { width: 350, height: 110 },
-      });
-    }
-  } catch (err) {
-    console.error("Could not add accreditation logos to Excel:", err);
+    const cellB = ws.getCell(`B${r}`);
+    cellB.border = {
+      ...cellB.border,
+      left: thinBorder,
+    };
   }
 
   const buf = await wb.xlsx.writeBuffer();
