@@ -1,78 +1,50 @@
 
 
-# Estimates & Invoices Feature
+# Fix Invoice Line Items & Add Accreditation Images
 
-## Template Analysis
+## Problems Identified
 
-Your Excel invoice has this structure:
-- **Header**: Company info (Environmental Design Inc., address, phone, website)
-- **Bill To**: Client name and address
-- **Metadata**: PO #, Date, Invoice #, EDI Project #, Terms (Net 30), Due Date
-- **Project Summary**: Description of work
-- **Line Items Table**: ITEM | ITEM DESCRIPTION | QTY | RATE | AMOUNT (with formula: QTY x RATE)
-- **Total**: Sum of all line item amounts
-- **Footer**: Company tagline
+1. **Excel export: line items crammed together** — The template uses 3 rows per line item (1 data row + 2 empty spacer rows showing `$-`), but our code writes items to consecutive rows (21, 22, 23...). Need to space them every 3 rows (21, 24, 27...) and clear any pre-existing content in the template rows.
 
-Item categories from your example: Program Administration, Sample Collection, Analytical, Consumables, Equipment.
+2. **Phantom items in Excel** — The template likely has pre-filled text in some rows (category headers like "Lab Fees", "Equipment", etc.). The export code doesn't clear these rows before writing, so template content bleeds through.
 
-## What Gets Built
+3. **Missing accreditation images** — Three logos (BBB, EPA Lead-Safe, SDVOSB) should appear at the bottom of the invoice. These need to be added to both the PDF export and preserved/embedded in Excel.
 
-### 1. Rate Table Manager (new page: `/rates`)
-An editable table where your team manages reusable line items organized by category:
-- **Categories**: Services (hourly), Equipment (daily/per-use), Analytical/Lab, Consumables, Other
-- **Each item**: Name, description, default rate, unit (per hour / per day / per sample / flat), category
-- Examples from your invoice: "Program Administration - $95/hr", "Sample Collection - $65/hr", "Lead Analysis EPA 200.8 - $16/sample"
-- Add, edit, delete items anytime; stored in localStorage like everything else
+## Plan
 
-### 2. Estimate/Invoice Creator (new page: `/invoices`)
-- **List view**: All estimates and invoices with status, client, total, date
-- **Create new**: Opens a form that:
-  - Lets you pick a project (auto-fills client, project number, description)
-  - Or create standalone (manually enter client info)
-  - Set document type: "Estimate" or "Invoice" (same format, different label)
-  - Set PO #, terms (default "Net 30"), date, due date
-  - Auto-generates sequential invoice number (INV-0001, EST-0001)
-  - Add line items by picking from your rate table (pre-fills description and rate) or typing custom ones
-  - Adjust QTY and RATE per line; AMOUNT auto-calculates
-  - Running total displayed
+### 1. Fix Excel export spacing and phantom items
+**File: `src/services/invoiceExport.ts`**
+- Clear all line item rows (21-43) before writing — set columns A, B, D, E, F to empty
+- Space line items every 3 rows: item 0 at row 21, item 1 at row 24, item 2 at row 27, etc. (matching the template's visual spacing pattern)
 
-### 3. Excel Export
-Populates your exact `.xltx` template:
-- Fills the header cells (Bill To, PO #, Date, Invoice #, Project #, Terms, Due Date)
-- Fills the project summary
-- Fills each line item row (ITEM, DESCRIPTION, QTY, RATE, AMOUNT)
-- Preserves your template's formatting, formulas, and layout
-- Downloads as `.xlsx`
+### 2. Add accreditation images
+- Copy the uploaded image (`image-2.png`) to `public/images/accreditation-logos.png`
+- **PDF export**: Embed the image near the bottom of the page using `jsPDF.addImage()`, positioned below the footer text
+- **Excel export**: The template file should already contain these images; if ExcelJS strips them, we'll note that as a known limitation (ExcelJS has limited image preservation support from templates)
 
-### 4. PDF Export
-Generates a PDF matching the same layout for emailing — company header, bill-to block, line items table, total, and footer.
+### 3. Copy corrected template
+- Copy the uploaded `EDI_Invoice_Draft_LIW-2.xlsx` to inspect if the template itself needs updating to match the correct layout with images
 
-## Data Model Additions
+## Technical Details
 
-```text
-RateItem {
-  id, name, description, category, defaultRate, unit
-}
+**Row spacing formula for Excel:**
+```
+row = startRow + (index * 3)  // 21, 24, 27, 30, ...
+```
 
-Invoice {
-  id, invoiceNumber, type ("estimate" | "invoice"),
-  projectId (optional), clientId,
-  billTo { name, address },
-  poNumber, date, dueDate, terms,
-  projectSummary,
-  lineItems: [{ rateItemId?, name, description, qty, rate, amount }],
-  total, status ("draft" | "sent" | "paid"),
-  createdAt, updatedAt
+**Clear rows loop:**
+```
+for (let r = startRow; r <= 43; r++) {
+  ws.getCell(`A${r}`).value = null;
+  ws.getCell(`B${r}`).value = null;
+  ws.getCell(`D${r}`).value = null;
+  ws.getCell(`E${r}`).value = null;
 }
 ```
 
-## Navigation
-- Add "Rate Table" and "Invoices" links to the sidebar
-- Add "Create Invoice" button on the Project Detail page for quick access
-
-## Technical Approach
-- All new data stored in localStorage via the existing `storage.ts` service pattern
-- Excel export uses `openpyxl` (Python script) or `exceljs` (browser-side JS library) to populate your template — since this is a client-side app, we'll use **ExcelJS** in the browser to read your `.xltx` template bundled as a public asset and fill it with data
-- PDF export uses a React-rendered print layout converted to PDF via browser print or a library like `jspdf`
-- Your uploaded template will be stored in `public/` so the app can fetch and populate it at runtime
+**PDF image embedding:**
+```
+doc.addImage(imgData, 'PNG', x, y, width, height);
+```
+Positioned centered at the bottom of the page, below the tagline text.
 
