@@ -122,11 +122,17 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
       if (proj) {
         setProjectSummary(proj.description);
         setPoNumber(proj.projectNumber);
+        // Use project location for address if available, otherwise fall back to client address
+        if (proj.location) {
+          setBillToAddress(proj.location);
+        }
         if (proj.clientId) {
           const cl = getClient(proj.clientId);
           if (cl) {
             setBillToName(cl.companyName);
-            setBillToAddress(cl.address);
+            if (!proj.location) {
+              setBillToAddress(cl.address);
+            }
           }
         }
       }
