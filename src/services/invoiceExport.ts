@@ -60,6 +60,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const B_C_WIDTH_CHARS = 52;
   let rowCursor = startRow;
 
+  // Track which rows are used by multi-row merges so we skip them later
+  const mergedRows = new Set<number>();
+
   invoice.lineItems.forEach((item) => {
     if (rowCursor > endRow) return;
     const rowsNeeded = Math.max(1, Math.ceil((item.description?.length || 1) / B_C_WIDTH_CHARS));
@@ -71,10 +74,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     cellA.font = itemFont;
 
     // Description in merged B:C with wrap text
-    if (rowsNeeded > 1) {
-      ws.mergeCells(`B${rowCursor}:C${rowCursor + rowsNeeded - 1}`);
-    } else {
-      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+    ws.mergeCells(`B${rowCursor}:C${rowCursor + rowsNeeded - 1}`);
+    for (let r = rowCursor; r < rowCursor + rowsNeeded; r++) {
+      mergedRows.add(r);
     }
     const cellB = ws.getCell(`B${rowCursor}`);
     cellB.value = item.description;
@@ -95,9 +97,21 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     rowCursor += rowsNeeded + 1; // 1 blank row separator
   });
 
-  // Merge & Center all remaining blank B:C rows in the line item area
-  for (let r = rowCursor; r <= endRow; r++) {
-    ws.mergeCells(`B${r}:C${r}`);
+  // Merge & Center ALL remaining B:C rows (including blank separator rows)
+  for (let r = startRow; r <= endRow; r++) {
+    if (!mergedRows.has(r)) {
+      ws.mergeCells(`B${r}:C${r}`);
+    }
+  }
+
+  // Ensure left border on all B cells in the line item area for visual continuity
+  const thinBorder = { style: 'thin' as const };
+  for (let r = startRow; r <= endRow; r++) {
+    const cellB = ws.getCell(`B${r}`);
+    cellB.border = {
+      ...cellB.border,
+      left: thinBorder,
+    };
   }
 
   const buf = await wb.xlsx.writeBuffer();
