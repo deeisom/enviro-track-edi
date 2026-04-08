@@ -18,6 +18,31 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0;
 
+  // Re-insert images stripped by ExcelJS during load/save
+  try {
+    const [headerResp, accredResp] = await Promise.all([
+      fetch("/images/company-logo.jpeg"),
+      fetch("/images/accreditation-logos.png"),
+    ]);
+    if (headerResp.ok) {
+      const headerBuf = await headerResp.arrayBuffer();
+      const headerImgId = wb.addImage({ buffer: headerBuf, extension: 'jpeg' });
+      ws.addImage(headerImgId, {
+        tl: { col: 4.03, row: 0 },
+        ext: { width: 134, height: 150 },
+      });
+    }
+    if (accredResp.ok) {
+      const accredBuf = await accredResp.arrayBuffer();
+      const accredImgId = wb.addImage({ buffer: accredBuf, extension: 'png' });
+      ws.addImage(accredImgId, {
+        tl: { col: 0.1, row: 45.5 },
+        ext: { width: 186, height: 58 },
+      });
+    }
+  } catch (err) {
+    console.error("Could not re-insert template images:", err);
+  }
 
   // Bill To
   ws.getCell("A11").value = invoice.billTo.name;
