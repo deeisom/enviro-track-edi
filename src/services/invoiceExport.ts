@@ -54,18 +54,18 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const descRows = 4; // rows to merge for each description cell
   const rowsPerItem = descRows + 1; // description rows + 1 blank separator
 
-  // Remove existing merges in the line-item area so we can create fresh ones
-  const mergesToRemove: string[] = [];
-  (ws as any)._merges = (ws as any)._merges || {};
-  for (const key of Object.keys((ws as any)._merges)) {
-    const merge = (ws as any)._merges[key];
-    const top = merge.top || merge.model?.top;
-    if (top >= startRow && top <= endRow) {
-      mergesToRemove.push(key);
+  // Properly unmerge any existing template merges in the line-item area
+  const mergeRanges = Object.keys((ws as any)._merges || {});
+  mergeRanges.forEach((range) => {
+    const [startRef, endRef = startRef] = range.split(":");
+    const startRowMatch = startRef.match(/\d+/);
+    const endRowMatch = endRef.match(/\d+/);
+    const top = startRowMatch ? Number(startRowMatch[0]) : 0;
+    const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
+
+    if (bottom >= startRow && top <= endRow) {
+      ws.unMergeCells(range);
     }
-  }
-  mergesToRemove.forEach((key) => {
-    delete (ws as any)._merges[key];
   });
 
   // Clear all line-item cells but preserve border formatting
