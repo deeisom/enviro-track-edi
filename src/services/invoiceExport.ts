@@ -83,8 +83,15 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   invoice.lineItems.forEach((item) => {
     if (rowCursor + descRows - 1 > endRow) return;
 
-    // Item name on first row only
-    ws.getCell(`A${rowCursor}`).value = item.name;
+    // Item name – merge 2 rows with wrap text and center
+    ws.mergeCells(`A${rowCursor}:A${rowCursor + 1}`);
+    const nameCell = ws.getCell(`A${rowCursor}`);
+    nameCell.value = item.name;
+    nameCell.alignment = {
+      horizontal: "center",
+      vertical: "middle",
+      wrapText: true,
+    };
 
     // Merge B:C across description rows and set description with wrap text
     const descEndRow = rowCursor + descRows - 1;
