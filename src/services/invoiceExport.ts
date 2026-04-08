@@ -18,6 +18,11 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const ws = wb.worksheets[0];
   if (!ws) throw new Error("No worksheet found");
 
+  // Remove extra worksheets to prevent Excel repair warnings
+  while (wb.worksheets.length > 1) {
+    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
+  }
+
   // Print scaling — fit all columns on one page width
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
