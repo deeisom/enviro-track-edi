@@ -13,6 +13,26 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const ws = wb.getWorksheet("INV") || wb.worksheets[0];
   if (!ws) throw new Error("No worksheet found");
 
+  // Auto-fit columns to one page width when printing
+  ws.pageSetup.fitToPage = true;
+  ws.pageSetup.fitToWidth = 1;
+  ws.pageSetup.fitToHeight = 0;
+
+  // Overlay correct accreditation logos at the bottom of the invoice
+  try {
+    const logoResp = await fetch("/images/accreditation-logos.png");
+    if (logoResp.ok) {
+      const logoBuffer = await logoResp.arrayBuffer();
+      const logoId = wb.addImage({ buffer: logoBuffer, extension: 'png' });
+      ws.addImage(logoId, {
+        tl: { col: 0, row: 46 },
+        ext: { width: 400, height: 80 },
+      });
+    }
+  } catch (err) {
+    console.error("Could not add accreditation logos to Excel:", err);
+  }
+
   // Bill To
   ws.getCell("A11").value = invoice.billTo.name;
   ws.getCell("A12").value = invoice.billTo.address;
