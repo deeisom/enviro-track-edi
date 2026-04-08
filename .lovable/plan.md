@@ -1,48 +1,70 @@
 
 
-# Fix: Excel "Removed Records: Merge cells" Repair Warning
+## Fix: Missing borders and broken merge formatting in Excel export
 
-## Root Cause
+### Root cause
 
-The template only contains one worksheet (`sheet1.xml`), but Excel reports a merge cell error in `sheet2.xml`. This means ExcelJS is either creating an extra empty sheet during the load/save cycle, or the internal `_merges` manipulation (lines 53-64) is producing corrupt merge data that gets written to a second sheet part.
+ExcelJS has a known behavior: when you set `cell.value = null` or call `unMergeCells`, border and style information stored on those cells can be lost. The current code clears all cells in rows 21–43 and removes all merges in that range, which strips the template's native borders and formatting.
 
-The code currently deletes merge entries by directly manipulating `(ws as any)._merges` — an undocumented internal property. This bypasses ExcelJS's own bookkeeping and can leave orphaned or malformed merge references in the output file.
+### Fix approach
 
-## Fix
+**Preserve cell styles during clear and re-apply them after writing values.** Instead of blindly setting cells to null, capture each cell's border/style first, clear the value, then restore the style.
 
-1. **Use the public `ws.unMergeCells()` API** instead of deleting from the internal `_merges` object. This ensures ExcelJS properly tracks state.
+### Changes — `src/services/invoiceExport.ts`
 
-2. **Delete any extra worksheets** after loading the template, keeping only the first sheet. This prevents ExcelJS from writing a corrupt `sheet2.xml`.
+1. **Capture borders before clearing**: Before the clear loop (lines 71–75), snapshot the border style of every cell in rows 21–43.
 
-## Changes — `src/services/invoiceExport.ts`
+2. **Restore borders after clearing**: After setting `value = null`, immediately re-apply the saved border to each cell.
 
-Replace the internal `_merges` deletion block (lines 52-64) with:
+3. **Restore borders after merging**: After merging B:C for descriptions, re-apply borders to the merged range cells since ExcelJS strips them during merge operations.
 
-```typescript
-// Collect existing merges in the line-item area
-const mergesToRemove: string[] = [];
-ws.model.merges?.forEach((mergeRef: string) => {
-  const startRowMatch = mergeRef.match(/\d+/);
-  if (startRowMatch) {
-    const row = parseInt(startRowMatch[0], 10);
-    if (row >= startRow && row <= endRow) {
-      mergesToRemove.push(mergeRef);
-    }
-  }
-});
-mergesToRemove.forEach((ref) => ws.unMergeCells(ref));
-```
-
-After loading the workbook, remove any extra worksheets:
+4. **Restore borders on formula-fill cells**: The loop at lines 109–114 that fills empty F cells with formulas should also preserve existing borders.
 
 ```typescript
-// Remove extra worksheets to prevent corrupt sheet2.xml
-while (wb.worksheets.length > 1) {
-  wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
+// Pseudocode for the fix:
+
+// 1. Snapshot borders
+const savedStyles: Record<string, any> = {};
+for (let r = startRow; r <= endRow; r++) {
+  ["A","B","C","D","E","F"].forEach(col => {
+    const cell = ws.getCell(`${col}${r}`);
+    savedStyles[`${col}${r}`] = {
+      border: cell.border,
+      font: cell.font,
+      alignment: cell.alignment,
+      fill: cell.fill,
+    };
+  });
 }
+
+// 2. Clear values then restore styles
+for (let r = startRow; r <= endRow; r++) {
+  ["A","B","C","D","E","F"].forEach(col => {
+    const cell = ws.getCell(`${col}${r}`);
+    cell.value = null;
+    const saved = savedStyles[`${col}${r}`];
+    if (saved.border) cell.border = saved.border;
+    if (saved.font) cell.font = saved.font;
+    if (saved.alignment) cell.alignment = saved.alignment;
+    if (saved.fill) cell.fill = saved.fill;
+  });
+}
+
+// 3. After each merge, restore borders on merged cells
+ws.mergeCells(`B${rowCursor}:C${descEndRow}`);
+for (let r = rowCursor; r <= descEndRow; r++) {
+  ["B","C"].forEach(col => {
+    const saved = savedStyles[`${col}${r}`];
+    if (saved?.border) ws.getCell(`${col}${r}`).border = saved.border;
+  });
+}
+
+// 4. Same for formula fill — preserve border
+const saved = savedStyles[`F${r}`];
+cell.value = { formula: `...`, result: 0 };
+if (saved?.border) cell.border = saved.border;
 ```
 
-## Files Changed
-
-- `src/services/invoiceExport.ts` — replace internal merge hack with public API; remove extra worksheets after load
+### Files changed
+- `src/services/invoiceExport.ts`
 
