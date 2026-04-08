@@ -115,6 +115,12 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       usedRows.add(r);
     }
 
+    // Merge B:C on the blank separator row after this item
+    const sepRow = rowCursor + descRows;
+    if (sepRow <= endRow) {
+      ws.mergeCells(`B${sepRow}:C${sepRow}`);
+    }
+
     // Advance past description rows + 1 blank separator row
     rowCursor += rowsPerItem;
   });
