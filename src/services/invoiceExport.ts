@@ -15,11 +15,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const buffer = await response.arrayBuffer();
   await wb.xlsx.load(buffer);
 
-  // Remove extra worksheets to prevent corrupt sheet2.xml
-  while (wb.worksheets.length > 1) {
-    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
-  }
-
   const ws = wb.worksheets[0];
   if (!ws) throw new Error("No worksheet found");
 
@@ -54,44 +49,25 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const descRows = 4; // rows to merge for each description cell
   const rowsPerItem = descRows + 1; // description rows + 1 blank separator
 
-  // Snapshot all cell styles before clearing
-  const savedStyles: Record<string, any> = {};
-  for (let r = startRow; r <= endRow; r++) {
-    ["A", "B", "C", "D", "E", "F"].forEach((col) => {
-      const cell = ws.getCell(`${col}${r}`);
-      savedStyles[`${col}${r}`] = {
-        border: cell.border ? { ...cell.border } : undefined,
-        font: cell.font ? { ...cell.font } : undefined,
-        alignment: cell.alignment ? { ...cell.alignment } : undefined,
-        fill: cell.fill ? { ...cell.fill } : undefined,
-      };
-    });
-  }
-
-  // Remove existing merges in the line-item area using the public API
+  // Remove existing merges in the line-item area so we can create fresh ones
   const mergesToRemove: string[] = [];
-  (ws.model.merges || []).forEach((mergeRef: string) => {
-    const startRowMatch = mergeRef.match(/\d+/);
-    if (startRowMatch) {
-      const row = parseInt(startRowMatch[0], 10);
-      if (row >= startRow && row <= endRow) {
-        mergesToRemove.push(mergeRef);
-      }
+  (ws as any)._merges = (ws as any)._merges || {};
+  for (const key of Object.keys((ws as any)._merges)) {
+    const merge = (ws as any)._merges[key];
+    const top = merge.top || merge.model?.top;
+    if (top >= startRow && top <= endRow) {
+      mergesToRemove.push(key);
     }
+  }
+  mergesToRemove.forEach((key) => {
+    delete (ws as any)._merges[key];
   });
-  mergesToRemove.forEach((ref) => ws.unMergeCells(ref));
 
-  // Clear all line-item cells and restore styles
+  // Clear all line-item cells but preserve border formatting
   for (let r = startRow; r <= endRow; r++) {
     ["A", "B", "C", "D", "E", "F"].forEach((col) => {
-      const cell = ws.getCell(`${col}${r}`);
-      cell.value = null;
-      const saved = savedStyles[`${col}${r}`];
-      if (saved.border) cell.border = saved.border;
-      if (saved.font) cell.font = saved.font;
-      if (saved.alignment) cell.alignment = saved.alignment;
-      if (saved.fill) cell.fill = saved.fill;
-  });
+      ws.getCell(`${col}${r}`).value = null;
+    });
   }
 
   // Fill line items
@@ -113,14 +89,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       wrapText: true,
     };
 
-    // Restore borders on merged cells
-    for (let r = rowCursor; r <= descEndRow; r++) {
-      ["B", "C"].forEach((col) => {
-        const saved = savedStyles[`${col}${r}`];
-        if (saved?.border) ws.getCell(`${col}${r}`).border = saved.border;
-      });
-    }
-
     // Qty, Rate, Amount on first row only
     ws.getCell(`D${rowCursor}`).value = item.qty;
     ws.getCell(`E${rowCursor}`).value = item.rate;
@@ -137,9 +105,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   for (let r = startRow; r <= endRow; r++) {
     const cell = ws.getCell(`F${r}`);
     if (cell.value === null || cell.value === undefined) {
-      const saved = savedStyles[`F${r}`];
       cell.value = { formula: `E${r}*D${r}`, result: 0 };
-      if (saved?.border) cell.border = saved.border;
     }
   }
 
