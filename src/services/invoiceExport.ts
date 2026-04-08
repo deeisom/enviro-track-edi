@@ -46,7 +46,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // --- Line items (rows 21–43) ---
   const startRow = 21;
   const endRow = 43;
-  const descRows = 3; // rows to merge for each description cell
+  const descRows = 4; // rows to merge for each description cell
   const rowsPerItem = descRows + 1; // description rows + 1 blank separator
 
   // Remove existing merges in the line-item area so we can create fresh ones
