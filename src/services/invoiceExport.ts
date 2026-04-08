@@ -18,6 +18,21 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0;
 
+  // Add company header logo (top-right)
+  try {
+    const headerLogoResp = await fetch("/images/company-logo.png");
+    if (headerLogoResp.ok) {
+      const headerLogoBuffer = await headerLogoResp.arrayBuffer();
+      const headerLogoId = wb.addImage({ buffer: headerLogoBuffer, extension: 'png' });
+      ws.addImage(headerLogoId, {
+        tl: { col: 4, row: 0 },
+        ext: { width: 200, height: 80 },
+      });
+    }
+  } catch (err) {
+    console.error("Could not add header logo:", err);
+  }
+
   // Overlay correct accreditation logos at the bottom of the invoice
   try {
     const logoResp = await fetch("/images/accreditation-logos.png");
