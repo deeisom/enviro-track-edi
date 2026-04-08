@@ -91,8 +91,58 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       if (saved.font) cell.font = saved.font;
       if (saved.alignment) cell.alignment = saved.alignment;
       if (saved.fill) cell.fill = saved.fill;
-    });
+  });
   }
+
+  // Fill line items
+  let rowCursor = startRow;
+  invoice.lineItems.forEach((item) => {
+    if (rowCursor + descRows - 1 > endRow) return;
+
+    // Item name on first row only
+    ws.getCell(`A${rowCursor}`).value = item.name;
+
+    // Merge B:C across description rows and set description with wrap text
+    const descEndRow = rowCursor + descRows - 1;
+    ws.mergeCells(`B${rowCursor}:C${descEndRow}`);
+    const descCell = ws.getCell(`B${rowCursor}`);
+    descCell.value = item.description;
+    descCell.alignment = {
+      horizontal: "left",
+      vertical: "top",
+      wrapText: true,
+    };
+
+    // Restore borders on merged cells
+    for (let r = rowCursor; r <= descEndRow; r++) {
+      ["B", "C"].forEach((col) => {
+        const saved = savedStyles[`${col}${r}`];
+        if (saved?.border) ws.getCell(`${col}${r}`).border = saved.border;
+      });
+    }
+
+    // Qty, Rate, Amount on first row only
+    ws.getCell(`D${rowCursor}`).value = item.qty;
+    ws.getCell(`E${rowCursor}`).value = item.rate;
+    ws.getCell(`F${rowCursor}`).value = {
+      formula: `E${rowCursor}*D${rowCursor}`,
+      result: item.amount,
+    };
+
+    // Advance past description rows + 1 blank separator row
+    rowCursor += rowsPerItem;
+  });
+
+  // Ensure all F cells in the range have formulas so the SUM in F44 works
+  for (let r = startRow; r <= endRow; r++) {
+    const cell = ws.getCell(`F${r}`);
+    if (cell.value === null || cell.value === undefined) {
+      const saved = savedStyles[`F${r}`];
+      cell.value = { formula: `E${r}*D${r}`, result: 0 };
+      if (saved?.border) cell.border = saved.border;
+    }
+  }
+
   // Total formula is already in F44 (=SUM(F16:F43)) — no need to touch it
 
   const buf = await wb.xlsx.writeBuffer();
