@@ -15,6 +15,11 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const buffer = await response.arrayBuffer();
   await wb.xlsx.load(buffer);
 
+  // Remove extra worksheets to prevent corrupt sheet2.xml
+  while (wb.worksheets.length > 1) {
+    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
+  }
+
   const ws = wb.worksheets[0];
   if (!ws) throw new Error("No worksheet found");
 
@@ -49,19 +54,18 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const descRows = 4; // rows to merge for each description cell
   const rowsPerItem = descRows + 1; // description rows + 1 blank separator
 
-  // Remove existing merges in the line-item area so we can create fresh ones
+  // Remove existing merges in the line-item area using the public API
   const mergesToRemove: string[] = [];
-  (ws as any)._merges = (ws as any)._merges || {};
-  for (const key of Object.keys((ws as any)._merges)) {
-    const merge = (ws as any)._merges[key];
-    const top = merge.top || merge.model?.top;
-    if (top >= startRow && top <= endRow) {
-      mergesToRemove.push(key);
+  (ws.model.merges || []).forEach((mergeRef: string) => {
+    const startRowMatch = mergeRef.match(/\d+/);
+    if (startRowMatch) {
+      const row = parseInt(startRowMatch[0], 10);
+      if (row >= startRow && row <= endRow) {
+        mergesToRemove.push(mergeRef);
+      }
     }
-  }
-  mergesToRemove.forEach((key) => {
-    delete (ws as any)._merges[key];
   });
+  mergesToRemove.forEach((ref) => ws.unMergeCells(ref));
 
   // Clear all line-item cells but preserve border formatting
   for (let r = startRow; r <= endRow; r++) {
