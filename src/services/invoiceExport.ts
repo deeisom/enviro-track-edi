@@ -97,22 +97,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       result: item.amount,
     };
 
-    // Merge B:C on the blank separator row too
-    const sepRow = rowCursor + descRows;
-    if (sepRow <= endRow) {
-      ws.mergeCells(`B${sepRow}:C${sepRow}`);
-      ws.getCell(`B${sepRow}`).alignment = { horizontal: "center", vertical: "middle" };
-    }
-
     // Advance past description rows + 1 blank separator row
     rowCursor += rowsPerItem;
   });
-
-  // Merge B:C on any remaining unused rows in the item area
-  for (let r = rowCursor; r <= endRow; r++) {
-    ws.mergeCells(`B${r}:C${r}`);
-    ws.getCell(`B${r}`).alignment = { horizontal: "center", vertical: "middle" };
-  }
 
   // Ensure all F cells in the range have formulas so the SUM in F44 works
   for (let r = startRow; r <= endRow; r++) {
