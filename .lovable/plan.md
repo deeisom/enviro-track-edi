@@ -1,48 +1,43 @@
 
 
-# Fix: Images Disappearing When Printing Excel to PDF
+# Fix Invoice Print: Logo Cutoff and Wrong Bottom Logo
 
-## Root Cause
+## Issues
 
-ExcelJS does not reliably preserve images embedded in `.xltx` templates during the load → modify → save cycle. When you open the exported `.xlsx` and print to PDF, the images (company logo in the upper-right, accreditation logos at the bottom) are gone because ExcelJS stripped them during export.
+1. **Upper-right logo cut off when printing** — The template content extends beyond the printable area. Need to programmatically set Excel page setup to auto-fit columns to one page width.
+2. **Bottom-left logo is incorrect** — The logo embedded in the `.xltx` template doesn't match the correct accreditation logos (BBB, EPA Lead-Safe, SDVOSB). Need to replace it.
 
-The accreditation logo overlay we added (row 46) should survive since it's programmatically inserted, but the **original template images** (header logo, any other embedded graphics) are lost.
+## Approach
 
-## Fix
+### 1. Fix print scaling (upper-right logo cutoff)
 
-Programmatically re-add all images that the template originally contained, the same way we already do for the accreditation logos. This requires:
-
-1. **Company header logo** — Save the upper-right company logo as `public/images/company-logo.png` (you'll need to provide this image file)
-2. **Add it back in code** — In `exportInvoiceToExcel`, fetch and insert the company logo at the correct position (upper-right area, approximately rows 1-8, columns E-F)
-3. **Verify accreditation logo** — Confirm the existing overlay at row 46 is appearing correctly
-
-### Changes to `src/services/invoiceExport.ts`
-
-After the existing accreditation logo block (~line 22-34), add a similar block for the company header logo:
+In `src/services/invoiceExport.ts`, set the worksheet's `pageSetup` properties to automatically fit all columns on one page. This eliminates the need for users to manually change print scaling:
 
 ```typescript
-// Add company header logo (top-right)
-try {
-  const headerLogoResp = await fetch("/images/company-logo.png");
-  if (headerLogoResp.ok) {
-    const headerLogoBuffer = await headerLogoResp.arrayBuffer();
-    const headerLogoId = wb.addImage({ buffer: headerLogoBuffer, extension: 'png' });
-    ws.addImage(headerLogoId, {
-      tl: { col: 4, row: 0 },   // position in upper-right area
-      ext: { width: 200, height: 80 }, // adjust to match original
-    });
-  }
-} catch (err) {
-  console.error("Could not add header logo:", err);
-}
+ws.pageSetup.fitToPage = true;
+ws.pageSetup.fitToWidth = 1;
+ws.pageSetup.fitToHeight = 0; // 0 = auto height (don't compress vertically)
 ```
 
-## What I Need From You
+### 2. Replace bottom accreditation logos
 
-**Please upload the company header logo** (the one that appears in the upper-right corner of your invoice template) so I can save it to `public/images/company-logo.png`. Without it, there's no image to re-insert.
+The template `.xltx` has embedded images that ExcelJS cannot reliably remove. The fix:
+
+- Copy the user's correct logo (image-9.png) to `public/images/accreditation-logos.png`, replacing the current incorrect one (this also fixes the PDF export)
+- In the Excel export code, use ExcelJS's `addImage` API to place the correct logo at the bottom of the invoice, positioned over the template's existing (incorrect) image so it covers it
+
+```typescript
+const logoResp = await fetch("/images/accreditation-logos.png");
+const logoBuffer = await logoResp.arrayBuffer();
+const logoId = wb.addImage({ buffer: logoBuffer, extension: 'png' });
+ws.addImage(logoId, {
+  tl: { col: 0, row: 46 },  // position adjusted to bottom area
+  ext: { width: 400, height: 80 }
+});
+```
 
 ## Files Changed
 
-- `public/images/company-logo.png` — new file (from your upload)
-- `src/services/invoiceExport.ts` — add header logo insertion alongside existing accreditation logo code
+- `public/images/accreditation-logos.png` — replaced with correct logo
+- `src/services/invoiceExport.ts` — add `pageSetup` for print fit + add correct logo image overlay
 
