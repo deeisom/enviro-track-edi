@@ -46,24 +46,50 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // --- Line items (rows 21–43) ---
   const startRow = 21;
   const endRow = 43;
+  const descRows = 3; // rows to merge for each description cell
+  const rowsPerItem = descRows + 1; // description rows + 1 blank separator
 
-  // Clear all line-item cells but preserve formatting/borders
+  // Remove existing merges in the line-item area so we can create fresh ones
+  const mergesToRemove: string[] = [];
+  (ws as any)._merges = (ws as any)._merges || {};
+  for (const key of Object.keys((ws as any)._merges)) {
+    const merge = (ws as any)._merges[key];
+    const top = merge.top || merge.model?.top;
+    if (top >= startRow && top <= endRow) {
+      mergesToRemove.push(key);
+    }
+  }
+  mergesToRemove.forEach((key) => {
+    delete (ws as any)._merges[key];
+  });
+
+  // Clear all line-item cells but preserve border formatting
   for (let r = startRow; r <= endRow; r++) {
-    ["A", "B", "D", "E"].forEach((col) => {
+    ["A", "B", "C", "D", "E", "F"].forEach((col) => {
       ws.getCell(`${col}${r}`).value = null;
     });
-    // Keep F column formulas (=E*D) but clear any stale results
-    // We'll set them fresh per item row
-    ws.getCell(`F${r}`).value = null;
   }
 
   // Fill line items
   let rowCursor = startRow;
   invoice.lineItems.forEach((item) => {
-    if (rowCursor > endRow) return;
+    if (rowCursor + descRows - 1 > endRow) return;
 
+    // Item name on first row only
     ws.getCell(`A${rowCursor}`).value = item.name;
-    ws.getCell(`B${rowCursor}`).value = item.description;
+
+    // Merge B:C across description rows and set description with wrap text
+    const descEndRow = rowCursor + descRows - 1;
+    ws.mergeCells(`B${rowCursor}:C${descEndRow}`);
+    const descCell = ws.getCell(`B${rowCursor}`);
+    descCell.value = item.description;
+    descCell.alignment = {
+      horizontal: "left",
+      vertical: "top",
+      wrapText: true,
+    };
+
+    // Qty, Rate, Amount on first row only
     ws.getCell(`D${rowCursor}`).value = item.qty;
     ws.getCell(`E${rowCursor}`).value = item.rate;
     ws.getCell(`F${rowCursor}`).value = {
@@ -71,15 +97,14 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       result: item.amount,
     };
 
-    // Skip rows to next item slot — template uses ~3-row groups per item
-    // but we'll use a simpler 1-row-per-item + gap approach
-    rowCursor += 3;
+    // Advance past description rows + 1 blank separator row
+    rowCursor += rowsPerItem;
   });
 
-  // Ensure remaining F cells in the range have formulas so the SUM in F44 works
+  // Ensure all F cells in the range have formulas so the SUM in F44 works
   for (let r = startRow; r <= endRow; r++) {
     const cell = ws.getCell(`F${r}`);
-    if (cell.value === null) {
+    if (cell.value === null || cell.value === undefined) {
       cell.value = { formula: `E${r}*D${r}`, result: 0 };
     }
   }
