@@ -4,186 +4,95 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+/**
+ * Excel export: loads the reference invoice template (.xlsx) which already
+ * contains the correct layout, logos, borders, and formatting. We only
+ * overwrite the dynamic data cells and clear/fill the line-item rows.
+ */
 export async function exportInvoiceToExcel(invoice: Invoice) {
   const wb = new ExcelJS.Workbook();
-  const response = await fetch("/invoice-template.xltx");
+  const response = await fetch("/invoice-template.xlsx");
   const buffer = await response.arrayBuffer();
   await wb.xlsx.load(buffer);
 
-  const ws = wb.getWorksheet("INV") || wb.worksheets[0];
+  const ws = wb.worksheets[0];
   if (!ws) throw new Error("No worksheet found");
 
-  // Auto-fit columns to one page width when printing
+  // Print scaling — fit all columns on one page width
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0;
 
-  // Re-insert images stripped by ExcelJS during load/save
-  try {
-    const [headerResp, accredResp] = await Promise.all([
-      fetch("/images/company-logo.jpeg"),
-      fetch("/images/accreditation-logos.png"),
-    ]);
-    if (headerResp.ok) {
-      const headerBuf = await headerResp.arrayBuffer();
-      const headerImgId = wb.addImage({ buffer: headerBuf, extension: 'jpeg' });
-      ws.addImage(headerImgId, {
-        tl: { col: 4.03, row: 0 },
-        ext: { width: 134, height: 150 },
-      });
-    }
-    if (accredResp.ok) {
-      const accredBuf = await accredResp.arrayBuffer();
-      const accredImgId = wb.addImage({ buffer: accredBuf, extension: 'png' });
-      ws.addImage(accredImgId, {
-        tl: { col: 0.1, row: 45.5 },
-        ext: { width: 186, height: 58 },
-      });
-    }
-  } catch (err) {
-    console.error("Could not re-insert template images:", err);
-  }
-
-  // Bill To
+  // --- Dynamic metadata ---
+  // Bill To (A11 = name, A12 = address line 1, A13 = address line 2)
   ws.getCell("A11").value = invoice.billTo.name;
-  ws.getCell("A12").value = invoice.billTo.address;
+  const addrLines = invoice.billTo.address.split("\n");
+  ws.getCell("A12").value = addrLines[0] || "";
+  ws.getCell("A13").value = addrLines.slice(1).join(", ") || "";
 
-  // Metadata
-  ws.getCell("C13").value = invoice.projectId ? `EDI-${invoice.invoiceNumber}` : "";
+  // PO #, Date, Invoice #
+  ws.getCell("C13").value = invoice.poNumber;
   ws.getCell("E13").value = invoice.date;
   ws.getCell("F13").value = invoice.invoiceNumber;
-  ws.getCell("C15").value = invoice.poNumber;
+
+  // EDI Project #, Terms, Due Date
+  ws.getCell("C15").value = invoice.projectId ? `EDI-${invoice.invoiceNumber}` : "";
   ws.getCell("E15").value = invoice.terms;
   ws.getCell("F15").value = invoice.dueDate;
 
-  // Project Summary
+  // Project Summary (merged A17:F19 in template)
   ws.getCell("A17").value = invoice.projectSummary;
 
-  // Unmerge all existing B:C merges in rows 21-43
+  // --- Line items (rows 21–43) ---
   const startRow = 21;
   const endRow = 43;
-  const merges = ws.model?.merges ? [...ws.model.merges] : [];
-  for (const merge of merges) {
-    const match = merge.match(/^[BC](\d+):[BC](\d+)$/i);
-    if (match) {
-      const r1 = parseInt(match[1]);
-      const r2 = parseInt(match[2]);
-      if (r1 >= startRow && r2 <= endRow) {
-        try { ws.unMergeCells(merge); } catch {}
-      }
-    }
-  }
 
-  // Clear all line item rows (21-43) including column C
+  // Clear all line-item cells but preserve formatting/borders
   for (let r = startRow; r <= endRow; r++) {
-    ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+    ["A", "B", "D", "E"].forEach((col) => {
       ws.getCell(`${col}${r}`).value = null;
     });
+    // Keep F column formulas (=E*D) but clear any stale results
+    // We'll set them fresh per item row
+    ws.getCell(`F${r}`).value = null;
   }
 
-  // Widen column A to fit longer item names like "Program Administration"
-  ws.getColumn('A').width = 35;
-
-  // Consistent font for all line item cells
-  const itemFont = { name: 'Calibri', size: 11 };
-
-  // Line items — dynamic row heights based on description length
-  const B_C_WIDTH_CHARS = 52;
+  // Fill line items
   let rowCursor = startRow;
-
-  // Track which rows are used by multi-row merges so we skip them later
-  const mergedRows = new Set<number>();
-
   invoice.lineItems.forEach((item) => {
     if (rowCursor > endRow) return;
-    const rowsNeeded = Math.max(1, Math.ceil((item.description?.length || 1) / B_C_WIDTH_CHARS));
 
-    // Item name in column A with wrap text
-    const cellA = ws.getCell(`A${rowCursor}`);
-    cellA.value = item.name;
-    cellA.alignment = { wrapText: true, vertical: 'middle' };
-    cellA.font = itemFont;
+    ws.getCell(`A${rowCursor}`).value = item.name;
+    ws.getCell(`B${rowCursor}`).value = item.description;
+    ws.getCell(`D${rowCursor}`).value = item.qty;
+    ws.getCell(`E${rowCursor}`).value = item.rate;
+    ws.getCell(`F${rowCursor}`).value = {
+      formula: `E${rowCursor}*D${rowCursor}`,
+      result: item.amount,
+    };
 
-    // Description in merged B:C with wrap text
-    ws.mergeCells(`B${rowCursor}:C${rowCursor + rowsNeeded - 1}`);
-    for (let r = rowCursor; r < rowCursor + rowsNeeded; r++) {
-      mergedRows.add(r);
-    }
-    const cellB = ws.getCell(`B${rowCursor}`);
-    cellB.value = item.description;
-    cellB.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' };
-    cellB.font = itemFont;
-
-    // Qty, Rate, Amount
-    const cellD = ws.getCell(`D${rowCursor}`);
-    cellD.value = item.qty;
-    cellD.font = itemFont;
-    const cellE = ws.getCell(`E${rowCursor}`);
-    cellE.value = item.rate;
-    cellE.font = itemFont;
-    const cellF = ws.getCell(`F${rowCursor}`);
-    cellF.value = { formula: `E${rowCursor}*D${rowCursor}`, result: item.amount };
-    cellF.font = itemFont;
-
-    rowCursor += rowsNeeded + 1; // 1 blank row separator
+    // Skip rows to next item slot — template uses ~3-row groups per item
+    // but we'll use a simpler 1-row-per-item + gap approach
+    rowCursor += 3;
   });
 
-  // Merge & Center ALL remaining B:C rows (including blank separator rows)
+  // Ensure remaining F cells in the range have formulas so the SUM in F44 works
   for (let r = startRow; r <= endRow; r++) {
-    if (!mergedRows.has(r)) {
-      ws.mergeCells(`B${r}:C${r}`);
+    const cell = ws.getCell(`F${r}`);
+    if (cell.value === null) {
+      cell.value = { formula: `E${r}*D${r}`, result: 0 };
     }
   }
 
-  // Ensure left border on all B cells in the line item area for visual continuity
-  const thinBorder = { style: 'thin' as const };
-  for (let r = startRow; r <= endRow; r++) {
-    const cellB = ws.getCell(`B${r}`);
-    cellB.border = {
-      ...cellB.border,
-      left: thinBorder,
-    };
-  }
-
-  // Right border on column F, rows 12-45
-  for (let r = 12; r <= 45; r++) {
-    const cellF = ws.getCell(`F${r}`);
-    const existingBorder = cellF.border || {};
-    cellF.border = {
-      top: existingBorder.top,
-      bottom: existingBorder.bottom,
-      left: existingBorder.left,
-      right: thinBorder,
-    };
-  }
-
-  // Bottom border on row 16 (above Project Summary), columns A-F
-  ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
-    const cell = ws.getCell(`${col}16`);
-    const existingBorder = cell.border || {};
-    cell.border = {
-      top: existingBorder.top,
-      left: existingBorder.left,
-      right: existingBorder.right,
-      bottom: thinBorder,
-    };
-  });
-
-  // Bottom border on row 45, columns A-F
-  ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
-    const cell = ws.getCell(`${col}45`);
-    const existingBorder = cell.border || {};
-    cell.border = {
-      top: existingBorder.top,
-      left: existingBorder.left,
-      right: existingBorder.right,
-      bottom: thinBorder,
-    };
-  });
+  // Total formula is already in F44 (=SUM(F16:F43)) — no need to touch it
 
   const buf = await wb.xlsx.writeBuffer();
-  saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-    `${invoice.invoiceNumber}.xlsx`);
+  saveAs(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `${invoice.invoiceNumber}.xlsx`
+  );
 }
 
 export async function exportInvoiceToPDF(invoice: Invoice) {
@@ -239,7 +148,6 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   const addressLines = doc.splitTextToSize(invoice.billTo.address, 80);
   doc.text(addressLines, 14, y + 12);
 
-  // Right side metadata
   const metaX = 130;
   doc.setFont("helvetica", "bold");
   doc.text(`${docLabel} #:`, metaX, y);
@@ -283,7 +191,7 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   autoTable(doc, {
     startY: y,
     head: [["Item", "Description", "Qty", "Rate", "Amount"]],
-    body: invoice.lineItems.map(li => [
+    body: invoice.lineItems.map((li) => [
       li.name,
       li.description,
       li.qty.toString(),
@@ -293,7 +201,11 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
     foot: [["", "", "", "Total", `$${invoice.total.toFixed(2)}`]],
     styles: { fontSize: 9 },
     headStyles: { fillColor: [60, 60, 60] },
-    footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+    footStyles: {
+      fillColor: [240, 240, 240],
+      textColor: [0, 0, 0],
+      fontStyle: "bold",
+    },
     columnStyles: {
       0: { cellWidth: 35 },
       1: { cellWidth: "auto" },
@@ -308,8 +220,18 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   const finalY = (doc as any).lastAutoTable?.finalY || y + 40;
   doc.setFontSize(8);
   doc.setFont("helvetica", "italic");
-  doc.text("EDI is a Service Disabled Veteran Owned Small Business!", pageWidth / 2, finalY + 15, { align: "center" });
-  doc.text("If you have any questions please call 856-616-9516", pageWidth / 2, finalY + 20, { align: "center" });
+  doc.text(
+    "EDI is a Service Disabled Veteran Owned Small Business!",
+    pageWidth / 2,
+    finalY + 15,
+    { align: "center" }
+  );
+  doc.text(
+    "If you have any questions please call 856-616-9516",
+    pageWidth / 2,
+    finalY + 20,
+    { align: "center" }
+  );
 
   // Accreditation logos
   if (logosImg) {
