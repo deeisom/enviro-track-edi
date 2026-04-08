@@ -71,8 +71,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       result: item.amount,
     };
 
-    // 1 empty row between each item description line
-    rowCursor += 2;
+    // Skip rows to next item slot — template uses ~3-row groups per item
+    // but we'll use a simpler 1-row-per-item + gap approach
+    rowCursor += 3;
   });
 
   // Ensure remaining F cells in the range have formulas so the SUM in F44 works
