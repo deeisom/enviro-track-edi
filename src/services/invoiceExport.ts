@@ -76,6 +76,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   }
 
   // Fill line items
+  const leftBorder: Partial<ExcelJS.Border> = { style: "thin" };
+  const usedRows = new Set<number>();
+
   let rowCursor = startRow;
   invoice.lineItems.forEach((item) => {
     if (rowCursor + descRows - 1 > endRow) return;
@@ -94,6 +97,12 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       wrapText: true,
     };
 
+    // Add left border on non-first rows of this item block (A column)
+    for (let r = rowCursor + 1; r <= descEndRow; r++) {
+      const cell = ws.getCell(`A${r}`);
+      cell.border = { ...cell.border, left: leftBorder };
+    }
+
     // Qty, Rate, Amount on first row only
     ws.getCell(`D${rowCursor}`).value = item.qty;
     ws.getCell(`E${rowCursor}`).value = item.rate;
@@ -102,9 +111,22 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       result: item.amount,
     };
 
+    for (let r = rowCursor; r <= Math.min(rowCursor + rowsPerItem - 1, endRow); r++) {
+      usedRows.add(r);
+    }
+
     // Advance past description rows + 1 blank separator row
     rowCursor += rowsPerItem;
   });
+
+  // Merge B:C on all empty/blank rows so they match the filled rows
+  for (let r = startRow; r <= endRow; r++) {
+    if (!usedRows.has(r)) {
+      ws.mergeCells(`B${r}:C${r}`);
+      const cell = ws.getCell(`A${r}`);
+      cell.border = { ...cell.border, left: leftBorder };
+    }
+  }
 
   // Ensure all F cells in the range have formulas so the SUM in F44 works
   for (let r = startRow; r <= endRow; r++) {
