@@ -54,6 +54,20 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const descRows = 4; // rows to merge for each description cell
   const rowsPerItem = descRows + 1; // description rows + 1 blank separator
 
+  // Snapshot all cell styles before clearing
+  const savedStyles: Record<string, any> = {};
+  for (let r = startRow; r <= endRow; r++) {
+    ["A", "B", "C", "D", "E", "F"].forEach((col) => {
+      const cell = ws.getCell(`${col}${r}`);
+      savedStyles[`${col}${r}`] = {
+        border: cell.border ? { ...cell.border } : undefined,
+        font: cell.font ? { ...cell.font } : undefined,
+        alignment: cell.alignment ? { ...cell.alignment } : undefined,
+        fill: cell.fill ? { ...cell.fill } : undefined,
+      };
+    });
+  }
+
   // Remove existing merges in the line-item area using the public API
   const mergesToRemove: string[] = [];
   (ws.model.merges || []).forEach((mergeRef: string) => {
@@ -67,52 +81,18 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   });
   mergesToRemove.forEach((ref) => ws.unMergeCells(ref));
 
-  // Clear all line-item cells but preserve border formatting
+  // Clear all line-item cells and restore styles
   for (let r = startRow; r <= endRow; r++) {
     ["A", "B", "C", "D", "E", "F"].forEach((col) => {
-      ws.getCell(`${col}${r}`).value = null;
+      const cell = ws.getCell(`${col}${r}`);
+      cell.value = null;
+      const saved = savedStyles[`${col}${r}`];
+      if (saved.border) cell.border = saved.border;
+      if (saved.font) cell.font = saved.font;
+      if (saved.alignment) cell.alignment = saved.alignment;
+      if (saved.fill) cell.fill = saved.fill;
     });
   }
-
-  // Fill line items
-  let rowCursor = startRow;
-  invoice.lineItems.forEach((item) => {
-    if (rowCursor + descRows - 1 > endRow) return;
-
-    // Item name on first row only
-    ws.getCell(`A${rowCursor}`).value = item.name;
-
-    // Merge B:C across description rows and set description with wrap text
-    const descEndRow = rowCursor + descRows - 1;
-    ws.mergeCells(`B${rowCursor}:C${descEndRow}`);
-    const descCell = ws.getCell(`B${rowCursor}`);
-    descCell.value = item.description;
-    descCell.alignment = {
-      horizontal: "left",
-      vertical: "top",
-      wrapText: true,
-    };
-
-    // Qty, Rate, Amount on first row only
-    ws.getCell(`D${rowCursor}`).value = item.qty;
-    ws.getCell(`E${rowCursor}`).value = item.rate;
-    ws.getCell(`F${rowCursor}`).value = {
-      formula: `E${rowCursor}*D${rowCursor}`,
-      result: item.amount,
-    };
-
-    // Advance past description rows + 1 blank separator row
-    rowCursor += rowsPerItem;
-  });
-
-  // Ensure all F cells in the range have formulas so the SUM in F44 works
-  for (let r = startRow; r <= endRow; r++) {
-    const cell = ws.getCell(`F${r}`);
-    if (cell.value === null || cell.value === undefined) {
-      cell.value = { formula: `E${r}*D${r}`, result: 0 };
-    }
-  }
-
   // Total formula is already in F44 (=SUM(F16:F43)) — no need to touch it
 
   const buf = await wb.xlsx.writeBuffer();
