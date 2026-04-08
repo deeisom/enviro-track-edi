@@ -5,6 +5,26 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 /**
+ * Split an address string into [street, city/state/zip].
+ * Handles both newline-separated and single-line addresses.
+ */
+function splitAddress(address: string): [string, string] {
+  // If already has newlines, use them
+  if (address.includes("\n")) {
+    const parts = address.split("\n").map(s => s.trim()).filter(Boolean);
+    return [parts[0] || "", parts.slice(1).join(", ")];
+  }
+  // Try to split before city/state/zip pattern (e.g. "123 Main St Example City, NJ 08008")
+  // Look for the last comma followed by a state abbreviation and zip
+  const match = address.match(/^(.+?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/);
+  if (match) {
+    return [match[1], match[2]];
+  }
+  // Fallback: return whole address on one line
+  return [address, ""];
+}
+
+/**
  * Excel export: loads the reference invoice template (.xlsx) which already
  * contains the correct layout, logos, borders, and formatting. We only
  * overwrite the dynamic data cells and clear/fill the line-item rows.
