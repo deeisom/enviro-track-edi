@@ -236,8 +236,11 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   doc.text("BILL TO", 14, y);
   doc.setFont("helvetica", "normal");
   doc.text(invoice.billTo.name, 14, y + 6);
-  const addressLines = doc.splitTextToSize(invoice.billTo.address, 80);
-  doc.text(addressLines, 14, y + 12);
+  const pdfAddrLines = splitAddress(invoice.billTo.address);
+  doc.text(pdfAddrLines[0], 14, y + 12);
+  if (pdfAddrLines[1]) {
+    doc.text(pdfAddrLines[1], 14, y + 17);
+  }
 
   const metaX = 130;
   doc.setFont("helvetica", "bold");
