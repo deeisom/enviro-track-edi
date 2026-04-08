@@ -29,11 +29,11 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToHeight = 0;
 
   // --- Dynamic metadata ---
-  // Bill To (A11 = name, A12 = address line 1, A13 = address line 2)
+  // Bill To (A11 = name, A12 = street, A13 = city/state/zip)
   ws.getCell("A11").value = invoice.billTo.name;
-  const addrLines = invoice.billTo.address.split("\n");
+  const addrLines = splitAddress(invoice.billTo.address);
   ws.getCell("A12").value = addrLines[0] || "";
-  ws.getCell("A13").value = addrLines.slice(1).join(", ") || "";
+  ws.getCell("A13").value = addrLines[1] || "";
 
   // PO #, Date, Invoice #
   ws.getCell("C13").value = invoice.poNumber;
