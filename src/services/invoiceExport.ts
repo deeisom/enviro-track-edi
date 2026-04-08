@@ -5,6 +5,26 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 /**
+ * Split an address string into [street, city/state/zip].
+ * Handles both newline-separated and single-line addresses.
+ */
+function splitAddress(address: string): [string, string] {
+  // If already has newlines, use them
+  if (address.includes("\n")) {
+    const parts = address.split("\n").map(s => s.trim()).filter(Boolean);
+    return [parts[0] || "", parts.slice(1).join(", ")];
+  }
+  // Try to split before city/state/zip pattern (e.g. "123 Main St Example City, NJ 08008")
+  // Look for the last comma followed by a state abbreviation and zip
+  const match = address.match(/^(.+?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/);
+  if (match) {
+    return [match[1], match[2]];
+  }
+  // Fallback: return whole address on one line
+  return [address, ""];
+}
+
+/**
  * Excel export: loads the reference invoice template (.xlsx) which already
  * contains the correct layout, logos, borders, and formatting. We only
  * overwrite the dynamic data cells and clear/fill the line-item rows.
@@ -29,11 +49,11 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToHeight = 0;
 
   // --- Dynamic metadata ---
-  // Bill To (A11 = name, A12 = address line 1, A13 = address line 2)
+  // Bill To (A11 = name, A12 = street, A13 = city/state/zip)
   ws.getCell("A11").value = invoice.billTo.name;
-  const addrLines = invoice.billTo.address.split("\n");
+  const addrLines = splitAddress(invoice.billTo.address);
   ws.getCell("A12").value = addrLines[0] || "";
-  ws.getCell("A13").value = addrLines.slice(1).join(", ") || "";
+  ws.getCell("A13").value = addrLines[1] || "";
 
   // PO #, Date, Invoice #
   ws.getCell("C13").value = invoice.poNumber;
@@ -216,8 +236,11 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   doc.text("BILL TO", 14, y);
   doc.setFont("helvetica", "normal");
   doc.text(invoice.billTo.name, 14, y + 6);
-  const addressLines = doc.splitTextToSize(invoice.billTo.address, 80);
-  doc.text(addressLines, 14, y + 12);
+  const pdfAddrLines = splitAddress(invoice.billTo.address);
+  doc.text(pdfAddrLines[0], 14, y + 12);
+  if (pdfAddrLines[1]) {
+    doc.text(pdfAddrLines[1], 14, y + 17);
+  }
 
   const metaX = 130;
   doc.setFont("helvetica", "bold");
