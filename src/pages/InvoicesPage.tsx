@@ -67,6 +67,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
               <TableRow>
                 <TableHead>Number</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Project #</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -76,11 +77,14 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
             </TableHeader>
             <TableBody>
               {invoices.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>
-              ) : invoices.map(inv => (
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>
+              ) : invoices.map(inv => {
+                const linkedProject = inv.projectId ? getProject(inv.projectId) : null;
+                return (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono font-medium">{inv.invoiceNumber}</TableCell>
                   <TableCell className="capitalize">{inv.type}</TableCell>
+                  <TableCell className="font-mono text-sm">{linkedProject?.projectNumber || "—"}</TableCell>
                   <TableCell>{inv.billTo.name}</TableCell>
                   <TableCell>{inv.date}</TableCell>
                   <TableCell className="text-right font-mono">${inv.total.toFixed(2)}</TableCell>
