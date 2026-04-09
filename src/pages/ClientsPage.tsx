@@ -230,9 +230,14 @@ function ClientDetail() {
                       {c.email && <p>{c.email}</p>}
                       {c.phone && <p>{c.phone}</p>}
                     </div>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}>
-                      <Trash2 className="h-3 w-3 text-muted-foreground" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}>
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
