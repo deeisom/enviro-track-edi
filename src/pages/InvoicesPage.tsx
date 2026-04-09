@@ -106,7 +106,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="PDF" onClick={() => { exportInvoiceToPDF(inv); }}><FileText className="h-3.5 w-3.5" /></Button>
+                      
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -367,8 +367,8 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                   <TableRow key={li.id}>
                     <TableCell><Input value={li.name} onChange={e => updateLineItem(li.id, "name", e.target.value)} className="h-8 text-sm" /></TableCell>
                     <TableCell><Input value={li.description} onChange={e => updateLineItem(li.id, "description", e.target.value)} className="h-8 text-sm" /></TableCell>
-                    <TableCell><Input type="number" min="0" value={li.qty} onChange={e => updateLineItem(li.id, "qty", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
-                    <TableCell><Input type="number" min="0" step="0.01" value={li.rate} onChange={e => updateLineItem(li.id, "rate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
+                    <TableCell><Input type="number" min="0" step="0.5" value={li.qty} onChange={e => updateLineItem(li.id, "qty", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
+                    <TableCell><Input type="number" min="0" step="0.5" value={li.rate} onChange={e => updateLineItem(li.id, "rate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
                     <TableCell className="text-right font-mono text-sm">${li.amount.toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeLineItem(li.id)}>
