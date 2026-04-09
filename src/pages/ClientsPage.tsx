@@ -167,6 +167,18 @@ function ClientDetail() {
     load();
   };
 
+  const handleEditContact = (contact: Contact) => {
+    setEditingContact(contact);
+    setContactForm({ name: contact.name, title: contact.title || "", email: contact.email || "", phone: contact.phone || "" });
+    setContactDialog(true);
+  };
+
+  const openAddContact = () => {
+    setEditingContact(null);
+    setContactForm({ name: "", title: "", email: "", phone: "" });
+    setContactDialog(true);
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
