@@ -257,6 +257,11 @@ export async function deleteActivity(id: string) {
   if (error) throw error;
 }
 
+export async function deleteProject(id: string) {
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function addInvoiceActivity(input: {
   projectId: string;
   projectNumber: string;

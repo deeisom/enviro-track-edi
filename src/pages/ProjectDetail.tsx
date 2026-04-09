@@ -15,7 +15,7 @@ import {
 import { StatusBadge, StatusTimeline } from "@/components/StatusBadge";
 import {
   getProject, updateProject, changeProjectStatus, getProjectActivity,
-  getClient, getContactsByClient, deleteActivity,
+  getClient, getContactsByClient, deleteActivity, deleteProject,
 } from "@/services/storage";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -25,10 +25,12 @@ import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectSt
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Edit, Clock, Trash2, FileText, AlertCircle, Leaf } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -104,6 +106,33 @@ export default function ProjectDetail() {
           <Button onClick={() => { setNewStatus(project.status); setStatusDialog(true); }}>
             Update Status
           </Button>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete project?</AlertDialogTitle>
+                  <AlertDialogDescription>This will permanently delete this project and cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={async () => {
+                    try {
+                      await deleteProject(project.id);
+                      toast({ title: "Project deleted" });
+                      navigate("/projects");
+                    } catch (e: any) {
+                      toast({ title: "Error deleting project", description: e.message, variant: "destructive" });
+                    }
+                  }}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
