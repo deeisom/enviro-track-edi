@@ -12,7 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Leaf } from "lucide-react";
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -91,7 +91,7 @@ export default function ProjectsList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-frontier tracking-wide">Projects</h1>
+        <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Projects <Leaf className="h-5 w-5 text-primary" /></h1>
         <Button asChild>
           <Link to="/projects/new">
             <Plus className="h-4 w-4 mr-1" /> New Project

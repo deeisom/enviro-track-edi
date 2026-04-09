@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAllRates, createRate, updateRate, deleteRate, seedRatesIfEmpty } from "@/services/invoiceStorage";
 import { RateItem, RateCategory, RATE_CATEGORIES } from "@/types/invoice";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Leaf } from "lucide-react";
 
 const UNITS = ["per hour", "per day", "per sample", "each", "flat"];
 
@@ -56,7 +56,7 @@ export default function RatesPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-frontier tracking-wide">Rate Table</h1>
+          <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Rate Table <Leaf className="h-5 w-5 text-primary" /></h1>
           <p className="text-muted-foreground text-sm">Manage reusable line items for estimates and invoices</p>
         </div>
         <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add Item</Button>
