@@ -27,9 +27,11 @@ function genId(): string {
 // --- Projects ---
 
 export function getNextProjectNumber(): string {
-  const counter = parseInt(localStorage.getItem(KEYS.counter) || "0", 10) + 1;
-  localStorage.setItem(KEYS.counter, String(counter));
-  return `PR-${String(counter).padStart(4, "0")}`;
+  const year = new Date().getFullYear();
+  const yearKey = `${KEYS.counter}_${year}`;
+  const counter = parseInt(localStorage.getItem(yearKey) || "0", 10) + 1;
+  localStorage.setItem(yearKey, String(counter));
+  return `EDI-${year}-${String(counter).padStart(4, "0")}`;
 }
 
 export function getAllProjects(): Project[] {
