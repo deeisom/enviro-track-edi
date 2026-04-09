@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -274,7 +275,7 @@ export default function ProjectDetail() {
             </div>
             <div className="space-y-2">
               <Label>Location</Label>
-              <Input value={editForm.location} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} />
+              <AddressAutocomplete value={editForm.location} onChange={v => setEditForm(f => ({ ...f, location: v }))} />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
