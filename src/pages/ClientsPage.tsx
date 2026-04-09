@@ -154,10 +154,16 @@ function ClientDetail() {
   };
   const handleAddContact = () => {
     if (!contactForm.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    createContact({ ...contactForm, clientId: client.id });
+    if (editingContact) {
+      updateContact(editingContact.id, contactForm);
+      toast({ title: "Contact updated" });
+    } else {
+      createContact({ ...contactForm, clientId: client.id });
+      toast({ title: "Contact added" });
+    }
     setContactDialog(false);
     setContactForm({ name: "", title: "", email: "", phone: "" });
-    toast({ title: "Contact added" });
+    setEditingContact(null);
     load();
   };
 
