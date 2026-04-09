@@ -215,7 +215,7 @@ function ClientDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Contacts</CardTitle>
-            <Button size="sm" variant="outline" onClick={() => setContactDialog(true)}><Plus className="h-3 w-3 mr-1" /> Add</Button>
+            <Button size="sm" variant="outline" onClick={openAddContact}><Plus className="h-3 w-3 mr-1" /> Add</Button>
           </CardHeader>
           <CardContent>
             {contacts.length === 0 ? (
