@@ -38,10 +38,10 @@ export default function AuthPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
+    const error = result?.error;
     if (error) toast({ title: "Google sign-in failed", description: error.message, variant: "destructive" });
   };
 
