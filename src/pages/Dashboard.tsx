@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/StatusBadge";
-import { getAllProjects, getAllActivity } from "@/services/storage";
+import { getAllProjects, getAllActivity, getProject } from "@/services/storage";
 import { Project, ActivityLogEntry, PROJECT_STATUSES, getStatusDef } from "@/types";
-import { Plus, Search, FolderKanban } from "lucide-react";
+import { Plus, Search, FolderKanban, AlertCircle } from "lucide-react";
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -99,8 +100,28 @@ export default function Dashboard() {
                       {a.projectNumber}
                     </Link>
                     {" → "}
-                    <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
-                    {a.note && <span className="text-muted-foreground ml-2">— {a.note}</span>}
+                    {a.isInvoiceEvent ? (
+                      <span className="text-muted-foreground">{a.note}</span>
+                    ) : (
+                      <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
+                    )}
+                    {a.isInvoiceEvent && (() => {
+                      const proj = getProject(a.projectId);
+                      const projStatus = proj ? parseFloat(proj.status) : 999;
+                      return projStatus < 3.1 ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertCircle className="inline h-4 w-4 text-destructive ml-1 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Project status should be updated to 3.1 or higher to reflect invoice delivery.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : null;
+                    })()}
+                    {!a.isInvoiceEvent && a.note && <span className="text-muted-foreground ml-2">— {a.note}</span>}
                   </div>
                 </div>
               ))}
