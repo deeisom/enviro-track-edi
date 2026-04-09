@@ -1,35 +1,27 @@
 
 
-## Plan: Fix Loading Spinner Stuck Issue
+## Plan: Fix Persistent Loading Spinner
 
 ### Problem
-In `src/contexts/AuthContext.tsx`, the `onAuthStateChange` callback uses `await checkAdmin(...)` before calling `setLoading(false)`. If the `checkAdmin` database query throws an error (network glitch, timeout, etc.), `setLoading(false)` is never reached and the app stays stuck on the spinner forever.
+The `onAuthStateChange` callback in `AuthContext.tsx` uses `await checkAdmin(...)` which blocks Supabase's internal auth event processing, causing intermittent deadlocks where the app gets stuck on the loading spinner.
 
 ### Fix
 
 **File: `src/contexts/AuthContext.tsx`**
 
-1. Wrap the `checkAdmin` call in a try/catch inside the `onAuthStateChange` callback so that `setLoading(false)` always runs regardless of query success
-2. Do the same in the `getSession` `.then()` block
-3. Add a try/catch inside `checkAdmin` itself so it defaults to `false` on failure instead of throwing
+Remove `await` from both `checkAdmin` calls — fire-and-forget so `setLoading(false)` runs immediately after setting the user/session state. The admin status will update moments later without blocking the auth flow.
 
 ```typescript
-const checkAdmin = async (userId: string) => {
-  try {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    setIsAdmin(!!data);
-  } catch {
-    setIsAdmin(false);
-  }
-};
+// Line 49: change from
+await checkAdmin(session.user.id);
+// to
+checkAdmin(session.user.id);
+
+// Line 61: same change
+await checkAdmin(session.user.id);
+// to
+checkAdmin(session.user.id);
 ```
 
-And in the `onAuthStateChange` callback, ensure `setLoading(false)` is in a `finally` block or after a try/catch around the `checkAdmin` call.
-
-This is a one-file fix in `src/contexts/AuthContext.tsx`.
+This is a two-line change in one file. The admin check still runs asynchronously — it just no longer blocks the loading state from resolving.
 
