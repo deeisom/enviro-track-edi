@@ -91,7 +91,7 @@ export default function ProjectsList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
+        <h1 className="text-2xl font-frontier tracking-wide">Projects</h1>
         <Button asChild>
           <Link to="/projects/new">
             <Plus className="h-4 w-4 mr-1" /> New Project
