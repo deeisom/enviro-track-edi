@@ -1,28 +1,35 @@
 
 
-## Plan: Fix Data Creation Errors
+## Plan: Fix Loading Spinner Stuck Issue
 
 ### Problem
-After the cloud migration, creating projects, clients, and rates fails silently because:
-1. **Missing error handling** — `ClientsPage` and `RatesPage` don't wrap database calls in try/catch, so errors are swallowed with no user feedback
-2. **Invalid UUID bug** — When creating a project with "None" selected for Parent Project, the value `"_none"` gets passed as a `parent_project_id` to the database instead of `null`, causing a UUID validation error
-3. **Same issue for client selection** — The `clientId` field could have the same problem
+In `src/contexts/AuthContext.tsx`, the `onAuthStateChange` callback uses `await checkAdmin(...)` before calling `setLoading(false)`. If the `checkAdmin` database query throws an error (network glitch, timeout, etc.), `setLoading(false)` is never reached and the app stays stuck on the spinner forever.
 
-### Changes
+### Fix
 
-**1. `src/pages/CreateProject.tsx`**
-- Fix the `parentProjectId` and `clientId` values: treat `"_none"` and empty string as `null` before inserting
-- Change: `parentProjectId: (form.parentProjectId && form.parentProjectId !== "_none") ? form.parentProjectId : null`
-- Same pattern for `clientId`
+**File: `src/contexts/AuthContext.tsx`**
 
-**2. `src/pages/ClientsPage.tsx`**
-- Wrap `handleCreate` in try/catch with error toast
-- Wrap inline `deleteClient` call in try/catch
+1. Wrap the `checkAdmin` call in a try/catch inside the `onAuthStateChange` callback so that `setLoading(false)` always runs regardless of query success
+2. Do the same in the `getSession` `.then()` block
+3. Add a try/catch inside `checkAdmin` itself so it defaults to `false` on failure instead of throwing
 
-**3. `src/pages/RatesPage.tsx`**
-- Wrap `handleSave` in try/catch with error toast
-- Wrap `handleDelete` in try/catch with error toast
+```typescript
+const checkAdmin = async (userId: string) => {
+  try {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    setIsAdmin(!!data);
+  } catch {
+    setIsAdmin(false);
+  }
+};
+```
 
-**4. `src/services/storage.ts`**
-- Same fix for `parentProjectId` in `createProject` — sanitize `"_none"` to `null`
+And in the `onAuthStateChange` callback, ensure `setLoading(false)` is in a `finally` block or after a try/catch around the `checkAdmin` call.
+
+This is a one-file fix in `src/contexts/AuthContext.tsx`.
 
