@@ -16,13 +16,13 @@ export async function createRate(input: Omit<RateItem, "id">): Promise<RateItem>
     category: input.category,
     default_rate: input.defaultRate,
     unit: input.unit,
-  }).select().single();
+  } as any).select().single();
   if (error) throw error;
   return mapRate(data);
 }
 
 export async function updateRate(id: string, input: Partial<RateItem>): Promise<RateItem | undefined> {
-  const updateData: Record<string, any> = {};
+  const updateData: any = {};
   if (input.name !== undefined) updateData.name = input.name;
   if (input.description !== undefined) updateData.description = input.description;
   if (input.category !== undefined) updateData.category = input.category;
@@ -39,7 +39,6 @@ export async function deleteRate(id: string) {
   if (error) throw error;
 }
 
-// seedRatesIfEmpty is no longer needed — rates are seeded in the migration
 export function seedRatesIfEmpty() {}
 
 function mapRate(row: any): RateItem {
@@ -95,13 +94,13 @@ export async function createInvoice(input: Omit<Invoice, "id" | "invoiceNumber" 
     line_items: input.lineItems as any,
     total: input.total,
     status: input.status,
-  }).select().single();
+  } as any).select().single();
   if (error) throw error;
   return mapInvoice(data);
 }
 
 export async function updateInvoice(id: string, input: Partial<Invoice>): Promise<Invoice | undefined> {
-  const updateData: Record<string, any> = {};
+  const updateData: any = {};
   if (input.type !== undefined) updateData.type = input.type;
   if (input.projectId !== undefined) updateData.project_id = input.projectId;
   if (input.clientId !== undefined) updateData.client_id = input.clientId;

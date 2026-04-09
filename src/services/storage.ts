@@ -34,7 +34,7 @@ export async function createProject(input: Omit<Project, "id" | "projectNumber" 
     notes: input.notes,
     status: input.status,
     parent_project_id: input.parentProjectId || null,
-  }).select().single();
+  } as any).select().single();
   if (error) throw error;
   const project = mapProject(data);
 
@@ -53,7 +53,7 @@ export async function updateProject(id: string, input: Partial<Project>): Promis
   const old = await getProject(id);
   if (!old) return undefined;
 
-  const updateData: Record<string, any> = {};
+  const updateData: any = {};
   if (input.name !== undefined) updateData.name = input.name;
   if (input.description !== undefined) updateData.description = input.description;
   if (input.location !== undefined) updateData.location = input.location;
@@ -136,13 +136,13 @@ export async function createClient(input: Omit<Client, "id" | "createdAt" | "upd
     address: input.address,
     industry_type: input.industryType,
     notes: input.notes,
-  }).select().single();
+  } as any).select().single();
   if (error) throw error;
   return mapClient(data);
 }
 
 export async function updateClient(id: string, input: Partial<Client>): Promise<Client | undefined> {
-  const updateData: Record<string, any> = {};
+  const updateData: any = {};
   if (input.companyName !== undefined) updateData.company_name = input.companyName;
   if (input.address !== undefined) updateData.address = input.address;
   if (input.industryType !== undefined) updateData.industry_type = input.industryType;
@@ -191,13 +191,13 @@ export async function createContact(input: Omit<Contact, "id" | "createdAt">): P
     title: input.title,
     email: input.email,
     phone: input.phone,
-  }).select().single();
+  } as any).select().single();
   if (error) throw error;
   return mapContact(data);
 }
 
 export async function updateContact(id: string, input: Partial<Contact>): Promise<Contact | undefined> {
-  const updateData: Record<string, any> = {};
+  const updateData: any = {};
   if (input.name !== undefined) updateData.name = input.name;
   if (input.title !== undefined) updateData.title = input.title;
   if (input.email !== undefined) updateData.email = input.email;
@@ -249,7 +249,7 @@ async function addActivity(input: Omit<ActivityLogEntry, "id" | "timestamp">) {
     invoice_id: input.invoiceId || null,
     invoice_number: input.invoiceNumber || null,
     is_invoice_event: input.isInvoiceEvent || false,
-  });
+  } as any);
 }
 
 export async function deleteActivity(id: string) {
@@ -274,7 +274,7 @@ export async function addInvoiceActivity(input: {
     invoice_id: input.invoiceId,
     invoice_number: input.invoiceNumber,
     is_invoice_event: true,
-  });
+  } as any);
 }
 
 function mapActivity(row: any): ActivityLogEntry {
