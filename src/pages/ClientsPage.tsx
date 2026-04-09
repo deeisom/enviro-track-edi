@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import {
   getAllClients, createClient, updateClient, deleteClient,
-  getContactsByClient, createContact, deleteContact,
+  getContactsByClient, createContact, updateContact, deleteContact,
   getAllProjects, getClient,
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
