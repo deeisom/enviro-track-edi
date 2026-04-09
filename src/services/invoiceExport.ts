@@ -226,22 +226,22 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   // Header
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Environmental Design Inc.", 14, 20);
+  doc.text("Environmental Design Inc.", marginLeft, marginTop);
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
-  doc.text("Professional Environmental Consultants", 14, 26);
+  doc.text("Professional Environmental Consultants", marginLeft, marginTop + 6);
   doc.setFont("helvetica", "normal");
-  doc.text("5434 King Avenue, Suite 101", 14, 32);
-  doc.text("Pennsauken, New Jersey 08109", 14, 37);
-  doc.text("Phone: 856-616-9516  |  www.editesting.com", 14, 42);
+  doc.text("5434 King Avenue, Suite 101", marginLeft, marginTop + 12);
+  doc.text("Pennsauken, New Jersey 08109", marginLeft, marginTop + 17);
+  doc.text("Phone: 856-616-9516  |  www.editesting.com", marginLeft, marginTop + 22);
 
   // Document label
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text(docLabel.toUpperCase(), pageWidth - 14, 20, { align: "right" });
+  doc.text(docLabel.toUpperCase(), pageWidth - marginRight, marginTop, { align: "right" });
 
   doc.setDrawColor(200);
-  doc.line(14, 46, pageWidth - 14, 46);
+  doc.line(marginLeft, marginTop + 26, pageWidth - marginRight, marginTop + 26);
 
   // Bill To + Metadata
   let y = 54;
