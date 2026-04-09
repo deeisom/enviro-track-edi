@@ -176,6 +176,12 @@ function ClientDetail() {
           <h1 className="text-xl font-bold">{client.companyName}</h1>
           {client.industryType && <p className="text-sm text-muted-foreground">{client.industryType}</p>}
         </div>
+        <Button variant="outline" size="sm" onClick={handleEdit}>
+          <Pencil className="h-3 w-3 mr-1" /> Edit
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}>
+          <Trash2 className="h-3 w-3 mr-1" /> Delete
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
