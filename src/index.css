@@ -1,8 +1,8 @@
 @font-face {
   font-family: 'Final Frontier';
   src: url('/fonts/FinalFrontier.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+  font-weight: bold;
+  font-style: italic;
   font-display: swap;
 }
 
@@ -98,15 +98,6 @@
     --sidebar-accent-foreground: 200 15% 90%;
     --sidebar-border: 200 20% 12%;
     --sidebar-ring: 162 50% 45%;
-  }
-}
-
-@layer utilities {
-  .font-frontier {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    -webkit-text-stroke: 0.5px currentColor;
   }
 }
 

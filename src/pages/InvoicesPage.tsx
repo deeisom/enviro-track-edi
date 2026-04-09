@@ -55,7 +55,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-frontier italic tracking-wide flex items-center gap-2">Invoices & Estimates <Leaf className="h-5 w-5 text-primary" /></h1>
+          <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Invoices & Estimates <Leaf className="h-5 w-5 text-primary" /></h1>
           <p className="text-muted-foreground text-sm">Create, manage, and export your documents</p>
         </div>
         <Button onClick={onNew}><Plus className="h-4 w-4 mr-1" /> Create New</Button>

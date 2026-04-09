@@ -43,7 +43,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-2">
           <Leaf className="h-6 w-6 text-sidebar-primary shrink-0" />
           {!collapsed && (
-            <span className="text-lg font-frontier italic tracking-wider text-sidebar-foreground">
+            <span className="text-lg font-frontier font-bold italic tracking-wider text-sidebar-foreground">
               EnviroTrack
             </span>
           )}
