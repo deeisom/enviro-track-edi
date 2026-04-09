@@ -1,33 +1,29 @@
 
 
-## Plan: Tasteful Integration of "Final Frontier" Font
+## Plan: Update Project Numbering to EDI-YYYY-NNNN
 
-Final Frontier is a bold, futuristic display font — great for branding moments but too heavy for body text. The strategy is **logo/brand name only**, with a couple of subtle accent uses.
+### Current behavior
+Projects are numbered `PR-0001`, `PR-0002`, etc. using a single global counter stored in `localStorage` under `epm_project_counter`.
 
-### Where to use it
-
-1. **App logo text ("EnviroTrack")** in the sidebar header — this is the primary branding moment and the most natural fit. Currently uses `font-bold tracking-tight`.
-
-2. **Page titles (h1 only)** — "Dashboard", "Projects", "Clients", etc. These are short, single-word headers that would look sharp in a display font without hurting readability.
-
-3. **Nothing else** — nav items, table headers, body text, form labels, and buttons all stay in the default sans-serif for legibility.
+### New behavior
+Projects will be numbered `EDI-2026-0001`, `EDI-2026-0002`, etc. The year portion reflects the current year. The sequential counter resets each year.
 
 ### Technical approach
 
-1. **Add the font file** — download/place the Final Frontier `.ttf` or `.woff2` in `public/fonts/` and register it via `@font-face` in `src/index.css`.
+**`src/services/storage.ts`** — Rewrite `getNextProjectNumber()`:
+- Store a year-specific counter key (e.g., `epm_project_counter_2026`)
+- On each call, get the current year, read/increment that year's counter
+- Return `EDI-${year}-${counter padded to 4 digits}`
 
-2. **Create a Tailwind utility** — add `fontFamily: { frontier: ['"Final Frontier"', 'sans-serif'] }` to `tailwind.config.ts` so we can use `font-frontier` as a class.
+```typescript
+export function getNextProjectNumber(): string {
+  const year = new Date().getFullYear();
+  const yearKey = `${KEYS.counter}_${year}`;
+  const counter = parseInt(localStorage.getItem(yearKey) || "0", 10) + 1;
+  localStorage.setItem(yearKey, String(counter));
+  return `EDI-${year}-${String(counter).padStart(4, "0")}`;
+}
+```
 
-3. **Apply to sidebar logo** — update `AppSidebar.tsx` to use `font-frontier` on the "EnviroTrack" text, with slightly adjusted letter-spacing (`tracking-wider`).
-
-4. **Apply to page titles** — add `font-frontier` to the `<h1>` elements on Dashboard, ProjectsList, ClientsPage, RatesPage, InvoicesPage, CreateProject, and ProjectDetail. Keep `text-2xl` sizing so it's prominent but not overwhelming.
-
-### Files to modify
-- `public/fonts/` — add font file(s)
-- `src/index.css` — add `@font-face` declaration
-- `tailwind.config.ts` — add `frontier` font family
-- `src/components/AppSidebar.tsx` — apply to "EnviroTrack"
-- `src/pages/Dashboard.tsx`, `ProjectsList.tsx`, `ClientsPage.tsx`, `RatesPage.tsx`, `InvoicesPage.tsx`, `CreateProject.tsx`, `ProjectDetail.tsx` — apply to page `<h1>` headings
-
-This keeps the sci-fi flair concentrated on brand identity and page landmarks, while all functional UI text stays clean and readable.
+No other files need changes — the project number is generated once at creation time and stored as a string, so all existing references (tables, invoices, activity logs) continue to work. Existing projects keep their old `PR-XXXX` numbers.
 
