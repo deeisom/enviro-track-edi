@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectStatus, getStatusDef } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Edit, Clock, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Trash2, FileText, AlertCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -171,14 +172,32 @@ export default function ProjectDetail() {
                     {new Date(a.timestamp).toLocaleDateString()}<br/>
                     {new Date(a.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </div>
-                  <div>
-                    {a.previousStatus && (
-                      <span className="text-muted-foreground">
-                        {getStatusDef(a.previousStatus).code} → {" "}
-                      </span>
+                   <div className="flex-1">
+                    {a.isInvoiceEvent ? (
+                      <span className="text-muted-foreground">{a.note}</span>
+                    ) : (
+                      <>
+                        {a.previousStatus && (
+                          <span className="text-muted-foreground">
+                            {getStatusDef(a.previousStatus).code} → {" "}
+                          </span>
+                        )}
+                        <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
+                      </>
                     )}
-                    <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
-                    {a.note && <p className="text-muted-foreground mt-1">{a.note}</p>}
+                    {a.isInvoiceEvent && project && parseFloat(project.status) < 3.1 && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertCircle className="inline h-4 w-4 text-destructive ml-1 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Project status should be updated to 3.1 or higher to reflect invoice delivery.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {!a.isInvoiceEvent && a.note && <p className="text-muted-foreground mt-1">{a.note}</p>}
                   </div>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
