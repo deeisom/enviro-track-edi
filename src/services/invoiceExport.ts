@@ -321,7 +321,7 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
       3: { cellWidth: 25, halign: "right" },
       4: { cellWidth: 25, halign: "right" },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: marginLeft, right: marginRight },
   });
 
   // Footer
