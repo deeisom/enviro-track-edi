@@ -292,7 +292,7 @@ function ClientDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setContactDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddContact}>Add Contact</Button>
+            <Button onClick={handleAddContact}>{editingContact ? "Save Changes" : "Add Contact"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
