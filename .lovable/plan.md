@@ -1,17 +1,28 @@
 
 
-## Fix: Final Frontier Font Not Appearing Bold/Italic
+## Revised Plan: Sharpen Final Frontier Font While Keeping Bold + Italic
 
 ### Problem
-The `@font-face` declaration sets `font-weight: bold` and `font-style: italic` as descriptors. This tells the browser the font file *is* the bold-italic variant, so it won't apply any additional synthetic bold/italic rendering. The font's glyphs render flat.
+Synthetic bold causes blurry rendering. Removing it fixes sharpness but loses the bold/italic aesthetic.
 
-### Solution
-1. **Change `@font-face` descriptors** to `font-weight: normal; font-style: normal` — this ensures the font loads as the base variant, and the browser can then apply synthetic bold and italic on top of it.
+### Revised approach
+Keep `italic` on all headings. Replace synthetic `font-bold` with a CSS `text-stroke` outline that simulates boldness without smearing glyphs. Add antialiasing for extra crispness.
 
-2. **Keep `font-bold italic` classes** on all headings and the sidebar logo — these will now trigger the browser's synthetic bold/italic rendering over the font's base glyphs.
+### Changes
 
-### Files to modify
-- `src/index.css` — change `font-weight` and `font-style` in the `@font-face` block from `bold`/`italic` to `normal`/`normal`
+**`src/index.css`** — Add a utility rule:
+```css
+.font-frontier {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-stroke: 0.5px currentColor;
+}
+```
 
-Single two-line change; no other files need updating.
+**All page headings + sidebar logo** — Replace `font-bold italic` with just `italic` in the className (the stroke handles the bold effect):
+- `src/components/AppSidebar.tsx`
+- `src/pages/Dashboard.tsx`, `ProjectsList.tsx`, `CreateProject.tsx`, `ClientsPage.tsx`, `RatesPage.tsx`, `InvoicesPage.tsx`, `ProjectDetail.tsx`
+
+This keeps the italic slant, simulates bold weight cleanly via stroke, and eliminates the blurry synthetic bold rendering.
 
