@@ -244,16 +244,16 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   doc.line(marginLeft, marginTop + 26, pageWidth - marginRight, marginTop + 26);
 
   // Bill To + Metadata
-  let y = 54;
+  let y = marginTop + 34;
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("BILL TO", 14, y);
+  doc.text("BILL TO", marginLeft, y);
   doc.setFont("helvetica", "normal");
-  doc.text(invoice.billTo.name, 14, y + 6);
+  doc.text(invoice.billTo.name, marginLeft, y + 6);
   const pdfAddrLines = splitAddress(invoice.billTo.address);
-  doc.text(pdfAddrLines[0], 14, y + 12);
+  doc.text(pdfAddrLines[0], marginLeft, y + 12);
   if (pdfAddrLines[1]) {
-    doc.text(pdfAddrLines[1], 14, y + 17);
+    doc.text(pdfAddrLines[1], marginLeft, y + 17);
   }
 
   const metaX = 130;
@@ -288,10 +288,10 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   y = y + 36;
   if (invoice.projectSummary) {
     doc.setFont("helvetica", "bold");
-    doc.text("PROJECT SUMMARY", 14, y);
+    doc.text("PROJECT SUMMARY", marginLeft, y);
     doc.setFont("helvetica", "normal");
-    const summaryLines = doc.splitTextToSize(invoice.projectSummary, pageWidth - 28);
-    doc.text(summaryLines, 14, y + 6);
+    const summaryLines = doc.splitTextToSize(invoice.projectSummary, pageWidth - marginLeft - marginRight);
+    doc.text(summaryLines, marginLeft, y + 6);
     y += 6 + summaryLines.length * 4 + 4;
   }
 
