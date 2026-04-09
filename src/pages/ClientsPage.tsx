@@ -50,7 +50,7 @@ function ClientsList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Clients & Contacts</h1>
+        <h1 className="text-2xl font-frontier tracking-wide">Clients & Contacts</h1>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-1" /> Add Client
         </Button>

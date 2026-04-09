@@ -86,7 +86,7 @@ export default function ProjectDetail() {
             <span className="font-mono text-lg font-bold text-primary">{project.projectNumber}</span>
             <StatusBadge status={project.status} />
           </div>
-          <h1 className="text-xl font-semibold mt-1">{project.name}</h1>
+          <h1 className="text-xl font-frontier tracking-wide mt-1">{project.name}</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>

@@ -40,7 +40,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-frontier tracking-wide">Dashboard</h1>
           <p className="text-muted-foreground">
             {projects.length} total project{projects.length !== 1 ? "s" : ""}
           </p>
