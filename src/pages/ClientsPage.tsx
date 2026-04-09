@@ -40,11 +40,15 @@ function ClientsList() {
 
   const handleCreate = async () => {
     if (!form.companyName.trim()) { toast({ title: "Company name is required", variant: "destructive" }); return; }
-    await createClient(form);
-    setDialogOpen(false);
-    setForm({ companyName: "", address: "", industryType: "", notes: "" });
-    toast({ title: "Client created" });
-    load();
+    try {
+      await createClient(form);
+      setDialogOpen(false);
+      setForm({ companyName: "", address: "", industryType: "", notes: "" });
+      toast({ title: "Client created" });
+      load();
+    } catch (err: any) {
+      toast({ title: "Error creating client", description: err.message, variant: "destructive" });
+    }
   };
 
   return (
@@ -145,9 +149,13 @@ function ClientDetail() {
   };
 
   const handleDelete = async () => {
-    await deleteClient(client.id);
-    toast({ title: "Client deleted" });
-    navigate("/clients");
+    try {
+      await deleteClient(client.id);
+      toast({ title: "Client deleted" });
+      navigate("/clients");
+    } catch (err: any) {
+      toast({ title: "Error deleting client", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleAddContact = async () => {

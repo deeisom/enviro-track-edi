@@ -27,13 +27,13 @@ export async function createProject(input: Omit<Project, "id" | "projectNumber" 
     project_number: projectNumber,
     name: input.name,
     description: input.description,
-    client_id: input.clientId || null,
-    contact_id: input.contactId || null,
+    client_id: (input.clientId && input.clientId !== "_none") ? input.clientId : null,
+    contact_id: (input.contactId && input.contactId !== "_none") ? input.contactId : null,
     location: input.location,
     assigned_to: input.assignedTo,
     notes: input.notes,
     status: input.status,
-    parent_project_id: input.parentProjectId || null,
+    parent_project_id: (input.parentProjectId && input.parentProjectId !== "_none") ? input.parentProjectId : null,
   } as any).select().single();
   if (error) throw error;
   const project = mapProject(data);
