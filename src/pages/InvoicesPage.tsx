@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRates } from "@/services/invoiceStorage";
-import { getAllProjects, getAllClients, getClient } from "@/services/storage";
+import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivity } from "@/services/storage";
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
 import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
@@ -29,6 +29,22 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
 
   const handleStatusChange = (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
     updateInvoice(inv.id, { status: newStatus });
+    
+    // Log activity for invoices (not estimates) when status changes to sent or paid
+    if (inv.type === "invoice" && (newStatus === "sent" || newStatus === "paid") && inv.projectId) {
+      const project = getProject(inv.projectId);
+      if (project) {
+        addInvoiceActivity({
+          projectId: project.id,
+          projectNumber: project.projectNumber,
+          invoiceId: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          note: `Invoice ${inv.invoiceNumber} marked as ${newStatus}`,
+          newStatus: project.status,
+        });
+      }
+    }
+    
     toast({ title: `Status updated to ${newStatus}` });
     load();
   };
