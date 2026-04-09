@@ -77,4 +77,7 @@ export interface ActivityLogEntry {
   newStatus: ProjectStatus;
   note: string;
   timestamp: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  isInvoiceEvent?: boolean;
 }
