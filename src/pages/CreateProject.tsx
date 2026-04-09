@@ -12,6 +12,7 @@ import { createProject, getAllClients, getAllProjects } from "@/services/storage
 import { PROJECT_STATUSES, ProjectStatus, Client } from "@/types";
 import { toast } from "@/hooks/use-toast";
 import { Leaf } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 export default function CreateProject() {
   const navigate = useNavigate();
@@ -125,10 +126,10 @@ export default function CreateProject() {
 
             <div className="space-y-2">
               <Label htmlFor="location">Location / Site Address</Label>
-              <Input
+              <AddressAutocomplete
                 id="location"
                 value={form.location}
-                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                onChange={v => setForm(f => ({ ...f, location: v }))}
                 placeholder="123 Main St, City, State"
               />
             </div>

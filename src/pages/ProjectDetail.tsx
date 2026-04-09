@@ -274,7 +274,7 @@ export default function ProjectDetail() {
             </div>
             <div className="space-y-2">
               <Label>Location</Label>
-              <Input value={editForm.location} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} />
+              <AddressAutocomplete value={editForm.location} onChange={v => setEditForm(f => ({ ...f, location: v }))} />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
