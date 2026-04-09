@@ -14,16 +14,379 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_log: {
+        Row: {
+          id: string
+          invoice_id: string | null
+          invoice_number: string | null
+          is_invoice_event: boolean
+          new_status: string
+          note: string
+          previous_status: string | null
+          project_id: string
+          project_number: string
+          timestamp: string
+        }
+        Insert: {
+          id?: string
+          invoice_id?: string | null
+          invoice_number?: string | null
+          is_invoice_event?: boolean
+          new_status: string
+          note?: string
+          previous_status?: string | null
+          project_id: string
+          project_number: string
+          timestamp?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string | null
+          invoice_number?: string | null
+          is_invoice_event?: boolean
+          new_status?: string
+          note?: string
+          previous_status?: string | null
+          project_id?: string
+          project_number?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string
+          company_name: string
+          created_at: string
+          id: string
+          industry_type: string
+          notes: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string
+          company_name: string
+          created_at?: string
+          id?: string
+          industry_type?: string
+          notes?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          company_name?: string
+          created_at?: string
+          id?: string
+          industry_type?: string
+          notes?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          client_id: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          title: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          email?: string
+          id?: string
+          name: string
+          phone?: string
+          title?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_counter: {
+        Row: {
+          counter: number
+          type: string
+        }
+        Insert: {
+          counter?: number
+          type: string
+        }
+        Update: {
+          counter?: number
+          type?: string
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          bill_to: Json
+          client_id: string | null
+          created_at: string
+          date: string
+          due_date: string
+          id: string
+          invoice_number: string
+          line_items: Json
+          po_number: string
+          project_id: string | null
+          project_summary: string
+          status: string
+          terms: string
+          total: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          bill_to?: Json
+          client_id?: string | null
+          created_at?: string
+          date?: string
+          due_date?: string
+          id?: string
+          invoice_number: string
+          line_items?: Json
+          po_number?: string
+          project_id?: string | null
+          project_summary?: string
+          status?: string
+          terms?: string
+          total?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          bill_to?: Json
+          client_id?: string | null
+          created_at?: string
+          date?: string
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          line_items?: Json
+          po_number?: string
+          project_id?: string | null
+          project_summary?: string
+          status?: string
+          terms?: string
+          total?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      project_counter: {
+        Row: {
+          counter: number
+          year: number
+        }
+        Insert: {
+          counter?: number
+          year: number
+        }
+        Update: {
+          counter?: number
+          year?: number
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          assigned_to: string[]
+          client_id: string | null
+          contact_id: string | null
+          created_at: string
+          description: string
+          id: string
+          location: string
+          name: string
+          notes: string
+          parent_project_id: string | null
+          project_number: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string[]
+          client_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string
+          name: string
+          notes?: string
+          parent_project_id?: string | null
+          project_number: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string[]
+          client_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string
+          name?: string
+          notes?: string
+          parent_project_id?: string | null
+          project_number?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_parent_project_id_fkey"
+            columns: ["parent_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rates: {
+        Row: {
+          category: string
+          default_rate: number
+          description: string
+          id: string
+          name: string
+          unit: string
+        }
+        Insert: {
+          category?: string
+          default_rate?: number
+          description?: string
+          id?: string
+          name: string
+          unit?: string
+        }
+        Update: {
+          category?: string
+          default_rate?: number
+          description?: string
+          id?: string
+          name?: string
+          unit?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_next_invoice_number: { Args: { _type: string }; Returns: string }
+      get_next_project_number: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +513,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
