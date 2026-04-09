@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import {
   getAllClients, createClient, updateClient, deleteClient,
-  getContactsByClient, createContact, deleteContact,
+  getContactsByClient, createContact, updateContact, deleteContact,
   getAllProjects, getClient,
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
@@ -116,6 +116,7 @@ function ClientDetail() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [contactDialog, setContactDialog] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", title: "", email: "", phone: "" });
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -153,10 +154,16 @@ function ClientDetail() {
   };
   const handleAddContact = () => {
     if (!contactForm.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    createContact({ ...contactForm, clientId: client.id });
+    if (editingContact) {
+      updateContact(editingContact.id, contactForm);
+      toast({ title: "Contact updated" });
+    } else {
+      createContact({ ...contactForm, clientId: client.id });
+      toast({ title: "Contact added" });
+    }
     setContactDialog(false);
     setContactForm({ name: "", title: "", email: "", phone: "" });
-    toast({ title: "Contact added" });
+    setEditingContact(null);
     load();
   };
 
@@ -164,6 +171,18 @@ function ClientDetail() {
     deleteContact(contactId);
     toast({ title: "Contact removed" });
     load();
+  };
+
+  const handleEditContact = (contact: Contact) => {
+    setEditingContact(contact);
+    setContactForm({ name: contact.name, title: contact.title || "", email: contact.email || "", phone: contact.phone || "" });
+    setContactDialog(true);
+  };
+
+  const openAddContact = () => {
+    setEditingContact(null);
+    setContactForm({ name: "", title: "", email: "", phone: "" });
+    setContactDialog(true);
   };
 
   return (
@@ -196,7 +215,7 @@ function ClientDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Contacts</CardTitle>
-            <Button size="sm" variant="outline" onClick={() => setContactDialog(true)}><Plus className="h-3 w-3 mr-1" /> Add</Button>
+            <Button size="sm" variant="outline" onClick={openAddContact}><Plus className="h-3 w-3 mr-1" /> Add</Button>
           </CardHeader>
           <CardContent>
             {contacts.length === 0 ? (
@@ -211,9 +230,14 @@ function ClientDetail() {
                       {c.email && <p>{c.email}</p>}
                       {c.phone && <p>{c.phone}</p>}
                     </div>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}>
-                      <Trash2 className="h-3 w-3 text-muted-foreground" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}>
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -257,8 +281,8 @@ function ClientDetail() {
       <Dialog open={contactDialog} onOpenChange={setContactDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Contact</DialogTitle>
-            <DialogDescription>Add a contact for {client.companyName}</DialogDescription>
+            <DialogTitle>{editingContact ? "Edit Contact" : "Add Contact"}</DialogTitle>
+            <DialogDescription>{editingContact ? "Update contact information" : `Add a contact for ${client.companyName}`}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name *</Label><Input value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} /></div>
@@ -268,7 +292,7 @@ function ClientDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setContactDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddContact}>Add Contact</Button>
+            <Button onClick={handleAddContact}>{editingContact ? "Save Changes" : "Add Contact"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
