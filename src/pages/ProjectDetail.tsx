@@ -15,7 +15,7 @@ import {
 import { StatusBadge, StatusTimeline } from "@/components/StatusBadge";
 import {
   getProject, updateProject, changeProjectStatus, getProjectActivity,
-  getClient, getContactsByClient, deleteActivity,
+  getClient, getContactsByClient, deleteActivity, deleteProject,
 } from "@/services/storage";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
