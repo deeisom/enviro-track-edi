@@ -1,60 +1,44 @@
+import { supabase } from "@/integrations/supabase/client";
 import { Project, Client, Contact, ActivityLogEntry, ProjectStatus } from "@/types";
-
-const KEYS = {
-  projects: "epm_projects",
-  clients: "epm_clients",
-  contacts: "epm_contacts",
-  activity: "epm_activity",
-  counter: "epm_project_counter",
-};
-
-function read<T>(key: string): T[] {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function write<T>(key: string, data: T[]) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-function genId(): string {
-  return crypto.randomUUID();
-}
 
 // --- Projects ---
 
-export function getNextProjectNumber(): string {
-  const year = new Date().getFullYear();
-  const yearKey = `${KEYS.counter}_${year}`;
-  const counter = parseInt(localStorage.getItem(yearKey) || "0", 10) + 1;
-  localStorage.setItem(yearKey, String(counter));
-  return `EDI-${year}-${String(counter).padStart(4, "0")}`;
+export async function getNextProjectNumber(): Promise<string> {
+  const { data, error } = await supabase.rpc("get_next_project_number");
+  if (error) throw error;
+  return data as string;
 }
 
-export function getAllProjects(): Project[] {
-  return read<Project>(KEYS.projects);
+export async function getAllProjects(): Promise<Project[]> {
+  const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapProject);
 }
 
-export function getProject(id: string): Project | undefined {
-  return getAllProjects().find(p => p.id === id);
+export async function getProject(id: string): Promise<Project | undefined> {
+  const { data, error } = await supabase.from("projects").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapProject(data) : undefined;
 }
 
-export function createProject(data: Omit<Project, "id" | "projectNumber" | "createdAt" | "updatedAt">): Project {
-  const projects = getAllProjects();
-  const project: Project = {
-    ...data,
-    id: genId(),
-    projectNumber: getNextProjectNumber(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  projects.push(project);
-  write(KEYS.projects, projects);
+export async function createProject(input: Omit<Project, "id" | "projectNumber" | "createdAt" | "updatedAt">): Promise<Project> {
+  const projectNumber = await getNextProjectNumber();
+  const { data, error } = await supabase.from("projects").insert({
+    project_number: projectNumber,
+    name: input.name,
+    description: input.description,
+    client_id: input.clientId || null,
+    contact_id: input.contactId || null,
+    location: input.location,
+    assigned_to: input.assignedTo,
+    notes: input.notes,
+    status: input.status,
+    parent_project_id: input.parentProjectId || null,
+  }).select().single();
+  if (error) throw error;
+  const project = mapProject(data);
 
-  addActivity({
+  await addActivity({
     projectId: project.id,
     projectNumber: project.projectNumber,
     previousStatus: null,
@@ -65,39 +49,45 @@ export function createProject(data: Omit<Project, "id" | "projectNumber" | "crea
   return project;
 }
 
-export function updateProject(id: string, data: Partial<Project>): Project | undefined {
-  const projects = getAllProjects();
-  const idx = projects.findIndex(p => p.id === id);
-  if (idx === -1) return undefined;
+export async function updateProject(id: string, input: Partial<Project>): Promise<Project | undefined> {
+  const old = await getProject(id);
+  if (!old) return undefined;
 
-  const old = projects[idx];
-  const updated = { ...old, ...data, updatedAt: new Date().toISOString() };
-  projects[idx] = updated;
-  write(KEYS.projects, projects);
+  const updateData: Record<string, any> = {};
+  if (input.name !== undefined) updateData.name = input.name;
+  if (input.description !== undefined) updateData.description = input.description;
+  if (input.location !== undefined) updateData.location = input.location;
+  if (input.notes !== undefined) updateData.notes = input.notes;
+  if (input.status !== undefined) updateData.status = input.status;
+  if (input.clientId !== undefined) updateData.client_id = input.clientId;
+  if (input.contactId !== undefined) updateData.contact_id = input.contactId;
+  if (input.assignedTo !== undefined) updateData.assigned_to = input.assignedTo;
+  if (input.parentProjectId !== undefined) updateData.parent_project_id = input.parentProjectId;
 
-  if (data.status && data.status !== old.status) {
-    addActivity({
+  const { data, error } = await supabase.from("projects").update(updateData).eq("id", id).select().single();
+  if (error) throw error;
+
+  if (input.status && input.status !== old.status) {
+    await addActivity({
       projectId: id,
       projectNumber: old.projectNumber,
       previousStatus: old.status,
-      newStatus: data.status,
+      newStatus: input.status,
       note: "",
     });
   }
 
-  return updated;
+  return mapProject(data);
 }
 
-export function changeProjectStatus(id: string, newStatus: ProjectStatus, note: string = ""): Project | undefined {
-  const projects = getAllProjects();
-  const idx = projects.findIndex(p => p.id === id);
-  if (idx === -1) return undefined;
+export async function changeProjectStatus(id: string, newStatus: ProjectStatus, note: string = ""): Promise<Project | undefined> {
+  const old = await getProject(id);
+  if (!old) return undefined;
 
-  const old = projects[idx];
-  projects[idx] = { ...old, status: newStatus, updatedAt: new Date().toISOString() };
-  write(KEYS.projects, projects);
+  const { data, error } = await supabase.from("projects").update({ status: newStatus }).eq("id", id).select().single();
+  if (error) throw error;
 
-  addActivity({
+  await addActivity({
     projectId: id,
     projectNumber: old.projectNumber,
     previousStatus: old.status,
@@ -105,100 +95,169 @@ export function changeProjectStatus(id: string, newStatus: ProjectStatus, note: 
     note,
   });
 
-  return projects[idx];
+  return mapProject(data);
+}
+
+function mapProject(row: any): Project {
+  return {
+    id: row.id,
+    projectNumber: row.project_number,
+    name: row.name,
+    description: row.description || "",
+    clientId: row.client_id,
+    contactId: row.contact_id,
+    location: row.location || "",
+    assignedTo: row.assigned_to || [],
+    notes: row.notes || "",
+    status: row.status as ProjectStatus,
+    parentProjectId: row.parent_project_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 // --- Clients ---
 
-export function getAllClients(): Client[] {
-  return read<Client>(KEYS.clients);
+export async function getAllClients(): Promise<Client[]> {
+  const { data, error } = await supabase.from("clients").select("*").order("company_name");
+  if (error) throw error;
+  return (data || []).map(mapClient);
 }
 
-export function getClient(id: string): Client | undefined {
-  return getAllClients().find(c => c.id === id);
+export async function getClient(id: string): Promise<Client | undefined> {
+  const { data, error } = await supabase.from("clients").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapClient(data) : undefined;
 }
 
-export function createClient(data: Omit<Client, "id" | "createdAt" | "updatedAt">): Client {
-  const clients = getAllClients();
-  const client: Client = {
-    ...data,
-    id: genId(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+export async function createClient(input: Omit<Client, "id" | "createdAt" | "updatedAt">): Promise<Client> {
+  const { data, error } = await supabase.from("clients").insert({
+    company_name: input.companyName,
+    address: input.address,
+    industry_type: input.industryType,
+    notes: input.notes,
+  }).select().single();
+  if (error) throw error;
+  return mapClient(data);
+}
+
+export async function updateClient(id: string, input: Partial<Client>): Promise<Client | undefined> {
+  const updateData: Record<string, any> = {};
+  if (input.companyName !== undefined) updateData.company_name = input.companyName;
+  if (input.address !== undefined) updateData.address = input.address;
+  if (input.industryType !== undefined) updateData.industry_type = input.industryType;
+  if (input.notes !== undefined) updateData.notes = input.notes;
+
+  const { data, error } = await supabase.from("clients").update(updateData).eq("id", id).select().single();
+  if (error) throw error;
+  return mapClient(data);
+}
+
+export async function deleteClient(id: string) {
+  const { error } = await supabase.from("clients").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function mapClient(row: any): Client {
+  return {
+    id: row.id,
+    companyName: row.company_name,
+    address: row.address || "",
+    industryType: row.industry_type || "",
+    notes: row.notes || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
-  clients.push(client);
-  write(KEYS.clients, clients);
-  return client;
-}
-
-export function updateClient(id: string, data: Partial<Client>): Client | undefined {
-  const clients = getAllClients();
-  const idx = clients.findIndex(c => c.id === id);
-  if (idx === -1) return undefined;
-  clients[idx] = { ...clients[idx], ...data, updatedAt: new Date().toISOString() };
-  write(KEYS.clients, clients);
-  return clients[idx];
-}
-
-export function deleteClient(id: string) {
-  write(KEYS.clients, getAllClients().filter(c => c.id !== id));
-  write(KEYS.contacts, getAllContacts().filter(c => c.clientId !== id));
 }
 
 // --- Contacts ---
 
-export function getAllContacts(): Contact[] {
-  return read<Contact>(KEYS.contacts);
+export async function getAllContacts(): Promise<Contact[]> {
+  const { data, error } = await supabase.from("contacts").select("*");
+  if (error) throw error;
+  return (data || []).map(mapContact);
 }
 
-export function getContactsByClient(clientId: string): Contact[] {
-  return getAllContacts().filter(c => c.clientId === clientId);
+export async function getContactsByClient(clientId: string): Promise<Contact[]> {
+  const { data, error } = await supabase.from("contacts").select("*").eq("client_id", clientId);
+  if (error) throw error;
+  return (data || []).map(mapContact);
 }
 
-export function createContact(data: Omit<Contact, "id" | "createdAt">): Contact {
-  const contacts = getAllContacts();
-  const contact: Contact = { ...data, id: genId(), createdAt: new Date().toISOString() };
-  contacts.push(contact);
-  write(KEYS.contacts, contacts);
-  return contact;
+export async function createContact(input: Omit<Contact, "id" | "createdAt">): Promise<Contact> {
+  const { data, error } = await supabase.from("contacts").insert({
+    client_id: input.clientId,
+    name: input.name,
+    title: input.title,
+    email: input.email,
+    phone: input.phone,
+  }).select().single();
+  if (error) throw error;
+  return mapContact(data);
 }
 
-export function updateContact(id: string, data: Partial<Contact>): Contact | undefined {
-  const contacts = getAllContacts();
-  const idx = contacts.findIndex(c => c.id === id);
-  if (idx === -1) return undefined;
-  contacts[idx] = { ...contacts[idx], ...data };
-  write(KEYS.contacts, contacts);
-  return contacts[idx];
+export async function updateContact(id: string, input: Partial<Contact>): Promise<Contact | undefined> {
+  const updateData: Record<string, any> = {};
+  if (input.name !== undefined) updateData.name = input.name;
+  if (input.title !== undefined) updateData.title = input.title;
+  if (input.email !== undefined) updateData.email = input.email;
+  if (input.phone !== undefined) updateData.phone = input.phone;
+
+  const { data, error } = await supabase.from("contacts").update(updateData).eq("id", id).select().single();
+  if (error) throw error;
+  return mapContact(data);
 }
 
-export function deleteContact(id: string) {
-  write(KEYS.contacts, getAllContacts().filter(c => c.id !== id));
+export async function deleteContact(id: string) {
+  const { error } = await supabase.from("contacts").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function mapContact(row: any): Contact {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    name: row.name,
+    title: row.title || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    createdAt: row.created_at,
+  };
 }
 
 // --- Activity Log ---
 
-export function getAllActivity(): ActivityLogEntry[] {
-  return read<ActivityLogEntry>(KEYS.activity).sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+export async function getAllActivity(): Promise<ActivityLogEntry[]> {
+  const { data, error } = await supabase.from("activity_log").select("*").order("timestamp", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapActivity);
 }
 
-export function getProjectActivity(projectId: string): ActivityLogEntry[] {
-  return getAllActivity().filter(a => a.projectId === projectId);
+export async function getProjectActivity(projectId: string): Promise<ActivityLogEntry[]> {
+  const { data, error } = await supabase.from("activity_log").select("*").eq("project_id", projectId).order("timestamp", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapActivity);
 }
 
-function addActivity(data: Omit<ActivityLogEntry, "id" | "timestamp">) {
-  const activity = read<ActivityLogEntry>(KEYS.activity);
-  activity.push({ ...data, id: genId(), timestamp: new Date().toISOString() });
-  write(KEYS.activity, activity);
+async function addActivity(input: Omit<ActivityLogEntry, "id" | "timestamp">) {
+  await supabase.from("activity_log").insert({
+    project_id: input.projectId,
+    project_number: input.projectNumber,
+    previous_status: input.previousStatus,
+    new_status: input.newStatus,
+    note: input.note || "",
+    invoice_id: input.invoiceId || null,
+    invoice_number: input.invoiceNumber || null,
+    is_invoice_event: input.isInvoiceEvent || false,
+  });
 }
 
-export function deleteActivity(id: string) {
-  write(KEYS.activity, read<ActivityLogEntry>(KEYS.activity).filter(a => a.id !== id));
+export async function deleteActivity(id: string) {
+  const { error } = await supabase.from("activity_log").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function addInvoiceActivity(data: {
+export async function addInvoiceActivity(input: {
   projectId: string;
   projectNumber: string;
   invoiceId: string;
@@ -206,13 +265,29 @@ export function addInvoiceActivity(data: {
   note: string;
   newStatus: ProjectStatus;
 }) {
-  const activity = read<ActivityLogEntry>(KEYS.activity);
-  activity.push({
-    ...data,
-    id: genId(),
-    previousStatus: null,
-    timestamp: new Date().toISOString(),
-    isInvoiceEvent: true,
+  await supabase.from("activity_log").insert({
+    project_id: input.projectId,
+    project_number: input.projectNumber,
+    previous_status: null,
+    new_status: input.newStatus,
+    note: input.note,
+    invoice_id: input.invoiceId,
+    invoice_number: input.invoiceNumber,
+    is_invoice_event: true,
   });
-  write(KEYS.activity, activity);
+}
+
+function mapActivity(row: any): ActivityLogEntry {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    projectNumber: row.project_number,
+    previousStatus: row.previous_status as ProjectStatus | null,
+    newStatus: row.new_status as ProjectStatus,
+    note: row.note || "",
+    timestamp: row.timestamp,
+    invoiceId: row.invoice_id || undefined,
+    invoiceNumber: row.invoice_number || undefined,
+    isInvoiceEvent: row.is_invoice_event || false,
+  };
 }

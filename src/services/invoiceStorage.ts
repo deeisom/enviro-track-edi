@@ -1,92 +1,147 @@
+import { supabase } from "@/integrations/supabase/client";
 import { RateItem, Invoice, InvoiceLineItem } from "@/types/invoice";
 
-const KEYS = {
-  rates: "epm_rates",
-  invoices: "epm_invoices",
-  invCounter: "epm_invoice_counter",
-  estCounter: "epm_estimate_counter",
-};
-
-function read<T>(key: string): T[] {
-  try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
-}
-function write<T>(key: string, data: T[]) { localStorage.setItem(key, JSON.stringify(data)); }
-function genId(): string { return crypto.randomUUID(); }
-
-// --- Seed Data ---
-const SEED_RATES: Omit<RateItem, "id">[] = [
-  { name: "Program Administration", description: "Review & update documentation; data interpretation; DOE/DEP forms preparation; project communications & coordination", category: "services", defaultRate: 95, unit: "per hour" },
-  { name: "Sample Collection", description: "Fieldwork - on-site first-draw sample collection; field recordation; sample processing", category: "services", defaultRate: 65, unit: "per hour" },
-  { name: "Lead in Water - EPA 200.8", description: "Analysis for lead in water per EPA Method 200.8 (ICP-MS); includes QA/QC blanks; 2-week turnaround", category: "analytical", defaultRate: 16, unit: "per sample" },
-  { name: "Sample Bottles & Supplies", description: "Supplies; 250ml sample bottles with preservative; gloves, labels", category: "consumables", defaultRate: 4, unit: "each" },
-  { name: "Psychrometer/TSI-Calc", description: "Psychrometer/TSI-Calc for temperature and humidity readings at sample locations", category: "equipment", defaultRate: 85, unit: "per day" },
-  { name: "Project Manager", description: "Project Manager", category: "services", defaultRate: 78.5, unit: "per hour" },
-  { name: "Asbestos Air Monitor", description: "Asbestos Air Monitor", category: "services", defaultRate: 65, unit: "per hour" },
-  { name: "Final Report", description: "Final Report", category: "services", defaultRate: 150, unit: "flat" },
-  { name: "TEM Air Samples 6-Hour TAT", description: "TEM air samples 6-hour TAT", category: "analytical", defaultRate: 82, unit: "per sample" },
-  { name: "Industrial Hygiene Services", description: "Project oversight; onsite sampling and data collection; sample preparation; lab transmittal; data interpretation; final report preparation; project communications", category: "services", defaultRate: 1500, unit: "flat" },
-  { name: "Mold in Air Samples", description: "Mold in air samples", category: "analytical", defaultRate: 70, unit: "per sample" },
-  { name: "Sampling Cassettes for Mold", description: "Sampling cassettes for mold in air", category: "consumables", defaultRate: 6, unit: "each" },
-  { name: "Zefon Sampling Pump", description: "Zefon sampling pump", category: "equipment", defaultRate: 30, unit: "per day" },
-];
-
-export function seedRatesIfEmpty(): void {
-  if (getAllRates().length === 0) {
-    SEED_RATES.forEach(r => createRate(r));
-  }
-}
-
 // --- Rate Items ---
-export function getAllRates(): RateItem[] { return read<RateItem>(KEYS.rates); }
-export function createRate(data: Omit<RateItem, "id">): RateItem {
-  const rates = getAllRates();
-  const item: RateItem = { ...data, id: genId() };
-  rates.push(item);
-  write(KEYS.rates, rates);
-  return item;
+
+export async function getAllRates(): Promise<RateItem[]> {
+  const { data, error } = await supabase.from("rates").select("*").order("name");
+  if (error) throw error;
+  return (data || []).map(mapRate);
 }
-export function updateRate(id: string, data: Partial<RateItem>): RateItem | undefined {
-  const rates = getAllRates();
-  const idx = rates.findIndex(r => r.id === id);
-  if (idx === -1) return undefined;
-  rates[idx] = { ...rates[idx], ...data };
-  write(KEYS.rates, rates);
-  return rates[idx];
+
+export async function createRate(input: Omit<RateItem, "id">): Promise<RateItem> {
+  const { data, error } = await supabase.from("rates").insert({
+    name: input.name,
+    description: input.description,
+    category: input.category,
+    default_rate: input.defaultRate,
+    unit: input.unit,
+  }).select().single();
+  if (error) throw error;
+  return mapRate(data);
 }
-export function deleteRate(id: string) { write(KEYS.rates, getAllRates().filter(r => r.id !== id)); }
+
+export async function updateRate(id: string, input: Partial<RateItem>): Promise<RateItem | undefined> {
+  const updateData: Record<string, any> = {};
+  if (input.name !== undefined) updateData.name = input.name;
+  if (input.description !== undefined) updateData.description = input.description;
+  if (input.category !== undefined) updateData.category = input.category;
+  if (input.defaultRate !== undefined) updateData.default_rate = input.defaultRate;
+  if (input.unit !== undefined) updateData.unit = input.unit;
+
+  const { data, error } = await supabase.from("rates").update(updateData).eq("id", id).select().single();
+  if (error) throw error;
+  return mapRate(data);
+}
+
+export async function deleteRate(id: string) {
+  const { error } = await supabase.from("rates").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// seedRatesIfEmpty is no longer needed — rates are seeded in the migration
+export function seedRatesIfEmpty() {}
+
+function mapRate(row: any): RateItem {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || "",
+    category: row.category as RateItem["category"],
+    defaultRate: Number(row.default_rate),
+    unit: row.unit,
+  };
+}
 
 // --- Invoices ---
-export function getNextInvoiceNumber(type: "invoice" | "estimate"): string {
-  const key = type === "invoice" ? KEYS.invCounter : KEYS.estCounter;
-  const prefix = type === "invoice" ? "INV" : "EST";
-  const counter = parseInt(localStorage.getItem(key) || "0", 10) + 1;
-  localStorage.setItem(key, String(counter));
-  return `${prefix}-${String(counter).padStart(4, "0")}`;
+
+export async function getNextInvoiceNumber(type: "invoice" | "estimate"): Promise<string> {
+  const { data, error } = await supabase.rpc("get_next_invoice_number", { _type: type });
+  if (error) throw error;
+  return data as string;
 }
-export function getAllInvoices(): Invoice[] { return read<Invoice>(KEYS.invoices); }
-export function getInvoice(id: string): Invoice | undefined { return getAllInvoices().find(i => i.id === id); }
-export function getInvoicesByProject(projectId: string): Invoice[] {
-  return getAllInvoices().filter(i => i.projectId === projectId);
+
+export async function getAllInvoices(): Promise<Invoice[]> {
+  const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapInvoice);
 }
-export function createInvoice(data: Omit<Invoice, "id" | "invoiceNumber" | "createdAt" | "updatedAt">): Invoice {
-  const invoices = getAllInvoices();
-  const invoice: Invoice = {
-    ...data,
-    id: genId(),
-    invoiceNumber: getNextInvoiceNumber(data.type),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+
+export async function getInvoice(id: string): Promise<Invoice | undefined> {
+  const { data, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapInvoice(data) : undefined;
+}
+
+export async function getInvoicesByProject(projectId: string): Promise<Invoice[]> {
+  const { data, error } = await supabase.from("invoices").select("*").eq("project_id", projectId);
+  if (error) throw error;
+  return (data || []).map(mapInvoice);
+}
+
+export async function createInvoice(input: Omit<Invoice, "id" | "invoiceNumber" | "createdAt" | "updatedAt">): Promise<Invoice> {
+  const invoiceNumber = await getNextInvoiceNumber(input.type);
+  const { data, error } = await supabase.from("invoices").insert({
+    invoice_number: invoiceNumber,
+    type: input.type,
+    project_id: input.projectId || null,
+    client_id: input.clientId || null,
+    bill_to: input.billTo as any,
+    po_number: input.poNumber,
+    date: input.date,
+    due_date: input.dueDate,
+    terms: input.terms,
+    project_summary: input.projectSummary,
+    line_items: input.lineItems as any,
+    total: input.total,
+    status: input.status,
+  }).select().single();
+  if (error) throw error;
+  return mapInvoice(data);
+}
+
+export async function updateInvoice(id: string, input: Partial<Invoice>): Promise<Invoice | undefined> {
+  const updateData: Record<string, any> = {};
+  if (input.type !== undefined) updateData.type = input.type;
+  if (input.projectId !== undefined) updateData.project_id = input.projectId;
+  if (input.clientId !== undefined) updateData.client_id = input.clientId;
+  if (input.billTo !== undefined) updateData.bill_to = input.billTo;
+  if (input.poNumber !== undefined) updateData.po_number = input.poNumber;
+  if (input.date !== undefined) updateData.date = input.date;
+  if (input.dueDate !== undefined) updateData.due_date = input.dueDate;
+  if (input.terms !== undefined) updateData.terms = input.terms;
+  if (input.projectSummary !== undefined) updateData.project_summary = input.projectSummary;
+  if (input.lineItems !== undefined) updateData.line_items = input.lineItems;
+  if (input.total !== undefined) updateData.total = input.total;
+  if (input.status !== undefined) updateData.status = input.status;
+
+  const { data, error } = await supabase.from("invoices").update(updateData).eq("id", id).select().single();
+  if (error) throw error;
+  return mapInvoice(data);
+}
+
+export async function deleteInvoice(id: string) {
+  const { error } = await supabase.from("invoices").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function mapInvoice(row: any): Invoice {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number,
+    type: row.type as Invoice["type"],
+    projectId: row.project_id,
+    clientId: row.client_id,
+    billTo: (row.bill_to as any) || { name: "", address: "" },
+    poNumber: row.po_number || "",
+    date: row.date || "",
+    dueDate: row.due_date || "",
+    terms: row.terms || "",
+    projectSummary: row.project_summary || "",
+    lineItems: (row.line_items as InvoiceLineItem[]) || [],
+    total: Number(row.total),
+    status: row.status as Invoice["status"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
-  invoices.push(invoice);
-  write(KEYS.invoices, invoices);
-  return invoice;
 }
-export function updateInvoice(id: string, data: Partial<Invoice>): Invoice | undefined {
-  const invoices = getAllInvoices();
-  const idx = invoices.findIndex(i => i.id === id);
-  if (idx === -1) return undefined;
-  invoices[idx] = { ...invoices[idx], ...data, updatedAt: new Date().toISOString() };
-  write(KEYS.invoices, invoices);
-  return invoices[idx];
-}
-export function deleteInvoice(id: string) { write(KEYS.invoices, getAllInvoices().filter(i => i.id !== id)); }
