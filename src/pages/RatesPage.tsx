@@ -37,18 +37,30 @@ export default function RatesPage() {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
-    if (editId) {
-      await updateRate(editId, form);
-      toast({ title: "Rate item updated" });
-    } else {
-      await createRate(form);
-      toast({ title: "Rate item created" });
+    try {
+      if (editId) {
+        await updateRate(editId, form);
+        toast({ title: "Rate item updated" });
+      } else {
+        await createRate(form);
+        toast({ title: "Rate item created" });
+      }
+      setDialog(false);
+      load();
+    } catch (err: any) {
+      toast({ title: "Error saving rate", description: err.message, variant: "destructive" });
     }
-    setDialog(false);
-    load();
   };
 
-  const handleDelete = async (id: string) => { await deleteRate(id); toast({ title: "Rate item deleted" }); load(); };
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteRate(id);
+      toast({ title: "Rate item deleted" });
+      load();
+    } catch (err: any) {
+      toast({ title: "Error deleting rate", description: err.message, variant: "destructive" });
+    }
+  };
 
   const getCatLabel = (cat: RateCategory) => RATE_CATEGORIES.find(c => c.value === cat)?.label || cat;
 

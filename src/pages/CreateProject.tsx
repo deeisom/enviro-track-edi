@@ -45,13 +45,13 @@ export default function CreateProject() {
       const project = await createProject({
         name: form.name.trim(),
         description: form.description.trim(),
-        clientId: form.clientId || null,
+        clientId: (form.clientId && form.clientId !== "_none") ? form.clientId : null,
         contactId: null,
         location: form.location.trim(),
         assignedTo: form.assignedTo ? form.assignedTo.split(",").map(s => s.trim()) : [],
         notes: form.notes.trim(),
         status: form.status,
-        parentProjectId: form.parentProjectId || null,
+        parentProjectId: (form.parentProjectId && form.parentProjectId !== "_none") ? form.parentProjectId : null,
       });
 
       toast({ title: `Project ${project.projectNumber} created!` });
