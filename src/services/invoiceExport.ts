@@ -48,6 +48,16 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0;
 
+  // Custom print margins (inches)
+  ws.pageSetup.margins = {
+    top: 0.85,
+    left: 0.25,
+    right: 0.2,
+    bottom: 0,
+    header: 0,
+    footer: 0,
+  };
+
   // --- Dynamic metadata ---
   // Bill To (A11 = name, A12 = street, A13 = city/state/zip)
   ws.getCell("A11").value = invoice.billTo.name;
@@ -187,6 +197,10 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 }
 
 export async function exportInvoiceToPDF(invoice: Invoice) {
+  // Custom margins in mm: top=0.85in, left=0.25in, right=0.2in, bottom=0in
+  const marginTop = 0.85 * 25.4;   // ~21.6mm
+  const marginLeft = 0.25 * 25.4;  // ~6.35mm
+  const marginRight = 0.2 * 25.4;  // ~5.08mm
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
