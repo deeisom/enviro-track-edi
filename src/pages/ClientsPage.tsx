@@ -18,8 +18,12 @@ import {
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, ArrowLeft, Trash2, Users, Building2 } from "lucide-react";
+import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function ClientsList() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -112,6 +116,9 @@ function ClientDetail() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [contactDialog, setContactDialog] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", title: "", email: "", phone: "" });
+  const [editDialog, setEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
+  const [deleteDialog, setDeleteDialog] = useState(false);
 
   const load = () => {
     if (!id) return;
@@ -126,6 +133,24 @@ function ClientDetail() {
 
   if (!client) return null;
 
+  const handleEdit = () => {
+    setEditForm({ companyName: client.companyName, address: client.address || "", industryType: client.industryType || "", notes: client.notes || "" });
+    setEditDialog(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editForm.companyName.trim()) { toast({ title: "Company name is required", variant: "destructive" }); return; }
+    updateClient(client.id, editForm);
+    setEditDialog(false);
+    toast({ title: "Client updated" });
+    load();
+  };
+
+  const handleDelete = () => {
+    deleteClient(client.id);
+    toast({ title: "Client deleted" });
+    navigate("/clients");
+  };
   const handleAddContact = () => {
     if (!contactForm.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
     createContact({ ...contactForm, clientId: client.id });
@@ -151,6 +176,12 @@ function ClientDetail() {
           <h1 className="text-xl font-bold">{client.companyName}</h1>
           {client.industryType && <p className="text-sm text-muted-foreground">{client.industryType}</p>}
         </div>
+        <Button variant="outline" size="sm" onClick={handleEdit}>
+          <Pencil className="h-3 w-3 mr-1" /> Edit
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}>
+          <Trash2 className="h-3 w-3 mr-1" /> Delete
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -241,6 +272,39 @@ function ClientDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Edit Client Dialog */}
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+            <DialogDescription>Update client information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2"><Label>Company Name *</Label><Input value={editForm.companyName} onChange={e => setEditForm(f => ({ ...f, companyName: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Address</Label><Input value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Industry / Type</Label><Input value={editForm.industryType} onChange={e => setEditForm(f => ({ ...f, industryType: e.target.value }))} placeholder="e.g. Real Estate, Municipal, Industrial" /></div>
+            <div className="space-y-2"><Label>Notes</Label><Textarea value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Client Confirmation */}
+      <AlertDialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {client.companyName}?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete this client and all associated contacts. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
