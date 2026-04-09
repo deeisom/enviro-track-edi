@@ -101,6 +101,15 @@
   }
 }
 
+@layer utilities {
+  .font-frontier {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-text-stroke: 0.5px currentColor;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
