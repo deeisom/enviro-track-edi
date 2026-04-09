@@ -58,7 +58,7 @@ export default function CreateProject() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-frontier font-bold italic tracking-wide mb-6 flex items-center gap-2">Create New Project <Leaf className="h-5 w-5 text-primary" /></h1>
+      <h1 className="text-2xl font-frontier italic tracking-wide mb-6 flex items-center gap-2">Create New Project <Leaf className="h-5 w-5 text-primary" /></h1>
 
       <form onSubmit={handleSubmit}>
         <Card>
