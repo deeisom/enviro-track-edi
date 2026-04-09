@@ -116,6 +116,9 @@ function ClientDetail() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [contactDialog, setContactDialog] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", title: "", email: "", phone: "" });
+  const [editDialog, setEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
+  const [deleteDialog, setDeleteDialog] = useState(false);
 
   const load = () => {
     if (!id) return;
@@ -130,6 +133,24 @@ function ClientDetail() {
 
   if (!client) return null;
 
+  const handleEdit = () => {
+    setEditForm({ companyName: client.companyName, address: client.address || "", industryType: client.industryType || "", notes: client.notes || "" });
+    setEditDialog(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editForm.companyName.trim()) { toast({ title: "Company name is required", variant: "destructive" }); return; }
+    updateClient(client.id, editForm);
+    setEditDialog(false);
+    toast({ title: "Client updated" });
+    load();
+  };
+
+  const handleDelete = () => {
+    deleteClient(client.id);
+    toast({ title: "Client deleted" });
+    navigate("/clients");
+  };
   const handleAddContact = () => {
     if (!contactForm.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
     createContact({ ...contactForm, clientId: client.id });
