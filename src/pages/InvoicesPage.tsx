@@ -29,6 +29,22 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
 
   const handleStatusChange = (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
     updateInvoice(inv.id, { status: newStatus });
+    
+    // Log activity for invoices (not estimates) when status changes to sent or paid
+    if (inv.type === "invoice" && (newStatus === "sent" || newStatus === "paid") && inv.projectId) {
+      const project = getProject(inv.projectId);
+      if (project) {
+        addInvoiceActivity({
+          projectId: project.id,
+          projectNumber: project.projectNumber,
+          invoiceId: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          note: `Invoice ${inv.invoiceNumber} marked as ${newStatus}`,
+          newStatus: project.status,
+        });
+      }
+    }
+    
     toast({ title: `Status updated to ${newStatus}` });
     load();
   };

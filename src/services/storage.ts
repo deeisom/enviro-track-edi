@@ -195,3 +195,22 @@ function addActivity(data: Omit<ActivityLogEntry, "id" | "timestamp">) {
 export function deleteActivity(id: string) {
   write(KEYS.activity, read<ActivityLogEntry>(KEYS.activity).filter(a => a.id !== id));
 }
+
+export function addInvoiceActivity(data: {
+  projectId: string;
+  projectNumber: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  note: string;
+  newStatus: ProjectStatus;
+}) {
+  const activity = read<ActivityLogEntry>(KEYS.activity);
+  activity.push({
+    ...data,
+    id: genId(),
+    previousStatus: null,
+    timestamp: new Date().toISOString(),
+    isInvoiceEvent: true,
+  });
+  write(KEYS.activity, activity);
+}
