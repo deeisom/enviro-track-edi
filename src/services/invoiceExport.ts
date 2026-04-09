@@ -48,6 +48,16 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0;
 
+  // Custom print margins (inches)
+  ws.pageSetup.margins = {
+    top: 0.85,
+    left: 0.25,
+    right: 0.2,
+    bottom: 0,
+    header: 0,
+    footer: 0,
+  };
+
   // --- Dynamic metadata ---
   // Bill To (A11 = name, A12 = street, A13 = city/state/zip)
   ws.getCell("A11").value = invoice.billTo.name;
@@ -187,6 +197,10 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 }
 
 export async function exportInvoiceToPDF(invoice: Invoice) {
+  // Custom margins in mm: top=0.85in, left=0.25in, right=0.2in, bottom=0in
+  const marginTop = 0.85 * 25.4;   // ~21.6mm
+  const marginLeft = 0.25 * 25.4;  // ~6.35mm
+  const marginRight = 0.2 * 25.4;  // ~5.08mm
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -212,34 +226,34 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   // Header
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Environmental Design Inc.", 14, 20);
+  doc.text("Environmental Design Inc.", marginLeft, marginTop);
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
-  doc.text("Professional Environmental Consultants", 14, 26);
+  doc.text("Professional Environmental Consultants", marginLeft, marginTop + 6);
   doc.setFont("helvetica", "normal");
-  doc.text("5434 King Avenue, Suite 101", 14, 32);
-  doc.text("Pennsauken, New Jersey 08109", 14, 37);
-  doc.text("Phone: 856-616-9516  |  www.editesting.com", 14, 42);
+  doc.text("5434 King Avenue, Suite 101", marginLeft, marginTop + 12);
+  doc.text("Pennsauken, New Jersey 08109", marginLeft, marginTop + 17);
+  doc.text("Phone: 856-616-9516  |  www.editesting.com", marginLeft, marginTop + 22);
 
   // Document label
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text(docLabel.toUpperCase(), pageWidth - 14, 20, { align: "right" });
+  doc.text(docLabel.toUpperCase(), pageWidth - marginRight, marginTop, { align: "right" });
 
   doc.setDrawColor(200);
-  doc.line(14, 46, pageWidth - 14, 46);
+  doc.line(marginLeft, marginTop + 26, pageWidth - marginRight, marginTop + 26);
 
   // Bill To + Metadata
-  let y = 54;
+  let y = marginTop + 34;
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("BILL TO", 14, y);
+  doc.text("BILL TO", marginLeft, y);
   doc.setFont("helvetica", "normal");
-  doc.text(invoice.billTo.name, 14, y + 6);
+  doc.text(invoice.billTo.name, marginLeft, y + 6);
   const pdfAddrLines = splitAddress(invoice.billTo.address);
-  doc.text(pdfAddrLines[0], 14, y + 12);
+  doc.text(pdfAddrLines[0], marginLeft, y + 12);
   if (pdfAddrLines[1]) {
-    doc.text(pdfAddrLines[1], 14, y + 17);
+    doc.text(pdfAddrLines[1], marginLeft, y + 17);
   }
 
   const metaX = 130;
@@ -274,10 +288,10 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   y = y + 36;
   if (invoice.projectSummary) {
     doc.setFont("helvetica", "bold");
-    doc.text("PROJECT SUMMARY", 14, y);
+    doc.text("PROJECT SUMMARY", marginLeft, y);
     doc.setFont("helvetica", "normal");
-    const summaryLines = doc.splitTextToSize(invoice.projectSummary, pageWidth - 28);
-    doc.text(summaryLines, 14, y + 6);
+    const summaryLines = doc.splitTextToSize(invoice.projectSummary, pageWidth - marginLeft - marginRight);
+    doc.text(summaryLines, marginLeft, y + 6);
     y += 6 + summaryLines.length * 4 + 4;
   }
 
@@ -307,7 +321,7 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
       3: { cellWidth: 25, halign: "right" },
       4: { cellWidth: 25, halign: "right" },
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: marginLeft, right: marginRight },
   });
 
   // Footer
