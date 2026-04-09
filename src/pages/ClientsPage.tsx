@@ -18,7 +18,7 @@ import {
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil } from "lucide-react";
+import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil, Leaf } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -50,7 +50,7 @@ function ClientsList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-frontier tracking-wide">Clients & Contacts</h1>
+        <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Clients & Contacts <Leaf className="h-5 w-5 text-primary" /></h1>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-1" /> Add Client
         </Button>

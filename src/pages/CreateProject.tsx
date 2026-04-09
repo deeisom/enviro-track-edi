@@ -11,6 +11,7 @@ import {
 import { createProject, getAllClients, getAllProjects } from "@/services/storage";
 import { PROJECT_STATUSES, ProjectStatus, Client } from "@/types";
 import { toast } from "@/hooks/use-toast";
+import { Leaf } from "lucide-react";
 
 export default function CreateProject() {
   const navigate = useNavigate();

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectStatus, getStatusDef } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Edit, Clock, Trash2, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Trash2, FileText, AlertCircle, Leaf } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function ProjectDetail() {
@@ -86,7 +86,7 @@ export default function ProjectDetail() {
             <span className="font-mono text-lg font-bold text-primary">{project.projectNumber}</span>
             <StatusBadge status={project.status} />
           </div>
-          <h1 className="text-xl font-frontier tracking-wide mt-1">{project.name}</h1>
+          <h1 className="text-xl font-frontier font-bold italic tracking-wide mt-1 flex items-center gap-2">{project.name} <Leaf className="h-5 w-5 text-primary" /></h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
