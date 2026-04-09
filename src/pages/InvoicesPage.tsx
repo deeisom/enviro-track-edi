@@ -12,29 +12,35 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRates } from "@/services/invoiceStorage";
 import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivity } from "@/services/storage";
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
+import { Project, Client } from "@/types";
 import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
 import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf } from "lucide-react";
 
 function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const load = () => setInvoices(getAllInvoices().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-  useEffect(load, []);
+  const [projects, setProjects] = useState<Project[]>([]);
 
-  const handleDelete = (id: string) => { deleteInvoice(id); toast({ title: "Deleted" }); load(); };
+  const load = async () => {
+    const [invs, projs] = await Promise.all([getAllInvoices(), getAllProjects()]);
+    setInvoices(invs);
+    setProjects(projs);
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (id: string) => { await deleteInvoice(id); toast({ title: "Deleted" }); load(); };
   const handleExcelExport = async (inv: Invoice) => {
     try { await exportInvoiceToExcel(inv); toast({ title: "Excel downloaded" }); }
     catch (e) { toast({ title: "Export failed", description: String(e), variant: "destructive" }); }
   };
 
-  const handleStatusChange = (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
-    updateInvoice(inv.id, { status: newStatus });
-    
-    // Log activity for invoices (not estimates) when status changes to sent or paid
+  const handleStatusChange = async (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
+    await updateInvoice(inv.id, { status: newStatus });
+
     if (inv.type === "invoice" && (newStatus === "sent" || newStatus === "paid") && inv.projectId) {
-      const project = getProject(inv.projectId);
+      const project = projects.find(p => p.id === inv.projectId);
       if (project) {
-        addInvoiceActivity({
+        await addInvoiceActivity({
           projectId: project.id,
           projectNumber: project.projectNumber,
           invoiceId: inv.id,
@@ -44,12 +50,10 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
         });
       }
     }
-    
+
     toast({ title: `Status updated to ${newStatus}` });
     load();
   };
-
-  const statusColors: Record<string, string> = { draft: "secondary", sent: "default", paid: "outline" };
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -79,7 +83,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
               {invoices.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>
               ) : invoices.map(inv => {
-                const linkedProject = inv.projectId ? getProject(inv.projectId) : null;
+                const linkedProject = projects.find(p => p.id === inv.projectId);
                 return (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono font-medium">{inv.invoiceNumber}</TableCell>
@@ -90,9 +94,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                   <TableCell className="text-right font-mono">${inv.total.toFixed(2)}</TableCell>
                   <TableCell>
                     <Select value={inv.status} onValueChange={v => handleStatusChange(inv, v as any)}>
-                      <SelectTrigger className="h-7 w-24 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="draft">Draft</SelectItem>
                         <SelectItem value="sent">Sent</SelectItem>
@@ -102,15 +104,9 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}>
-                        <FileSpreadsheet className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="PDF" onClick={() => { exportInvoiceToPDF(inv); }}>
-                        <FileText className="h-3.5 w-3.5" />
-                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="PDF" onClick={() => { exportInvoiceToPDF(inv); }}><FileText className="h-3.5 w-3.5" /></Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -140,9 +136,9 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
 }
 
 function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: () => void; prefillProjectId?: string; existingInvoice?: Invoice }) {
-  const projects = getAllProjects();
-  const clients = getAllClients();
-  const rates = getAllRates();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [rates, setRates] = useState<RateItem[]>([]);
 
   const isEditing = !!existingInvoice;
 
@@ -158,31 +154,33 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(existingInvoice?.lineItems || []);
   const [status, setStatus] = useState<"draft" | "sent" | "paid">(existingInvoice?.status || "draft");
 
-  // Auto-fill from project (only on new invoices when projectId changes)
+  useEffect(() => {
+    Promise.all([getAllProjects(), getAllClients(), getAllRates()]).then(([p, c, r]) => {
+      setProjects(p);
+      setClients(c);
+      setRates(r);
+    });
+  }, []);
+
   useEffect(() => {
     if (isEditing) return;
-    if (projectId) {
+    if (projectId && projects.length > 0) {
       const proj = projects.find(p => p.id === projectId);
       if (proj) {
         setProjectSummary(proj.description);
         setPoNumber(proj.projectNumber);
-        if (proj.location) {
-          setBillToAddress(proj.location);
-        }
+        if (proj.location) setBillToAddress(proj.location);
         if (proj.clientId) {
-          const cl = getClient(proj.clientId);
+          const cl = clients.find(c => c.id === proj.clientId);
           if (cl) {
             setBillToName(cl.companyName);
-            if (!proj.location) {
-              setBillToAddress(cl.address);
-            }
+            if (!proj.location) setBillToAddress(cl.address);
           }
         }
       }
     }
-  }, [projectId]);
+  }, [projectId, projects, clients]);
 
-  // Auto-calculate due date
   useEffect(() => {
     if (date && terms === "Net 30" && !isEditing) {
       const d = new Date(date);
@@ -219,30 +217,33 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
 
   const total = lineItems.reduce((s, li) => s + li.amount, 0);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!billToName.trim()) { toast({ title: "Bill To name required", variant: "destructive" }); return; }
     if (lineItems.length === 0) { toast({ title: "Add at least one line item", variant: "destructive" }); return; }
 
     const invoiceData = {
       type,
       projectId: projectId || null,
-      clientId: null,
+      clientId: null as string | null,
       billTo: { name: billToName, address: billToAddress },
       poNumber, date, dueDate, terms, projectSummary,
       lineItems, total, status,
     };
 
-    if (isEditing) {
-      updateInvoice(existingInvoice.id, invoiceData);
-      toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} updated` });
-    } else {
-      createInvoice(invoiceData);
-      toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} created` });
+    try {
+      if (isEditing) {
+        await updateInvoice(existingInvoice.id, invoiceData);
+        toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} updated` });
+      } else {
+        await createInvoice(invoiceData);
+        toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} created` });
+      }
+      onBack();
+    } catch (err: any) {
+      toast({ title: "Error saving", description: err.message, variant: "destructive" });
     }
-    onBack();
   };
 
-  // Group rates by category for the "add from rate table" dropdown
   const ratesByCategory = RATE_CATEGORIES.map(cat => ({
     ...cat,
     items: rates.filter(r => r.category === cat.value),
@@ -255,7 +256,6 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
         <h1 className="text-2xl font-bold">{isEditing ? `Edit ${existingInvoice.invoiceNumber}` : `New ${type === "invoice" ? "Invoice" : "Estimate"}`}</h1>
       </div>
 
-      {/* Type + Project + Status */}
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -294,7 +294,6 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
         </CardContent>
       </Card>
 
-      {/* Bill To + Metadata */}
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -312,22 +311,10 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
             <div className="space-y-4">
               <h3 className="font-semibold">Details</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>PO #</Label>
-                  <Input value={poNumber} onChange={e => setPoNumber(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Terms</Label>
-                  <Input value={terms} onChange={e => setTerms(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Due Date</Label>
-                  <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-                </div>
+                <div className="space-y-2"><Label>PO #</Label><Input value={poNumber} onChange={e => setPoNumber(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Date</Label><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Terms</Label><Input value={terms} onChange={e => setTerms(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
               </div>
             </div>
           </div>
@@ -338,7 +325,6 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
         </CardContent>
       </Card>
 
-      {/* Line Items */}
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -379,18 +365,10 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
               <TableBody>
                 {lineItems.map(li => (
                   <TableRow key={li.id}>
-                    <TableCell>
-                      <Input value={li.name} onChange={e => updateLineItem(li.id, "name", e.target.value)} className="h-8 text-sm" />
-                    </TableCell>
-                    <TableCell>
-                      <Input value={li.description} onChange={e => updateLineItem(li.id, "description", e.target.value)} className="h-8 text-sm" />
-                    </TableCell>
-                    <TableCell>
-                      <Input type="number" min="0" value={li.qty} onChange={e => updateLineItem(li.id, "qty", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
-                    </TableCell>
-                    <TableCell>
-                      <Input type="number" min="0" step="0.01" value={li.rate} onChange={e => updateLineItem(li.id, "rate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
-                    </TableCell>
+                    <TableCell><Input value={li.name} onChange={e => updateLineItem(li.id, "name", e.target.value)} className="h-8 text-sm" /></TableCell>
+                    <TableCell><Input value={li.description} onChange={e => updateLineItem(li.id, "description", e.target.value)} className="h-8 text-sm" /></TableCell>
+                    <TableCell><Input type="number" min="0" value={li.qty} onChange={e => updateLineItem(li.id, "qty", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
+                    <TableCell><Input type="number" min="0" step="0.01" value={li.rate} onChange={e => updateLineItem(li.id, "rate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
                     <TableCell className="text-right font-mono text-sm">${li.amount.toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeLineItem(li.id)}>

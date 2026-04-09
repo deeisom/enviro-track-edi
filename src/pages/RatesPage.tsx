@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAllRates, createRate, updateRate, deleteRate, seedRatesIfEmpty } from "@/services/invoiceStorage";
+import { getAllRates, createRate, updateRate, deleteRate } from "@/services/invoiceStorage";
 import { RateItem, RateCategory, RATE_CATEGORIES } from "@/types/invoice";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, Leaf } from "lucide-react";
@@ -23,8 +23,8 @@ export default function RatesPage() {
   const [form, setForm] = useState(emptyForm);
   const [filterCat, setFilterCat] = useState<string>("all");
 
-  const load = () => setRates(getAllRates());
-  useEffect(() => { seedRatesIfEmpty(); load(); }, []);
+  const load = () => { getAllRates().then(setRates); };
+  useEffect(load, []);
 
   const filtered = filterCat === "all" ? rates : rates.filter(r => r.category === filterCat);
 
@@ -35,20 +35,20 @@ export default function RatesPage() {
     setDialog(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
     if (editId) {
-      updateRate(editId, form);
+      await updateRate(editId, form);
       toast({ title: "Rate item updated" });
     } else {
-      createRate(form);
+      await createRate(form);
       toast({ title: "Rate item created" });
     }
     setDialog(false);
     load();
   };
 
-  const handleDelete = (id: string) => { deleteRate(id); toast({ title: "Rate item deleted" }); load(); };
+  const handleDelete = async (id: string) => { await deleteRate(id); toast({ title: "Rate item deleted" }); load(); };
 
   const getCatLabel = (cat: RateCategory) => RATE_CATEGORIES.find(c => c.value === cat)?.label || cat;
 

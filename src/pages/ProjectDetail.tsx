@@ -15,7 +15,7 @@ import {
 import { StatusBadge, StatusTimeline } from "@/components/StatusBadge";
 import {
   getProject, updateProject, changeProjectStatus, getProjectActivity,
-  getClient, getContactsByClient, getAllClients, deleteActivity,
+  getClient, getContactsByClient, deleteActivity,
 } from "@/services/storage";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -39,25 +39,28 @@ export default function ProjectDetail() {
   const [statusNote, setStatusNote] = useState("");
   const [editForm, setEditForm] = useState({ name: "", description: "", location: "", notes: "" });
 
-  const load = () => {
+  const load = async () => {
     if (!id) return;
-    const p = getProject(id);
+    const p = await getProject(id);
     if (!p) { navigate("/projects"); return; }
     setProject(p);
-    setActivity(getProjectActivity(id));
+    setActivity(await getProjectActivity(id));
     if (p.clientId) {
-      const c = getClient(p.clientId);
+      const c = await getClient(p.clientId);
       setClient(c || null);
-      if (c) setContacts(getContactsByClient(c.id));
+      if (c) setContacts(await getContactsByClient(c.id));
+    } else {
+      setClient(null);
+      setContacts([]);
     }
   };
 
-  useEffect(load, [id]);
+  useEffect(() => { load(); }, [id]);
 
   if (!project) return null;
 
-  const handleStatusChange = () => {
-    changeProjectStatus(project.id, newStatus, statusNote);
+  const handleStatusChange = async () => {
+    await changeProjectStatus(project.id, newStatus, statusNote);
     setStatusDialog(false);
     setStatusNote("");
     toast({ title: `Status updated to ${getStatusDef(newStatus).code} — ${getStatusDef(newStatus).label}` });
@@ -69,8 +72,8 @@ export default function ProjectDetail() {
     setEditing(true);
   };
 
-  const handleSaveEdit = () => {
-    updateProject(project.id, editForm);
+  const handleSaveEdit = async () => {
+    await updateProject(project.id, editForm);
     setEditing(false);
     toast({ title: "Project updated" });
     load();
@@ -104,7 +107,6 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Status Timeline */}
       <Card>
         <CardContent className="pt-6">
           <StatusTimeline currentStatus={project.status} />
@@ -112,7 +114,6 @@ export default function ProjectDetail() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Details */}
         <Card>
           <CardHeader><CardTitle className="text-base">Project Details</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -126,16 +127,13 @@ export default function ProjectDetail() {
           </CardContent>
         </Card>
 
-        {/* Client Info */}
         <Card>
           <CardHeader><CardTitle className="text-base">Client & Contact</CardTitle></CardHeader>
           <CardContent className="text-sm">
             {client ? (
               <div className="space-y-2">
                 <p className="font-medium">
-                  <Link to={`/clients/${client.id}`} className="text-primary hover:underline">
-                    {client.companyName}
-                  </Link>
+                  <Link to={`/clients/${client.id}`} className="text-primary hover:underline">{client.companyName}</Link>
                 </p>
                 {client.address && <p className="text-muted-foreground">{client.address}</p>}
                 {contacts.length > 0 && (
@@ -159,7 +157,6 @@ export default function ProjectDetail() {
         </Card>
       </div>
 
-      {/* Activity Log */}
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> Activity Log</CardTitle></CardHeader>
         <CardContent>
@@ -213,7 +210,7 @@ export default function ProjectDetail() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { deleteActivity(a.id); toast({ title: "Activity entry deleted" }); load(); }}>
+                        <AlertDialogAction onClick={async () => { await deleteActivity(a.id); toast({ title: "Activity entry deleted" }); load(); }}>
                           Delete
                         </AlertDialogAction>
                       </AlertDialogFooter>
@@ -226,7 +223,6 @@ export default function ProjectDetail() {
         </CardContent>
       </Card>
 
-      {/* Status Change Dialog */}
       <Dialog open={statusDialog} onOpenChange={setStatusDialog}>
         <DialogContent>
           <DialogHeader>
@@ -257,7 +253,6 @@ export default function ProjectDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent>
           <DialogHeader>

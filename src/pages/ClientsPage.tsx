@@ -31,16 +31,16 @@ function ClientsList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
 
-  const load = () => setClients(getAllClients());
+  const load = () => { getAllClients().then(setClients); };
   useEffect(load, []);
 
   const filtered = clients.filter(c =>
     c.companyName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.companyName.trim()) { toast({ title: "Company name is required", variant: "destructive" }); return; }
-    createClient(form);
+    await createClient(form);
     setDialogOpen(false);
     setForm({ companyName: "", address: "", industryType: "", notes: "" });
     toast({ title: "Client created" });
@@ -51,9 +51,7 @@ function ClientsList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Clients & Contacts <Leaf className="h-5 w-5 text-primary" /></h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Client
-        </Button>
+        <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>
       </div>
 
       <div className="relative max-w-sm">
@@ -73,9 +71,7 @@ function ClientsList() {
           {filtered.map(c => (
             <Link key={c.id} to={`/clients/${c.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{c.companyName}</CardTitle>
-                </CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base">{c.companyName}</CardTitle></CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   {c.industryType && <p>{c.industryType}</p>}
                   {c.address && <p className="truncate">{c.address}</p>}
@@ -121,16 +117,17 @@ function ClientDetail() {
   const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
   const [deleteDialog, setDeleteDialog] = useState(false);
 
-  const load = () => {
+  const load = async () => {
     if (!id) return;
-    const c = getClient(id);
+    const c = await getClient(id);
     if (!c) { navigate("/clients"); return; }
     setClient(c);
-    setContacts(getContactsByClient(id));
-    setProjects(getAllProjects().filter(p => p.clientId === id));
+    setContacts(await getContactsByClient(id));
+    const allProjects = await getAllProjects();
+    setProjects(allProjects.filter(p => p.clientId === id));
   };
 
-  useEffect(load, [id]);
+  useEffect(() => { load(); }, [id]);
 
   if (!client) return null;
 
@@ -139,26 +136,27 @@ function ClientDetail() {
     setEditDialog(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editForm.companyName.trim()) { toast({ title: "Company name is required", variant: "destructive" }); return; }
-    updateClient(client.id, editForm);
+    await updateClient(client.id, editForm);
     setEditDialog(false);
     toast({ title: "Client updated" });
     load();
   };
 
-  const handleDelete = () => {
-    deleteClient(client.id);
+  const handleDelete = async () => {
+    await deleteClient(client.id);
     toast({ title: "Client deleted" });
     navigate("/clients");
   };
-  const handleAddContact = () => {
+
+  const handleAddContact = async () => {
     if (!contactForm.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
     if (editingContact) {
-      updateContact(editingContact.id, contactForm);
+      await updateContact(editingContact.id, contactForm);
       toast({ title: "Contact updated" });
     } else {
-      createContact({ ...contactForm, clientId: client.id });
+      await createContact({ ...contactForm, clientId: client.id });
       toast({ title: "Contact added" });
     }
     setContactDialog(false);
@@ -167,8 +165,8 @@ function ClientDetail() {
     load();
   };
 
-  const handleDeleteContact = (contactId: string) => {
-    deleteContact(contactId);
+  const handleDeleteContact = async (contactId: string) => {
+    await deleteContact(contactId);
     toast({ title: "Contact removed" });
     load();
   };
@@ -188,19 +186,13 @@ function ClientDetail() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/clients")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/clients")}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">{client.companyName}</h1>
           {client.industryType && <p className="text-sm text-muted-foreground">{client.industryType}</p>}
         </div>
-        <Button variant="outline" size="sm" onClick={handleEdit}>
-          <Pencil className="h-3 w-3 mr-1" /> Edit
-        </Button>
-        <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}>
-          <Trash2 className="h-3 w-3 mr-1" /> Delete
-        </Button>
+        <Button variant="outline" size="sm" onClick={handleEdit}><Pencil className="h-3 w-3 mr-1" /> Edit</Button>
+        <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}><Trash2 className="h-3 w-3 mr-1" /> Delete</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -211,7 +203,6 @@ function ClientDetail() {
             {client.notes && <div><span className="text-muted-foreground">Notes:</span> <p>{client.notes}</p></div>}
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Contacts</CardTitle>
@@ -231,12 +222,8 @@ function ClientDetail() {
                       {c.phone && <p>{c.phone}</p>}
                     </div>
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}>
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}>
-                        <Trash2 className="h-3 w-3 text-muted-foreground" />
-                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}><Pencil className="h-3 w-3 text-muted-foreground" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}><Trash2 className="h-3 w-3 text-muted-foreground" /></Button>
                     </div>
                   </div>
                 ))}
@@ -246,7 +233,6 @@ function ClientDetail() {
         </Card>
       </div>
 
-      {/* Associated Projects */}
       <Card>
         <CardHeader><CardTitle className="text-base">Associated Projects</CardTitle></CardHeader>
         <CardContent>
@@ -264,9 +250,7 @@ function ClientDetail() {
               <TableBody>
                 {projects.map(p => (
                   <TableRow key={p.id}>
-                    <TableCell>
-                      <Link to={`/projects/${p.id}`} className="font-mono text-primary hover:underline">{p.projectNumber}</Link>
-                    </TableCell>
+                    <TableCell><Link to={`/projects/${p.id}`} className="font-mono text-primary hover:underline">{p.projectNumber}</Link></TableCell>
                     <TableCell>{p.name}</TableCell>
                     <TableCell><StatusBadge status={p.status} /></TableCell>
                   </TableRow>
@@ -277,7 +261,6 @@ function ClientDetail() {
         </CardContent>
       </Card>
 
-      {/* Add Contact Dialog */}
       <Dialog open={contactDialog} onOpenChange={setContactDialog}>
         <DialogContent>
           <DialogHeader>
@@ -296,7 +279,7 @@ function ClientDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Edit Client Dialog */}
+
       <Dialog open={editDialog} onOpenChange={setEditDialog}>
         <DialogContent>
           <DialogHeader>
@@ -316,7 +299,6 @@ function ClientDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Client Confirmation */}
       <AlertDialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
