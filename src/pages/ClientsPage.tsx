@@ -18,8 +18,12 @@ import {
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, ArrowLeft, Trash2, Users, Building2 } from "lucide-react";
+import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function ClientsList() {
   const [clients, setClients] = useState<Client[]>([]);
