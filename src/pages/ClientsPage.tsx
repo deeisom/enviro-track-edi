@@ -116,6 +116,7 @@ function ClientDetail() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [contactDialog, setContactDialog] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", title: "", email: "", phone: "" });
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
   const [deleteDialog, setDeleteDialog] = useState(false);
