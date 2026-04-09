@@ -1,62 +1,28 @@
 
 
-## Plan: Migrate EnviroTrack to Lovable Cloud
+## Plan: Fix Data Creation Errors
 
-### What this does
-Moves your app from browser-only storage to a shared cloud database with user login, so your entire team can access the same data from any device (phone, tablet, or computer).
+### Problem
+After the cloud migration, creating projects, clients, and rates fails silently because:
+1. **Missing error handling** — `ClientsPage` and `RatesPage` don't wrap database calls in try/catch, so errors are swallowed with no user feedback
+2. **Invalid UUID bug** — When creating a project with "None" selected for Parent Project, the value `"_none"` gets passed as a `parent_project_id` to the database instead of `null`, causing a UUID validation error
+3. **Same issue for client selection** — The `clientId` field could have the same problem
 
-### Step 1: Enable Lovable Cloud
-You'll click the **Cloud** tab at the top of the editor and enable it. This provisions a database, authentication, and hosting automatically.
+### Changes
 
-### Step 2: Create database tables
-Create migrations for all your data:
+**1. `src/pages/CreateProject.tsx`**
+- Fix the `parentProjectId` and `clientId` values: treat `"_none"` and empty string as `null` before inserting
+- Change: `parentProjectId: (form.parentProjectId && form.parentProjectId !== "_none") ? form.parentProjectId : null`
+- Same pattern for `clientId`
 
-- **profiles** — links to auth users (name, created_at)
-- **user_roles** — admin vs regular user permissions (using a security-safe pattern)
-- **projects** — all project fields including the EDI-YYYY-NNNN numbering
-- **project_counter** — tracks the next number per year (replaces localStorage counter)
-- **clients** — company info
-- **contacts** — people linked to clients
-- **activity_log** — status changes and invoice events
-- **rates** — your rate card items (seeded with defaults)
-- **invoices** — invoices and estimates with line items stored as JSONB
+**2. `src/pages/ClientsPage.tsx`**
+- Wrap `handleCreate` in try/catch with error toast
+- Wrap inline `deleteClient` call in try/catch
 
-### Step 3: Add Row-Level Security (RLS)
-- All authenticated users can read all data
-- All authenticated users can create/update data
-- Only admins can delete projects, clients, or invoices
-- Uses a `has_role()` security function to check admin status safely
+**3. `src/pages/RatesPage.tsx`**
+- Wrap `handleSave` in try/catch with error toast
+- Wrap `handleDelete` in try/catch with error toast
 
-### Step 4: Add authentication
-- Login/signup page with both **email & password** and **Google sign-in**
-- Protected routes — redirect to login if not signed in
-- Auth context provider throughout the app
-
-### Step 5: Rewrite the storage layer
-Replace all localStorage calls in `storage.ts` and `invoiceStorage.ts` with Supabase client queries. The TypeScript interfaces stay the same — only the data source changes.
-
-### Step 6: Admin role management
-- First user to sign up becomes admin (via a database trigger)
-- Admins see a simple user management section to grant/revoke admin access
-- Regular users can do everything except delete records
-
-### Step 7: Publish
-Deploy to a public URL your team can bookmark or add to their phone home screen.
-
----
-
-### Phone access
-Your coworkers will use it in their phone's web browser — it already uses responsive design so it adapts to small screens. They can also "Add to Home Screen" for an app-like experience with no app store needed.
-
-### Files affected
-- New: database migrations (6-8 migration files)
-- New: `src/pages/AuthPage.tsx`, `src/contexts/AuthContext.tsx`
-- Rewrite: `src/services/storage.ts`, `src/services/invoiceStorage.ts`
-- Modify: `src/App.tsx` (add auth routes + protection)
-- New: `src/pages/UsersPage.tsx` (admin-only user management)
-
-### What won't change
-- All your UI pages, components, and styling stay the same
-- The Final Frontier font, leaf icons, address autocomplete — all untouched
-- Project numbering format (EDI-YYYY-NNNN) stays identical
+**4. `src/services/storage.ts`**
+- Same fix for `parentProjectId` in `createProject` — sanitize `"_none"` to `null`
 
