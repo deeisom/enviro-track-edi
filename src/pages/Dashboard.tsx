@@ -13,8 +13,8 @@ export default function Dashboard() {
   const [activity, setActivity] = useState<ActivityLogEntry[]>([]);
 
   useEffect(() => {
-    setProjects(getAllProjects());
-    setActivity(getAllActivity().slice(0, 10));
+    getAllProjects().then(setProjects);
+    getAllActivity().then(a => setActivity(a.slice(0, 10)));
   }, []);
 
   const statusCounts = PROJECT_STATUSES.filter(s => s.code.endsWith(".0") || s.code === "1.1").map(s => ({
@@ -59,7 +59,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Status summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {phaseCounts.map(pc => (
           <Card key={pc.phase} className="relative overflow-hidden">
@@ -76,7 +75,6 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Recent Activity</CardTitle>
@@ -90,45 +88,57 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {activity.map(a => (
-                <div key={a.id} className="flex items-start gap-3 text-sm">
-                  <div className="text-muted-foreground text-xs w-32 shrink-0 pt-0.5">
-                    {new Date(a.timestamp).toLocaleDateString()}{" "}
-                    {new Date(a.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                  <div className="flex-1">
-                    <Link to={`/projects/${a.projectId}`} className="font-medium text-primary hover:underline">
-                      {a.projectNumber}
-                    </Link>
-                    {" → "}
-                    {a.isInvoiceEvent ? (
-                      <span className="text-muted-foreground">{a.note}</span>
-                    ) : (
-                      <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
-                    )}
-                    {a.isInvoiceEvent && (() => {
-                      const proj = getProject(a.projectId);
-                      const projStatus = proj ? parseFloat(proj.status) : 999;
-                      return projStatus < 3.1 ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertCircle className="inline h-4 w-4 text-destructive ml-1 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Project status should be updated to 3.1 or higher to reflect invoice delivery.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : null;
-                    })()}
-                    {!a.isInvoiceEvent && a.note && <span className="text-muted-foreground ml-2">— {a.note}</span>}
-                  </div>
-                </div>
+                <ActivityRow key={a.id} entry={a} />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ActivityRow({ entry: a }: { entry: ActivityLogEntry }) {
+  const [projStatus, setProjStatus] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (a.isInvoiceEvent) {
+      getProject(a.projectId).then(p => {
+        if (p) setProjStatus(parseFloat(p.status));
+      });
+    }
+  }, [a]);
+
+  return (
+    <div className="flex items-start gap-3 text-sm">
+      <div className="text-muted-foreground text-xs w-32 shrink-0 pt-0.5">
+        {new Date(a.timestamp).toLocaleDateString()}{" "}
+        {new Date(a.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      </div>
+      <div className="flex-1">
+        <Link to={`/projects/${a.projectId}`} className="font-medium text-primary hover:underline">
+          {a.projectNumber}
+        </Link>
+        {" → "}
+        {a.isInvoiceEvent ? (
+          <span className="text-muted-foreground">{a.note}</span>
+        ) : (
+          <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
+        )}
+        {a.isInvoiceEvent && projStatus !== null && projStatus < 3.1 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertCircle className="inline h-4 w-4 text-destructive ml-1 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Project status should be updated to 3.1 or higher to reflect invoice delivery.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {!a.isInvoiceEvent && a.note && <span className="text-muted-foreground ml-2">— {a.note}</span>}
+      </div>
     </div>
   );
 }
