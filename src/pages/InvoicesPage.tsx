@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { getAllInvoices, createInvoice, deleteInvoice, getAllRates } from "@/services/invoiceStorage";
+import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRates } from "@/services/invoiceStorage";
 import { getAllProjects, getAllClients, getClient } from "@/services/storage";
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
 import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil } from "lucide-react";
 
-function InvoiceList({ onNew }: { onNew: () => void }) {
+function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const load = () => setInvoices(getAllInvoices().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
   useEffect(load, []);
@@ -25,6 +25,12 @@ function InvoiceList({ onNew }: { onNew: () => void }) {
   const handleExcelExport = async (inv: Invoice) => {
     try { await exportInvoiceToExcel(inv); toast({ title: "Excel downloaded" }); }
     catch (e) { toast({ title: "Export failed", description: String(e), variant: "destructive" }); }
+  };
+
+  const handleStatusChange = (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
+    updateInvoice(inv.id, { status: newStatus });
+    toast({ title: `Status updated to ${newStatus}` });
+    load();
   };
 
   const statusColors: Record<string, string> = { draft: "secondary", sent: "default", paid: "outline" };
@@ -49,7 +55,7 @@ function InvoiceList({ onNew }: { onNew: () => void }) {
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-32"></TableHead>
+                <TableHead className="w-40"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -62,9 +68,23 @@ function InvoiceList({ onNew }: { onNew: () => void }) {
                   <TableCell>{inv.billTo.name}</TableCell>
                   <TableCell>{inv.date}</TableCell>
                   <TableCell className="text-right font-mono">${inv.total.toFixed(2)}</TableCell>
-                  <TableCell><Badge variant={statusColors[inv.status] as any}>{inv.status}</Badge></TableCell>
+                  <TableCell>
+                    <Select value={inv.status} onValueChange={v => handleStatusChange(inv, v as any)}>
+                      <SelectTrigger className="h-7 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}>
                         <FileSpreadsheet className="h-3.5 w-3.5" />
                       </Button>
@@ -98,31 +118,33 @@ function InvoiceList({ onNew }: { onNew: () => void }) {
   );
 }
 
-function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; prefillProjectId?: string }) {
+function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: () => void; prefillProjectId?: string; existingInvoice?: Invoice }) {
   const projects = getAllProjects();
   const clients = getAllClients();
   const rates = getAllRates();
 
-  const [type, setType] = useState<InvoiceType>("invoice");
-  const [projectId, setProjectId] = useState<string>(prefillProjectId || "");
-  const [billToName, setBillToName] = useState("");
-  const [billToAddress, setBillToAddress] = useState("");
-  const [poNumber, setPoNumber] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [terms, setTerms] = useState("Net 30");
-  const [dueDate, setDueDate] = useState("");
-  const [projectSummary, setProjectSummary] = useState("");
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
-  const [status, setStatus] = useState<"draft" | "sent" | "paid">("draft");
+  const isEditing = !!existingInvoice;
 
-  // Auto-fill from project
+  const [type, setType] = useState<InvoiceType>(existingInvoice?.type || "invoice");
+  const [projectId, setProjectId] = useState<string>(existingInvoice?.projectId || prefillProjectId || "");
+  const [billToName, setBillToName] = useState(existingInvoice?.billTo.name || "");
+  const [billToAddress, setBillToAddress] = useState(existingInvoice?.billTo.address || "");
+  const [poNumber, setPoNumber] = useState(existingInvoice?.poNumber || "");
+  const [date, setDate] = useState(existingInvoice?.date || new Date().toISOString().split("T")[0]);
+  const [terms, setTerms] = useState(existingInvoice?.terms || "Net 30");
+  const [dueDate, setDueDate] = useState(existingInvoice?.dueDate || "");
+  const [projectSummary, setProjectSummary] = useState(existingInvoice?.projectSummary || "");
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(existingInvoice?.lineItems || []);
+  const [status, setStatus] = useState<"draft" | "sent" | "paid">(existingInvoice?.status || "draft");
+
+  // Auto-fill from project (only on new invoices when projectId changes)
   useEffect(() => {
+    if (isEditing) return;
     if (projectId) {
       const proj = projects.find(p => p.id === projectId);
       if (proj) {
         setProjectSummary(proj.description);
         setPoNumber(proj.projectNumber);
-        // Use project location for address if available, otherwise fall back to client address
         if (proj.location) {
           setBillToAddress(proj.location);
         }
@@ -141,7 +163,7 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
 
   // Auto-calculate due date
   useEffect(() => {
-    if (date && terms === "Net 30") {
+    if (date && terms === "Net 30" && !isEditing) {
       const d = new Date(date);
       d.setDate(d.getDate() + 30);
       setDueDate(d.toISOString().split("T")[0]);
@@ -179,15 +201,23 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
   const handleSave = () => {
     if (!billToName.trim()) { toast({ title: "Bill To name required", variant: "destructive" }); return; }
     if (lineItems.length === 0) { toast({ title: "Add at least one line item", variant: "destructive" }); return; }
-    createInvoice({
+
+    const invoiceData = {
       type,
       projectId: projectId || null,
       clientId: null,
       billTo: { name: billToName, address: billToAddress },
       poNumber, date, dueDate, terms, projectSummary,
       lineItems, total, status,
-    });
-    toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} created` });
+    };
+
+    if (isEditing) {
+      updateInvoice(existingInvoice.id, invoiceData);
+      toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} updated` });
+    } else {
+      createInvoice(invoiceData);
+      toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} created` });
+    }
     onBack();
   };
 
@@ -201,7 +231,7 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>
-        <h1 className="text-2xl font-bold">New {type === "invoice" ? "Invoice" : "Estimate"}</h1>
+        <h1 className="text-2xl font-bold">{isEditing ? `Edit ${existingInvoice.invoiceNumber}` : `New ${type === "invoice" ? "Invoice" : "Estimate"}`}</h1>
       </div>
 
       {/* Type + Project + Status */}
@@ -361,7 +391,7 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={onBack}>Cancel</Button>
-        <Button onClick={handleSave}>Save {type === "invoice" ? "Invoice" : "Estimate"}</Button>
+        <Button onClick={handleSave}>{isEditing ? "Update" : "Save"} {type === "invoice" ? "Invoice" : "Estimate"}</Button>
       </div>
     </div>
   );
@@ -369,10 +399,15 @@ function InvoiceCreator({ onBack, prefillProjectId }: { onBack: () => void; pref
 
 export default function InvoicesPage() {
   const [searchParams] = useSearchParams();
-  const [view, setView] = useState<"list" | "create">(searchParams.get("new") ? "create" : "list");
+  const [view, setView] = useState<"list" | "create" | "edit">(searchParams.get("new") ? "create" : "list");
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | undefined>();
   const prefillProjectId = searchParams.get("projectId") || undefined;
 
-  return view === "list"
-    ? <InvoiceList onNew={() => setView("create")} />
-    : <InvoiceCreator onBack={() => setView("list")} prefillProjectId={prefillProjectId} />;
+  const handleEdit = (inv: Invoice) => {
+    setEditingInvoice(inv);
+    setView("edit");
+  };
+
+  if (view === "list") return <InvoiceList onNew={() => setView("create")} onEdit={handleEdit} />;
+  return <InvoiceEditor onBack={() => { setView("list"); setEditingInvoice(undefined); }} prefillProjectId={prefillProjectId} existingInvoice={view === "edit" ? editingInvoice : undefined} />;
 }
