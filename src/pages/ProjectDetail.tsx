@@ -25,10 +25,12 @@ import { Project, Client, Contact, ActivityLogEntry, PROJECT_STATUSES, ProjectSt
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Edit, Clock, Trash2, FileText, AlertCircle, Leaf } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
