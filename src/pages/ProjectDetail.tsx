@@ -106,6 +106,33 @@ export default function ProjectDetail() {
           <Button onClick={() => { setNewStatus(project.status); setStatusDialog(true); }}>
             Update Status
           </Button>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete project?</AlertDialogTitle>
+                  <AlertDialogDescription>This will permanently delete this project and cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={async () => {
+                    try {
+                      await deleteProject(project.id);
+                      toast({ title: "Project deleted" });
+                      navigate("/projects");
+                    } catch (e: any) {
+                      toast({ title: "Error deleting project", description: e.message, variant: "destructive" });
+                    }
+                  }}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
