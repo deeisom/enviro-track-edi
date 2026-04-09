@@ -281,8 +281,8 @@ function ClientDetail() {
       <Dialog open={contactDialog} onOpenChange={setContactDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Contact</DialogTitle>
-            <DialogDescription>Add a contact for {client.companyName}</DialogDescription>
+            <DialogTitle>{editingContact ? "Edit Contact" : "Add Contact"}</DialogTitle>
+            <DialogDescription>{editingContact ? "Update contact information" : `Add a contact for ${client.companyName}`}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name *</Label><Input value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} /></div>
