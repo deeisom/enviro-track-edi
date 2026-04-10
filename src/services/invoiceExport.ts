@@ -134,11 +134,17 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       wrapText: true,
     };
 
-    // Add left border on non-first rows of this item block (A column)
-    // Add right border on the last description row of each block
+    // Reinforce the divider between columns A and B on both sides of the merge
     for (let r = rowCursor; r <= descEndRow; r++) {
-      const cell = ws.getCell(`A${r}`);
-      cell.border = { ...cell.border, left: leftBorder, right: leftBorder };
+      ws.getCell(`A${r}`).border = {
+        ...ws.getCell(`A${r}`).border,
+        left: leftBorder,
+        right: leftBorder,
+      };
+      ws.getCell(`B${r}`).border = {
+        ...ws.getCell(`B${r}`).border,
+        left: leftBorder,
+      };
     }
 
     // Qty, Rate, Amount on first row only
