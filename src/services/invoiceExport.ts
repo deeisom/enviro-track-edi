@@ -136,7 +136,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
     // Add left border on non-first rows of this item block (A column)
     // Add right border on the last description row of each block
-    for (let r = rowCursor + 1; r <= descEndRow; r++) {
+    for (let r = rowCursor; r <= descEndRow; r++) {
       const cell = ws.getCell(`A${r}`);
       cell.border = { ...cell.border, left: leftBorder, right: leftBorder };
     }
