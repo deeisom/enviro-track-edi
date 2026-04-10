@@ -138,13 +138,8 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     // Add right border on the last description row of each block
     for (let r = rowCursor + 1; r <= descEndRow; r++) {
       const cell = ws.getCell(`A${r}`);
-      cell.border = { ...cell.border, left: leftBorder };
+      cell.border = { ...cell.border, left: leftBorder, right: leftBorder };
     }
-    ws.getCell(`A${descEndRow}`).border = {
-      ...ws.getCell(`A${descEndRow}`).border,
-      left: leftBorder,
-      right: leftBorder,
-    };
 
     // Qty, Rate, Amount on first row only
     ws.getCell(`D${rowCursor}`).value = item.qty;
