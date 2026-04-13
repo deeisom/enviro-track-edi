@@ -242,7 +242,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     // Inter-group separator row
     if (gi < groupData.length - 1) {
       ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
-      ws.getCell(`A${rowCursor}`).border = { left: leftBorder };
+      ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
+      ws.getCell(`A${rowCursor}`).font = calibriFont;
+      ws.getCell(`B${rowCursor}`).font = calibriFont;
       rowCursor++;
     }
   });
@@ -250,7 +252,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Fill remaining empty rows
   for (let r = rowCursor; r <= actualEndRow; r++) {
     ws.mergeCells(`B${r}:C${r}`);
-    ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder };
+    ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
+    ws.getCell(`A${r}`).font = calibriFont;
+    ws.getCell(`B${r}`).font = calibriFont;
   }
 
   // Ensure all F cells have formulas so SUM works
