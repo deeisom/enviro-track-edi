@@ -141,6 +141,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [rates, setRates] = useState<RateItem[]>([]);
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
 
   const isEditing = !!existingInvoice;
 
@@ -156,13 +157,32 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(existingInvoice?.lineItems || []);
   const [status, setStatus] = useState<"draft" | "sent" | "paid">(existingInvoice?.status || "draft");
 
+  const [isContinuation, setIsContinuation] = useState(false);
+  const [parentInvoiceId, setParentInvoiceId] = useState("");
+
   useEffect(() => {
-    Promise.all([getAllProjects(), getAllClients(), getAllRates()]).then(([p, c, r]) => {
+    Promise.all([getAllProjects(), getAllClients(), getAllRates(), getAllInvoices()]).then(([p, c, r, inv]) => {
       setProjects(p);
       setClients(c);
       setRates(r);
+      setAllInvoices(inv);
     });
   }, []);
+
+  // Auto-fill from parent invoice when continuation is selected
+  useEffect(() => {
+    if (!isContinuation || !parentInvoiceId) return;
+    const parent = allInvoices.find(i => i.id === parentInvoiceId);
+    if (!parent) return;
+    setBillToName(parent.billTo.name);
+    setBillToAddress(parent.billTo.address);
+    setPoNumber(parent.poNumber);
+    setDate(parent.date);
+    setTerms(parent.terms);
+    setDueDate(parent.dueDate);
+    setProjectSummary(parent.projectSummary);
+    if (parent.projectId) setProjectId(parent.projectId);
+  }, [parentInvoiceId, isContinuation]);
 
   useEffect(() => {
     if (isEditing) return;
