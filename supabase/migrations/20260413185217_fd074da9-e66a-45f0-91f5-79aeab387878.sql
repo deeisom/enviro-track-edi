@@ -1,0 +1,2 @@
+ALTER TABLE public.rates ADD COLUMN item TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.rates ADD COLUMN item_description TEXT NOT NULL DEFAULT '';

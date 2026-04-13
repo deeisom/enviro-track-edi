@@ -331,6 +331,8 @@ export type Database = {
           default_rate: number
           description: string
           id: string
+          item: string
+          item_description: string
           name: string
           unit: string
         }
@@ -339,6 +341,8 @@ export type Database = {
           default_rate?: number
           description?: string
           id?: string
+          item?: string
+          item_description?: string
           name: string
           unit?: string
         }
@@ -347,6 +351,8 @@ export type Database = {
           default_rate?: number
           description?: string
           id?: string
+          item?: string
+          item_description?: string
           name?: string
           unit?: string
         }
