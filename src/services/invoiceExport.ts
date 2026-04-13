@@ -143,18 +143,36 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const actualEndRow = startRow + Math.max(totalRowsNeeded, templateRows) - 1;
   const actualTotalRow = actualEndRow + 1;
 
-  // Unmerge any existing template merges in the line-item area
-  const mergeRanges = Object.keys((ws as any)._merges || {});
-  mergeRanges.forEach((range) => {
-    const [startRef, endRef = startRef] = range.split(":");
-    const startRowMatch = startRef.match(/\d+/);
-    const endRowMatch = endRef.match(/\d+/);
-    const top = startRowMatch ? Number(startRowMatch[0]) : 0;
-    const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
-    if (bottom >= startRow && top <= actualEndRow) {
-      ws.unMergeCells(range);
+  // Unmerge any existing template merges in the line-item area (and beyond, to cover total row)
+  // Re-read _merges each iteration since unMergeCells mutates the map
+  let didUnmerge = true;
+  while (didUnmerge) {
+    didUnmerge = false;
+    const mergeRanges = Object.keys((ws as any)._merges || {});
+    for (const range of mergeRanges) {
+      const [startRef, endRef = startRef] = range.split(":");
+      const startRowMatch = startRef.match(/\d+/);
+      const endRowMatch = endRef.match(/\d+/);
+      const top = startRowMatch ? Number(startRowMatch[0]) : 0;
+      const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
+      if (bottom >= startRow && top <= actualEndRow + 1) {
+        try { ws.unMergeCells(range); } catch (_e) { /* already unmerged */ }
+        didUnmerge = true;
+        break; // restart iteration since map mutated
+      }
     }
-  });
+  }
+
+  // Safe merge helper — unmerge overlapping cells before merging
+  function safeMerge(range: string) {
+    try {
+      ws.mergeCells(range);
+    } catch (_e) {
+      // If merge fails, unmerge the range first then retry
+      try { ws.unMergeCells(range); } catch (_e2) { /* ignore */ }
+      ws.mergeCells(range);
+    }
+  }
 
   // Clear all line-item cells
   for (let r = startRow; r <= actualEndRow; r++) {
