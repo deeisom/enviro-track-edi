@@ -78,13 +78,49 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Project Summary (merged A17:F19 in template)
   ws.getCell("A17").value = invoice.projectSummary;
 
-  // --- Line items (rows 21–43) ---
+  // --- Line items (dynamic rows starting at 21) ---
   const startRow = 21;
-  const endRow = 43;
-  const descRows = 4; // rows to merge for each description cell
-  const rowsPerItem = descRows + 1; // description rows + 1 blank separator
+  const templateEndRow = 43; // original template line-item area
+  const totalFormulaRow = 44; // row where SUM formula lives in template
 
-  // Properly unmerge any existing template merges in the line-item area
+  // Group consecutive line items by name
+  interface LineGroup {
+    name: string;
+    items: typeof invoice.lineItems;
+  }
+  const groups: LineGroup[] = [];
+  for (const li of invoice.lineItems) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === li.name) {
+      last.items.push(li);
+    } else {
+      groups.push({ name: li.name, items: [li] });
+    }
+  }
+
+  // Calculate total rows needed:
+  // Each group: (num descriptions) + (num descriptions - 1) internal separators
+  // Between groups: 1 separator row
+  let totalRowsNeeded = 0;
+  groups.forEach((g, gi) => {
+    totalRowsNeeded += g.items.length + (g.items.length - 1); // desc rows + internal separators
+    if (gi < groups.length - 1) totalRowsNeeded += 1; // inter-group separator
+  });
+
+  // If we need more rows than the template provides, insert extra rows
+  const templateRows = templateEndRow - startRow + 1; // 23
+  if (totalRowsNeeded > templateRows) {
+    const extraRows = totalRowsNeeded - templateRows;
+    // Insert blank rows before the total formula row to push it down
+    for (let i = 0; i < extraRows; i++) {
+      ws.insertRow(templateEndRow + 1 + i, []);
+    }
+  }
+
+  const actualEndRow = startRow + Math.max(totalRowsNeeded, templateRows) - 1;
+  const actualTotalRow = actualEndRow + 1;
+
+  // Unmerge any existing template merges in the line-item area
   const mergeRanges = Object.keys((ws as any)._merges || {});
   mergeRanges.forEach((range) => {
     const [startRef, endRef = startRef] = range.split(":");
@@ -92,50 +128,67 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     const endRowMatch = endRef.match(/\d+/);
     const top = startRowMatch ? Number(startRowMatch[0]) : 0;
     const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
-
-    if (bottom >= startRow && top <= endRow) {
+    if (bottom >= startRow && top <= actualEndRow) {
       ws.unMergeCells(range);
     }
   });
 
-  // Clear all line-item cells but preserve border formatting
-  for (let r = startRow; r <= endRow; r++) {
+  // Clear all line-item cells
+  for (let r = startRow; r <= actualEndRow; r++) {
     ["A", "B", "C", "D", "E", "F"].forEach((col) => {
       ws.getCell(`${col}${r}`).value = null;
     });
   }
 
-  // Fill line items
+  // Render grouped line items
   const leftBorder: Partial<ExcelJS.Border> = { style: "thin" };
   const usedRows = new Set<number>();
-
   let rowCursor = startRow;
-  invoice.lineItems.forEach((item) => {
-    if (rowCursor + descRows - 1 > endRow) return;
 
-    // Item name – merge 2 rows with wrap text and center
-    ws.mergeCells(`A${rowCursor}:A${rowCursor + 1}`);
-    const nameCell = ws.getCell(`A${rowCursor}`);
-    nameCell.value = item.name;
-    nameCell.alignment = {
-      horizontal: "center",
-      vertical: "middle",
-      wrapText: true,
-    };
+  groups.forEach((group, gi) => {
+    const groupStartRow = rowCursor;
+    // Height of this group: descriptions + internal separators
+    const groupHeight = group.items.length + (group.items.length - 1);
 
-    // Merge B:C across description rows and set description with wrap text
-    const descEndRow = rowCursor + descRows - 1;
-    ws.mergeCells(`B${rowCursor}:C${descEndRow}`);
-    const descCell = ws.getCell(`B${rowCursor}`);
-    descCell.value = item.description;
-    descCell.alignment = {
-      horizontal: "left",
-      vertical: "top",
-      wrapText: true,
-    };
+    // Write each description row with separator rows between them
+    group.items.forEach((item, ii) => {
+      // Description row
+      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+      const descCell = ws.getCell(`B${rowCursor}`);
+      descCell.value = item.description;
+      descCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
 
-    // Reinforce the divider between columns A and B on both sides of the merge
-    for (let r = rowCursor; r <= descEndRow; r++) {
+      // Qty, Rate, Amount on the description row
+      ws.getCell(`D${rowCursor}`).value = item.qty;
+      ws.getCell(`E${rowCursor}`).value = item.rate;
+      ws.getCell(`F${rowCursor}`).value = {
+        formula: `E${rowCursor}*D${rowCursor}`,
+        result: item.amount,
+      };
+
+      usedRows.add(rowCursor);
+      rowCursor++;
+
+      // Internal separator row (between descriptions within same group)
+      if (ii < group.items.length - 1) {
+        ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+        usedRows.add(rowCursor);
+        rowCursor++;
+      }
+    });
+
+    const groupEndRow = groupStartRow + groupHeight - 1;
+
+    // Merge Item name cell across the entire group height
+    if (groupHeight > 1) {
+      ws.mergeCells(`A${groupStartRow}:A${groupEndRow}`);
+    }
+    const nameCell = ws.getCell(`A${groupStartRow}`);
+    nameCell.value = group.name;
+    nameCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+
+    // Reinforce A/B column borders for the group
+    for (let r = groupStartRow; r <= groupEndRow; r++) {
       ws.getCell(`A${r}`).border = {
         ...ws.getCell(`A${r}`).border,
         left: leftBorder,
@@ -147,46 +200,36 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       };
     }
 
-    // Qty, Rate, Amount on first row only
-    ws.getCell(`D${rowCursor}`).value = item.qty;
-    ws.getCell(`E${rowCursor}`).value = item.rate;
-    ws.getCell(`F${rowCursor}`).value = {
-      formula: `E${rowCursor}*D${rowCursor}`,
-      result: item.amount,
-    };
-
-    for (let r = rowCursor; r <= Math.min(rowCursor + rowsPerItem - 1, endRow); r++) {
-      usedRows.add(r);
+    // Inter-group separator row
+    if (gi < groups.length - 1) {
+      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+      ws.getCell(`A${rowCursor}`).border = { left: leftBorder };
+      usedRows.add(rowCursor);
+      rowCursor++;
     }
-
-    // Merge B:C on the blank separator row after this item
-    const sepRow = rowCursor + descRows;
-    if (sepRow <= endRow) {
-      ws.mergeCells(`B${sepRow}:C${sepRow}`);
-    }
-
-    // Advance past description rows + 1 blank separator row
-    rowCursor += rowsPerItem;
   });
 
-  // Merge B:C on all empty/blank rows so they match the filled rows
-  for (let r = startRow; r <= endRow; r++) {
+  // Fill remaining empty rows (if template area is larger than needed)
+  for (let r = rowCursor; r <= actualEndRow; r++) {
     if (!usedRows.has(r)) {
       ws.mergeCells(`B${r}:C${r}`);
-      const cell = ws.getCell(`A${r}`);
-      cell.border = { ...cell.border, left: leftBorder };
+      ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder };
     }
   }
 
-  // Ensure all F cells in the range have formulas so the SUM in F44 works
-  for (let r = startRow; r <= endRow; r++) {
+  // Ensure all F cells have formulas so SUM works
+  for (let r = startRow; r <= actualEndRow; r++) {
     const cell = ws.getCell(`F${r}`);
     if (cell.value === null || cell.value === undefined) {
       cell.value = { formula: `E${r}*D${r}`, result: 0 };
     }
   }
 
-  // Total formula is already in F44 (=SUM(F16:F43)) — no need to touch it
+  // Update Total formula to cover the actual range
+  ws.getCell(`F${actualTotalRow}`).value = {
+    formula: `SUM(F${startRow}:F${actualEndRow})`,
+    result: invoice.total,
+  };
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(
