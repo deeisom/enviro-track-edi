@@ -43,21 +43,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
   }
 
-  // Print scaling — fit all columns on one page width
-  ws.pageSetup.fitToPage = true;
-  ws.pageSetup.fitToWidth = 1;
-  ws.pageSetup.fitToHeight = 0; // Will be updated after page-packing
-  (ws.pageSetup as any).paperSize = 1; // US Letter
-
-  // Custom print margins (inches)
-  ws.pageSetup.margins = {
-    top: 0.85,
-    left: 0.25,
-    right: 0.2,
-    bottom: 0,
-    header: 0,
-    footer: 0,
-  };
+  // Keep template's original page setup (scale: 84%, fitToWidth: 1, fitToHeight: 0)
+  // Only ensure paper size is US Letter
+  (ws.pageSetup as any).paperSize = 1;
 
   // --- Dynamic metadata ---
   // Bill To (A11 = name, A12 = street, A13 = city/state/zip)
@@ -159,9 +147,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     pages.push({ groups: [], usedRows: 0 });
   }
 
-  ws.pageSetup.fitToHeight = pages.length;
-  (ws.pageSetup as any).scale = undefined;
-
+  // Set print area to cover all pages without overriding scale/fitToHeight
   const totalWsRows = pages.length * ROWS_PER_PAGE;
   ws.pageSetup.printArea = `A1:F${totalWsRows}`;
 
