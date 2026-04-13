@@ -124,26 +124,44 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     groupData.push({ group, descHeights, contentHeight, nameRows, groupHeight });
   }
 
-  // Calculate total rows needed (group heights + inter-group separators)
-  let totalRowsNeeded = 0;
-  groupData.forEach((gd, gi) => {
-    totalRowsNeeded += gd.groupHeight;
-    if (gi < groupData.length - 1) totalRowsNeeded += 1;
-  });
+  // --- Multi-page packing ---
+  const MAX_ITEM_ROWS = 23; // rows 21–43
+  const ROWS_PER_PAGE = 44; // 20 header + 23 items + 1 total
 
-  // Insert extra rows if needed
-  const templateRows = templateEndRow - startRow + 1;
-  if (totalRowsNeeded > templateRows) {
-    const extraRows = totalRowsNeeded - templateRows;
-    for (let i = 0; i < extraRows; i++) {
-      ws.insertRow(templateEndRow + 1 + i, []);
+  // Pack groups into pages (a group is never split across pages)
+  interface PageAllocation {
+    groups: typeof groupData;
+    usedRows: number;
+  }
+  const pages: PageAllocation[] = [];
+  let currentPage: PageAllocation = { groups: [], usedRows: 0 };
+
+  for (let gi = 0; gi < groupData.length; gi++) {
+    const gd = groupData[gi];
+    const separatorRow = currentPage.groups.length > 0 ? 1 : 0;
+    const needed = gd.groupHeight + separatorRow;
+
+    if (currentPage.usedRows + needed > MAX_ITEM_ROWS && currentPage.groups.length > 0) {
+      // Start a new page
+      pages.push(currentPage);
+      currentPage = { groups: [gd], usedRows: gd.groupHeight };
+    } else {
+      currentPage.groups.push(gd);
+      currentPage.usedRows += needed;
     }
   }
+  if (currentPage.groups.length > 0) {
+    pages.push(currentPage);
+  }
+  // Ensure at least one page
+  if (pages.length === 0) {
+    pages.push({ groups: [], usedRows: 0 });
+  }
 
-  const actualEndRow = startRow + Math.max(totalRowsNeeded, templateRows) - 1;
-  const actualTotalRow = actualEndRow + 1;
+  // Calculate total worksheet rows needed
+  const totalWsRows = pages.length * ROWS_PER_PAGE;
 
-  // Unmerge any existing template merges in the line-item area
+  // Unmerge any existing template merges in the line-item area (rows 21–43 of page 1)
   const mergeRanges = Object.keys((ws as any)._merges || {});
   mergeRanges.forEach((range) => {
     const [startRef, endRef = startRef] = range.split(":");
@@ -151,123 +169,232 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     const endRowMatch = endRef.match(/\d+/);
     const top = startRowMatch ? Number(startRowMatch[0]) : 0;
     const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
-    if (bottom >= startRow && top <= actualEndRow) {
+    if (bottom >= startRow && top <= templateEndRow) {
       ws.unMergeCells(range);
     }
   });
 
-  // Clear all line-item cells
-  for (let r = startRow; r <= actualEndRow; r++) {
-    ["A", "B", "C", "D", "E", "F"].forEach((col) => {
-      ws.getCell(`${col}${r}`).value = null;
-    });
+  // Safe merge helper — unmerge any overlapping ranges before merging
+  function safeMerge(range: string) {
+    const currentMerges = Object.keys((ws as any)._merges || {});
+    const [newStart, newEnd = newStart] = range.split(":");
+    const newTopMatch = newStart.match(/\d+/);
+    const newBottomMatch = newEnd.match(/\d+/);
+    const newTop = newTopMatch ? Number(newTopMatch[0]) : 0;
+    const newBottom = newBottomMatch ? Number(newBottomMatch[0]) : newTop;
+    const newLeftCol = newStart.replace(/\d+/, "");
+    const newRightCol = newEnd.replace(/\d+/, "");
+
+    for (const existing of currentMerges) {
+      const [eStart, eEnd = eStart] = existing.split(":");
+      const eTopMatch = eStart.match(/\d+/);
+      const eBottomMatch = eEnd.match(/\d+/);
+      const eTop = eTopMatch ? Number(eTopMatch[0]) : 0;
+      const eBottom = eBottomMatch ? Number(eBottomMatch[0]) : eTop;
+      const eLeftCol = eStart.replace(/\d+/, "");
+      const eRightCol = eEnd.replace(/\d+/, "");
+
+      // Check row overlap
+      if (eBottom >= newTop && eTop <= newBottom) {
+        // Check column overlap (simple letter comparison for A-F)
+        if (eLeftCol <= newRightCol && eRightCol >= newLeftCol) {
+          try { ws.unMergeCells(existing); } catch { /* already unmerged */ }
+        }
+      }
+    }
+    ws.mergeCells(range);
   }
 
-  // Render grouped line items
+  // Helper to copy header from page 1 (rows 1–20) into a page offset
+  function copyHeader(pageIndex: number) {
+    const offset = pageIndex * ROWS_PER_PAGE;
+    // Copy cell values, styles, and merges from rows 1–20
+    for (let r = 1; r <= 20; r++) {
+      const targetRow = offset + r;
+      const srcRow = ws.getRow(r);
+      const tgtRow = ws.getRow(targetRow);
+      tgtRow.height = srcRow.height;
+
+      ["A", "B", "C", "D", "E", "F"].forEach((col) => {
+        const srcCell = ws.getCell(`${col}${r}`);
+        const tgtCell = ws.getCell(`${col}${targetRow}`);
+        tgtCell.value = srcCell.value;
+        tgtCell.font = srcCell.font ? { ...srcCell.font } : undefined;
+        tgtCell.alignment = srcCell.alignment ? { ...srcCell.alignment } : undefined;
+        tgtCell.border = srcCell.border ? { ...srcCell.border } : undefined;
+        tgtCell.fill = srcCell.fill ? { ...srcCell.fill } : undefined;
+        tgtCell.numFmt = srcCell.numFmt;
+      });
+    }
+
+    // Recreate known header merges at the offset
+    const headerMerges = [
+      "A1:F1", "A2:F2", "A3:F3", "A4:F4", "A5:F5",
+      "A6:B6", "A7:B7", "A8:C8", "A9:F9",
+      "A10:B10", "C10:D10",
+      "A11:B11", "A12:B12", "A13:B13",
+      "C11:D11", "C12:D12", "C13:D13",
+      "A14:B14", "C14:D14",
+      "A15:B15", "C15:D15",
+      "A16:F16",
+      "A17:F19",
+      "A20:A20", "B20:C20",
+    ];
+    for (const merge of headerMerges) {
+      const [mStart, mEnd = mStart] = merge.split(":");
+      const mStartCol = mStart.replace(/\d+/, "");
+      const mStartRow = Number(mStart.replace(/[A-Z]+/, ""));
+      const mEndCol = mEnd.replace(/\d+/, "");
+      const mEndRow = Number(mEnd.replace(/[A-Z]+/, ""));
+      const newRange = `${mStartCol}${mStartRow + offset}:${mEndCol}${mEndRow + offset}`;
+      try { safeMerge(newRange); } catch { /* skip if merge fails */ }
+    }
+  }
+
+  // Render line items for each page
   const leftBorder: Partial<ExcelJS.Border> = { style: "thin" };
-  let rowCursor = startRow;
+  const allItemRanges: string[] = []; // Track F-column ranges for total formula
 
-  groupData.forEach((gd, gi) => {
-    const groupStartRow = rowCursor;
-    const { group, descHeights, groupHeight } = gd;
+  for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+    const page = pages[pageIdx];
+    const offset = pageIdx * ROWS_PER_PAGE;
+    const pageStartRow = offset + startRow; // line items start
+    const pageEndRow = offset + templateEndRow; // line items end (row 43 offset)
+    const pageTotalRow = offset + ROWS_PER_PAGE; // row 44 offset
 
-    // Write each description with its calculated row height
-    descHeights.forEach((dh, ii) => {
-      const descStartRow = rowCursor;
-      const descRows = dh.rows;
+    // For pages 2+, copy header
+    if (pageIdx > 0) {
+      copyHeader(pageIdx);
+      // Add page break before this page's header
+      ws.getRow(offset + 1).addPageBreak();
+    }
 
-      // Merge B:C across descRows if needed
-      if (descRows > 1) {
-        ws.mergeCells(`B${descStartRow}:C${descStartRow + descRows - 1}`);
-      } else {
-        ws.mergeCells(`B${descStartRow}:C${descStartRow}`);
+    // Clear line-item area for this page
+    for (let r = pageStartRow; r <= pageEndRow; r++) {
+      ["A", "B", "C", "D", "E", "F"].forEach((col) => {
+        ws.getCell(`${col}${r}`).value = null;
+      });
+    }
+
+    // Render groups for this page
+    let rowCursor = pageStartRow;
+
+    page.groups.forEach((gd, gi) => {
+      const groupStartRow = rowCursor;
+      const { group, descHeights, groupHeight } = gd;
+
+      // Write each description
+      descHeights.forEach((dh, ii) => {
+        const descStartRow = rowCursor;
+        const descRows = dh.rows;
+
+        // Merge B:C across descRows
+        if (descRows > 1) {
+          safeMerge(`B${descStartRow}:C${descStartRow + descRows - 1}`);
+        } else {
+          safeMerge(`B${descStartRow}:C${descStartRow}`);
+        }
+        const descCell = ws.getCell(`B${descStartRow}`);
+        descCell.value = dh.item.description;
+        descCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
+        descCell.font = calibriFont;
+
+        // Qty, Rate, Amount on first row
+        ws.getCell(`D${descStartRow}`).value = dh.item.qty;
+        ws.getCell(`D${descStartRow}`).font = calibriFont;
+        ws.getCell(`E${descStartRow}`).value = dh.item.rate;
+        ws.getCell(`E${descStartRow}`).font = calibriFont;
+        ws.getCell(`F${descStartRow}`).value = {
+          formula: `E${descStartRow}*D${descStartRow}`,
+          result: dh.item.amount,
+        };
+        ws.getCell(`F${descStartRow}`).font = calibriFont;
+
+        rowCursor += descRows;
+
+        // Internal separator
+        if (ii < descHeights.length - 1) {
+          safeMerge(`B${rowCursor}:C${rowCursor}`);
+          rowCursor++;
+        }
+      });
+
+      // Trailing empty rows for group
+      const contentUsed = rowCursor - groupStartRow;
+      const trailingRows = groupHeight - contentUsed;
+      for (let t = 0; t < trailingRows; t++) {
+        safeMerge(`B${rowCursor}:C${rowCursor}`);
+        rowCursor++;
       }
-      const descCell = ws.getCell(`B${descStartRow}`);
-      descCell.value = dh.item.description;
-      descCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
-      descCell.font = calibriFont;
 
-      // Qty, Rate, Amount on the first row of the description
-      ws.getCell(`D${descStartRow}`).value = dh.item.qty;
-      ws.getCell(`D${descStartRow}`).font = calibriFont;
-      ws.getCell(`E${descStartRow}`).value = dh.item.rate;
-      ws.getCell(`E${descStartRow}`).font = calibriFont;
-      ws.getCell(`F${descStartRow}`).value = {
-        formula: `E${descStartRow}*D${descStartRow}`,
-        result: dh.item.amount,
-      };
-      ws.getCell(`F${descStartRow}`).font = calibriFont;
+      const groupEndRow = groupStartRow + groupHeight - 1;
 
-      rowCursor += descRows;
+      // Merge Item name cell
+      if (groupHeight > 1) {
+        safeMerge(`A${groupStartRow}:A${groupEndRow}`);
+      }
+      const nameCell = ws.getCell(`A${groupStartRow}`);
+      nameCell.value = group.name;
+      nameCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+      nameCell.font = calibriFont;
 
-      // Internal separator row between descriptions within same group
-      if (ii < descHeights.length - 1) {
-        ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+      // Borders for A/B
+      for (let r = groupStartRow; r <= groupEndRow; r++) {
+        ws.getCell(`A${r}`).border = {
+          ...ws.getCell(`A${r}`).border,
+          left: leftBorder,
+          right: leftBorder,
+        };
+        ws.getCell(`B${r}`).border = {
+          ...ws.getCell(`B${r}`).border,
+          left: leftBorder,
+        };
+      }
+
+      // Inter-group separator
+      if (gi < page.groups.length - 1) {
+        safeMerge(`B${rowCursor}:C${rowCursor}`);
+        ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
+        ws.getCell(`A${rowCursor}`).font = calibriFont;
+        ws.getCell(`B${rowCursor}`).font = calibriFont;
         rowCursor++;
       }
     });
 
-    // If groupHeight > content used, add trailing empty rows
-    const contentUsed = rowCursor - groupStartRow;
-    const trailingRows = groupHeight - contentUsed;
-    for (let t = 0; t < trailingRows; t++) {
-      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
-      rowCursor++;
+    // Fill remaining empty rows on this page
+    for (let r = rowCursor; r <= pageEndRow; r++) {
+      safeMerge(`B${r}:C${r}`);
+      ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
+      ws.getCell(`A${r}`).font = calibriFont;
+      ws.getCell(`B${r}`).font = calibriFont;
     }
 
-    const groupEndRow = groupStartRow + groupHeight - 1;
-
-    // Merge Item name cell across the group height (only if > 1 row)
-    if (groupHeight > 1) {
-      ws.mergeCells(`A${groupStartRow}:A${groupEndRow}`);
-    }
-    const nameCell = ws.getCell(`A${groupStartRow}`);
-    nameCell.value = group.name;
-    nameCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
-    nameCell.font = calibriFont;
-
-    // Reinforce A/B column borders for the group
-    for (let r = groupStartRow; r <= groupEndRow; r++) {
-      ws.getCell(`A${r}`).border = {
-        ...ws.getCell(`A${r}`).border,
-        left: leftBorder,
-        right: leftBorder,
-      };
-      ws.getCell(`B${r}`).border = {
-        ...ws.getCell(`B${r}`).border,
-        left: leftBorder,
-      };
+    // Ensure all F cells have formulas
+    for (let r = pageStartRow; r <= pageEndRow; r++) {
+      const cell = ws.getCell(`F${r}`);
+      if (cell.value === null || cell.value === undefined) {
+        cell.value = { formula: `E${r}*D${r}`, result: 0 };
+      }
     }
 
-    // Inter-group separator row
-    if (gi < groupData.length - 1) {
-      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
-      ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
-      ws.getCell(`A${rowCursor}`).font = calibriFont;
-      ws.getCell(`B${rowCursor}`).font = calibriFont;
-      rowCursor++;
-    }
-  });
+    allItemRanges.push(`F${pageStartRow}:F${pageEndRow}`);
 
-  // Fill remaining empty rows
-  for (let r = rowCursor; r <= actualEndRow; r++) {
-    ws.mergeCells(`B${r}:C${r}`);
-    ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
-    ws.getCell(`A${r}`).font = calibriFont;
-    ws.getCell(`B${r}`).font = calibriFont;
-  }
-
-  // Ensure all F cells have formulas so SUM works
-  for (let r = startRow; r <= actualEndRow; r++) {
-    const cell = ws.getCell(`F${r}`);
-    if (cell.value === null || cell.value === undefined) {
-      cell.value = { formula: `E${r}*D${r}`, result: 0 };
+    // Clear total row for intermediate pages
+    if (pageIdx < pages.length - 1) {
+      ["A", "B", "C", "D", "E", "F"].forEach((col) => {
+        ws.getCell(`${col}${pageTotalRow}`).value = null;
+      });
     }
   }
 
-  // Update Total formula
-  ws.getCell(`F${actualTotalRow}`).value = {
-    formula: `SUM(F${startRow}:F${actualEndRow})`,
+  // Total formula on the last page's total row
+  const lastPageOffset = (pages.length - 1) * ROWS_PER_PAGE;
+  const lastTotalRow = lastPageOffset + ROWS_PER_PAGE;
+  const totalFormula = allItemRanges.length === 1
+    ? `SUM(${allItemRanges[0]})`
+    : `SUM(${allItemRanges.join(",")})`;
+  ws.getCell(`F${lastTotalRow}`).value = {
+    formula: totalFormula,
     result: invoice.total,
   };
 
