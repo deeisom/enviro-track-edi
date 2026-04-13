@@ -323,6 +323,41 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
               </Select>
             </div>
           </div>
+          {!isEditing && (
+            <div className="flex items-center gap-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="continuation"
+                  checked={isContinuation}
+                  onCheckedChange={(checked) => {
+                    setIsContinuation(!!checked);
+                    if (!checked) setParentInvoiceId("");
+                  }}
+                />
+                <Label htmlFor="continuation" className="text-sm font-normal cursor-pointer">
+                  This is a continuation page
+                </Label>
+              </div>
+              {isContinuation && (
+                <div className="flex-1 max-w-xs">
+                  <Select value={parentInvoiceId} onValueChange={setParentInvoiceId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Select parent invoice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allInvoices
+                        .filter(i => i.type === type && !i.invoiceNumber.includes("-"))
+                        .map(i => (
+                          <SelectItem key={i.id} value={i.id}>
+                            {i.invoiceNumber} — {i.billTo.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -359,6 +394,14 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
 
       <Card>
         <CardContent className="pt-6 space-y-4">
+          {lineItems.length >= 8 && (
+            <Alert className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-sm">
+                This invoice may exceed a single page. Consider creating a continuation page for additional items.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Line Items</h3>
             <div className="flex gap-2">
