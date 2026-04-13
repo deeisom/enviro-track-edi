@@ -1,39 +1,36 @@
 
 
-## Plan: Fix separator row font and borders
+## Plan: Fix Freezing on Large Invoice Export
 
-### Problem
-Inter-group separator rows (the empty rows between item groups) have two issues:
-1. Cells A and B default to Times New Roman instead of Calibri 11
-2. Cell A is missing its right-side border
+### Root Cause
+The `ws.insertRow()` loop (lines 136-141) is O(n²) — each call shifts all subsequent rows, updates references, and recalculates merges. For invoices needing 50+ extra rows, this freezes the browser.
+
+### Fix
+**Remove the `insertRow` loop entirely** (lines 134-141). ExcelJS automatically expands the worksheet when data is written to any row number, so pre-inserting rows is unnecessary.
+
+### Why Multi-Page Still Works
+- `fitToWidth=1, fitToHeight=0` is already set — Excel prints as many vertical pages as needed
+- All cell values, formatting, borders, and the Total formula are written to explicitly calculated row indices (`actualEndRow`, `actualTotalRow`)
+- Nothing depends on pre-inserted rows existing
 
 ### Changes to `src/services/invoiceExport.ts`
 
-**Lines 243-246** — In the inter-group separator block, add Calibri font to cells A and B, and add right border to cell A:
-
+**Delete lines 134-141** (the insert loop):
 ```typescript
-// Inter-group separator row
-if (gi < groupData.length - 1) {
-  ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
-  ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
-  ws.getCell(`A${rowCursor}`).font = calibriFont;
-  ws.getCell(`B${rowCursor}`).font = calibriFont;
-  rowCursor++;
+// REMOVE:
+const templateRows = templateEndRow - startRow + 1;
+if (totalRowsNeeded > templateRows) {
+  const extraRows = totalRowsNeeded - templateRows;
+  for (let i = 0; i < extraRows; i++) {
+    ws.insertRow(templateEndRow + 1 + i, []);
+  }
 }
 ```
 
-**Lines 250-254** — Same fix for remaining empty rows at the bottom:
-
-```typescript
-for (let r = rowCursor; r <= actualEndRow; r++) {
-  ws.mergeCells(`B${r}:C${r}`);
-  ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
-  ws.getCell(`A${r}`).font = calibriFont;
-  ws.getCell(`B${r}`).font = calibriFont;
-}
-```
+Keep the `actualEndRow` / `actualTotalRow` calculations and everything else unchanged.
 
 ### Summary
-- Two small edits in `src/services/invoiceExport.ts`
+- One deletion in `src/services/invoiceExport.ts`
 - No database, type, or UI changes
+- Long invoices will export instantly and span multiple printed pages
 
