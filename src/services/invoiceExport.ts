@@ -131,17 +131,20 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     if (gi < groupData.length - 1) totalRowsNeeded += 1;
   });
 
-  // ExcelJS auto-expands rows when writing to any index — no insertRow needed
+  // Insert extra rows if needed
   const templateRows = templateEndRow - startRow + 1;
+  if (totalRowsNeeded > templateRows) {
+    const extraRows = totalRowsNeeded - templateRows;
+    for (let i = 0; i < extraRows; i++) {
+      ws.insertRow(templateEndRow + 1 + i, []);
+    }
+  }
 
   const actualEndRow = startRow + Math.max(totalRowsNeeded, templateRows) - 1;
   const actualTotalRow = actualEndRow + 1;
 
-  // Template footer rows (fixed positions in the template)
-  const templateTotalRow = 44;
-  const templateFooterEnd = 51;
-
-  // Unmerge any existing template merges in the line-item area only (not footer)
+  // Unmerge any existing template merges in the line-item area (and beyond, to cover total row)
+  // Re-read _merges each iteration since unMergeCells mutates the map
   let didUnmerge = true;
   while (didUnmerge) {
     didUnmerge = false;
@@ -152,32 +155,10 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       const endRowMatch = endRef.match(/\d+/);
       const top = startRowMatch ? Number(startRowMatch[0]) : 0;
       const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
-      // Only unmerge within line-item area (startRow to actualEndRow)
-      if (bottom >= startRow && top <= actualEndRow) {
+      if (bottom >= startRow && top <= actualEndRow + 1) {
         try { ws.unMergeCells(range); } catch (_e) { /* already unmerged */ }
         didUnmerge = true;
-        break;
-      }
-    }
-  }
-
-  // Also unmerge original footer area if we need to relocate it
-  if (actualTotalRow !== templateTotalRow) {
-    let didUnmergeFooter = true;
-    while (didUnmergeFooter) {
-      didUnmergeFooter = false;
-      const mergeRanges = Object.keys((ws as any)._merges || {});
-      for (const range of mergeRanges) {
-        const [startRef, endRef = startRef] = range.split(":");
-        const startRowMatch = startRef.match(/\d+/);
-        const endRowMatch = endRef.match(/\d+/);
-        const top = startRowMatch ? Number(startRowMatch[0]) : 0;
-        const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
-        if (bottom >= templateTotalRow && top <= templateFooterEnd) {
-          try { ws.unMergeCells(range); } catch (_e) { /* already unmerged */ }
-          didUnmergeFooter = true;
-          break;
-        }
+        break; // restart iteration since map mutated
       }
     }
   }
@@ -187,6 +168,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     try {
       ws.mergeCells(range);
     } catch (_e) {
+      // If merge fails, unmerge the range first then retry
       try { ws.unMergeCells(range); } catch (_e2) { /* ignore */ }
       ws.mergeCells(range);
     }
@@ -199,16 +181,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     });
   }
 
-  // Clear original template footer rows if footer needs to relocate
-  if (actualTotalRow !== templateTotalRow) {
-    for (let r = templateTotalRow; r <= templateFooterEnd; r++) {
-      ["A", "B", "C", "D", "E", "F"].forEach((col) => {
-        ws.getCell(`${col}${r}`).value = null;
-        ws.getCell(`${col}${r}`).border = {};
-      });
-    }
-  }
-
   // Render grouped line items
   const leftBorder: Partial<ExcelJS.Border> = { style: "thin" };
   let rowCursor = startRow;
@@ -217,10 +189,12 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     const groupStartRow = rowCursor;
     const { group, descHeights, groupHeight } = gd;
 
+    // Write each description with its calculated row height
     descHeights.forEach((dh, ii) => {
       const descStartRow = rowCursor;
       const descRows = dh.rows;
 
+      // Merge B:C across descRows if needed
       if (descRows > 1) {
         safeMerge(`B${descStartRow}:C${descStartRow + descRows - 1}`);
       } else {
@@ -231,6 +205,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       descCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
       descCell.font = calibriFont;
 
+      // Qty, Rate, Amount on the first row of the description
       ws.getCell(`D${descStartRow}`).value = dh.item.qty;
       ws.getCell(`D${descStartRow}`).font = calibriFont;
       ws.getCell(`E${descStartRow}`).value = dh.item.rate;
@@ -243,12 +218,14 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
       rowCursor += descRows;
 
+      // Internal separator row between descriptions within same group
       if (ii < descHeights.length - 1) {
         safeMerge(`B${rowCursor}:C${rowCursor}`);
         rowCursor++;
       }
     });
 
+    // If groupHeight > content used, add trailing empty rows
     const contentUsed = rowCursor - groupStartRow;
     const trailingRows = groupHeight - contentUsed;
     for (let t = 0; t < trailingRows; t++) {
@@ -258,6 +235,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
     const groupEndRow = groupStartRow + groupHeight - 1;
 
+    // Merge Item name cell across the group height (only if > 1 row)
     if (groupHeight > 1) {
       safeMerge(`A${groupStartRow}:A${groupEndRow}`);
     }
@@ -266,6 +244,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     nameCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
     nameCell.font = calibriFont;
 
+    // Reinforce A/B column borders for the group
     for (let r = groupStartRow; r <= groupEndRow; r++) {
       ws.getCell(`A${r}`).border = {
         ...ws.getCell(`A${r}`).border,
@@ -278,6 +257,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       };
     }
 
+    // Inter-group separator row
     if (gi < groupData.length - 1) {
       safeMerge(`B${rowCursor}:C${rowCursor}`);
       ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
@@ -295,7 +275,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     ws.getCell(`B${r}`).font = calibriFont;
   }
 
-  // Ensure all F cells in line-item area have formulas so SUM works
+  // Ensure all F cells have formulas so SUM works
   for (let r = startRow; r <= actualEndRow; r++) {
     const cell = ws.getCell(`F${r}`);
     if (cell.value === null || cell.value === undefined) {
@@ -303,39 +283,11 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }
   }
 
-  // --- Relocate footer to dynamic position ---
-  const topBorder: Partial<ExcelJS.Border> = { style: "thin" };
-  const boldCalibri: Partial<ExcelJS.Font> = { name: "Calibri", size: 11, bold: true };
-
-  // Total row: merge A-E for "questions" text, Total label in E, SUM in F
-  safeMerge(`A${actualTotalRow}:D${actualTotalRow}`);
-  const questionsCell = ws.getCell(`A${actualTotalRow}`);
-  questionsCell.value = "If you have any questions please call 856-616-9516";
-  questionsCell.font = { name: "Calibri", size: 9, italic: true };
-  questionsCell.alignment = { horizontal: "left", vertical: "middle" };
-
-  const totalLabelCell = ws.getCell(`E${actualTotalRow}`);
-  totalLabelCell.value = "Total";
-  totalLabelCell.font = boldCalibri;
-  totalLabelCell.alignment = { horizontal: "right", vertical: "middle" };
-  totalLabelCell.border = { top: topBorder };
-
-  const totalValueCell = ws.getCell(`F${actualTotalRow}`);
-  totalValueCell.value = {
+  // Update Total formula
+  ws.getCell(`F${actualTotalRow}`).value = {
     formula: `SUM(F${startRow}:F${actualEndRow})`,
     result: invoice.total,
   };
-  totalValueCell.font = boldCalibri;
-  totalValueCell.numFmt = '$#,##0.00';
-  totalValueCell.border = { top: topBorder };
-
-  // Veteran-owned text row
-  const veteranRow = actualTotalRow + 2;
-  safeMerge(`A${veteranRow}:F${veteranRow}`);
-  const veteranCell = ws.getCell(`A${veteranRow}`);
-  veteranCell.value = "EDI is a Service Disabled Veteran Owned Small Business!";
-  veteranCell.font = { name: "Calibri", size: 9, italic: true };
-  veteranCell.alignment = { horizontal: "center", vertical: "middle" };
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(
