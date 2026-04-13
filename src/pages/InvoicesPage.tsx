@@ -256,6 +256,16 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
       if (isEditing) {
         await updateInvoice(existingInvoice.id, invoiceData);
         toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} updated` });
+      } else if (isContinuation && parentInvoiceId) {
+        const parent = allInvoices.find(i => i.id === parentInvoiceId);
+        if (!parent) { toast({ title: "Parent invoice not found", variant: "destructive" }); return; }
+        const existingContinuations = allInvoices.filter(i => 
+          i.invoiceNumber.startsWith(parent.invoiceNumber + "-")
+        ).length;
+        const suffix = String(existingContinuations + 1).padStart(2, "0");
+        const continuationNumber = `${parent.invoiceNumber}-${suffix}`;
+        await createInvoice(invoiceData, continuationNumber);
+        toast({ title: `Continuation page ${continuationNumber} created` });
       } else {
         await createInvoice(invoiceData);
         toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} created` });
