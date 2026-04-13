@@ -111,8 +111,10 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   const templateRows = templateEndRow - startRow + 1; // 23
   if (totalRowsNeeded > templateRows) {
     const extraRows = totalRowsNeeded - templateRows;
-    // Insert rows before the total formula row to push it down
-    ws.insertRows(templateEndRow + 1, extraRows);
+    // Insert blank rows before the total formula row to push it down
+    for (let i = 0; i < extraRows; i++) {
+      ws.insertRow(templateEndRow + 1 + i, []);
+    }
   }
 
   const actualEndRow = startRow + Math.max(totalRowsNeeded, templateRows) - 1;
