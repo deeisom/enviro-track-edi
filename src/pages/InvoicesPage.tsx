@@ -346,7 +346,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                     </SelectTrigger>
                     <SelectContent>
                       {allInvoices
-                        .filter(i => i.type === type && !i.invoiceNumber.includes("-"))
+                        .filter(i => i.type === type && !/\-\d{2}$/.test(i.invoiceNumber))
                         .map(i => (
                           <SelectItem key={i.id} value={i.id}>
                             {i.invoiceNumber} — {i.billTo.name}
