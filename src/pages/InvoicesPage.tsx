@@ -423,35 +423,53 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
             </div>
           </div>
 
-          {lineItems.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-6">No line items yet. Add from your rate table or create a custom item.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-20">Qty</TableHead>
-                  <TableHead className="w-24">Rate</TableHead>
-                  <TableHead className="w-24 text-right">Amount</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lineItems.map(li => (
-                  <TableRow key={li.id}>
-                    <TableCell><Input value={li.name} onChange={e => updateLineItem(li.id, "name", e.target.value)} className="h-8 text-sm" /></TableCell>
-                    <TableCell><Input value={li.description} onChange={e => updateLineItem(li.id, "description", e.target.value)} className="h-8 text-sm" /></TableCell>
-                    <TableCell><Input type="number" min="0" step="0.5" value={li.qty} onChange={e => updateLineItem(li.id, "qty", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
-                    <TableCell><Input type="number" min="0" step="0.5" value={li.rate} onChange={e => updateLineItem(li.id, "rate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
-                    <TableCell className="text-right font-mono text-sm">${li.amount.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeLineItem(li.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </TableCell>
+          {(() => {
+            const parentItems = isContinuation && parentInvoiceId
+              ? (allInvoices.find(i => i.id === parentInvoiceId)?.lineItems || [])
+              : [];
+            const parentItemNames = new Set(parentItems.map(li => li.name.toLowerCase().trim()).filter(Boolean));
+
+            return lineItems.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-6">No line items yet. Add from your rate table or create a custom item.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-20">Qty</TableHead>
+                    <TableHead className="w-24">Rate</TableHead>
+                    <TableHead className="w-24 text-right">Amount</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
-                ))}
+                </TableHeader>
+                <TableBody>
+                  {lineItems.map(li => {
+                    const isDuplicate = isContinuation && parentItemNames.has(li.name.toLowerCase().trim()) && li.name.trim() !== "";
+                    return (
+                      <TableRow key={li.id} className={isDuplicate ? "bg-yellow-50/50 dark:bg-yellow-950/10" : ""}>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Input value={li.name} onChange={e => updateLineItem(li.id, "name", e.target.value)} className="h-8 text-sm" />
+                            {isDuplicate && (
+                              <span title="This item also exists on the parent invoice" className="text-yellow-600 shrink-0">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell><Input value={li.description} onChange={e => updateLineItem(li.id, "description", e.target.value)} className="h-8 text-sm" /></TableCell>
+                        <TableCell><Input type="number" min="0" step="0.5" value={li.qty} onChange={e => updateLineItem(li.id, "qty", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
+                        <TableCell><Input type="number" min="0" step="0.5" value={li.rate} onChange={e => updateLineItem(li.id, "rate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></TableCell>
+                        <TableCell className="text-right font-mono text-sm">${li.amount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeLineItem(li.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 <TableRow>
                   <TableCell colSpan={4} className="text-right font-semibold">Total</TableCell>
                   <TableCell className="text-right font-mono font-bold">${total.toFixed(2)}</TableCell>
