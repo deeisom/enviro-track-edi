@@ -131,14 +131,8 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     if (gi < groupData.length - 1) totalRowsNeeded += 1;
   });
 
-  // Insert extra rows if needed
+  // ExcelJS auto-expands rows when writing to any index — no insertRow needed
   const templateRows = templateEndRow - startRow + 1;
-  if (totalRowsNeeded > templateRows) {
-    const extraRows = totalRowsNeeded - templateRows;
-    for (let i = 0; i < extraRows; i++) {
-      ws.insertRow(templateEndRow + 1 + i, []);
-    }
-  }
 
   const actualEndRow = startRow + Math.max(totalRowsNeeded, templateRows) - 1;
   const actualTotalRow = actualEndRow + 1;
