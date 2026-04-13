@@ -127,7 +127,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
   // --- Multi-page packing ---
   const MAX_ITEM_ROWS = 23; // rows 21–43
-  const ROWS_PER_PAGE = 44; // 20 header + 23 items + 1 total
+  const ROWS_PER_PAGE = 52; // full template height, including total/footer/logo rows
+  const PAGE_TOTAL_START_ROW = 44;
+  const PAGE_TOTAL_END_ROW = 45;
 
   // Pack groups into pages (a group is never split across pages)
   interface PageAllocation {
@@ -143,7 +145,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     const needed = gd.groupHeight + separatorRow;
 
     if (currentPage.usedRows + needed > MAX_ITEM_ROWS && currentPage.groups.length > 0) {
-      // Start a new page
       pages.push(currentPage);
       currentPage = { groups: [gd], usedRows: gd.groupHeight };
     } else {
@@ -154,16 +155,15 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   if (currentPage.groups.length > 0) {
     pages.push(currentPage);
   }
-  // Ensure at least one page
   if (pages.length === 0) {
     pages.push({ groups: [], usedRows: 0 });
   }
 
-  // Lock fitToHeight to exact page count
   ws.pageSetup.fitToHeight = pages.length;
+  (ws.pageSetup as any).scale = undefined;
 
-  // Calculate total worksheet rows needed
   const totalWsRows = pages.length * ROWS_PER_PAGE;
+  ws.pageSetup.printArea = `A1:F${totalWsRows}`;
 
   // Unmerge any existing template merges in the line-item area (rows 21–43 of page 1)
   const mergeRanges = Object.keys((ws as any)._merges || {});
@@ -177,6 +177,43 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       ws.unMergeCells(range);
     }
   });
+
+  const templatePageMerges = Object.keys((ws as any)._merges || {}).filter((range) => {
+    const [startRef, endRef = startRef] = range.split(":");
+    const startRowMatch = startRef.match(/\d+/);
+    const endRowMatch = endRef.match(/\d+/);
+    const top = startRowMatch ? Number(startRowMatch[0]) : 0;
+    const bottom = endRowMatch ? Number(endRowMatch[0]) : top;
+    return top >= 1 && bottom <= ROWS_PER_PAGE;
+  });
+
+  type TemplateImage = {
+    imageId: number;
+    fromRow: number;
+    fromCol: number;
+    toRow: number;
+    toCol: number;
+    editAs?: string;
+  };
+
+  const templateImages: TemplateImage[] = (typeof (ws as any).getImages === "function" ? (ws as any).getImages() : [])
+    .map((image: any) => {
+      const range = image.range ?? {};
+      const tl = range.tl ?? range._from;
+      const br = range.br ?? range._to;
+      if (!tl || !br) return null;
+
+      return {
+        imageId: image.imageId,
+        fromRow: tl.nativeRow ?? tl.row ?? 0,
+        fromCol: tl.nativeCol ?? tl.col ?? 0,
+        toRow: br.nativeRow ?? br.row ?? 0,
+        toCol: br.nativeCol ?? br.col ?? 0,
+        editAs: range.editAs,
+      };
+    })
+    .filter((image): image is TemplateImage => image !== null)
+    .filter((image) => image.fromRow < ROWS_PER_PAGE);
 
   // Safe merge helper — unmerge any overlapping ranges before merging
   function safeMerge(range: string) {
@@ -198,22 +235,19 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       const eLeftCol = eStart.replace(/\d+/, "");
       const eRightCol = eEnd.replace(/\d+/, "");
 
-      // Check row overlap
       if (eBottom >= newTop && eTop <= newBottom) {
-        // Check column overlap (simple letter comparison for A-F)
         if (eLeftCol <= newRightCol && eRightCol >= newLeftCol) {
-          try { ws.unMergeCells(existing); } catch { /* already unmerged */ }
+          try { ws.unMergeCells(existing); } catch { }
         }
       }
     }
     ws.mergeCells(range);
   }
 
-  // Helper to copy header from page 1 (rows 1–20) into a page offset
-  function copyHeader(pageIndex: number) {
+  function copyTemplatePage(pageIndex: number) {
     const offset = pageIndex * ROWS_PER_PAGE;
-    // Copy cell values, styles, and merges from rows 1–20
-    for (let r = 1; r <= 20; r++) {
+
+    for (let r = 1; r <= ROWS_PER_PAGE; r++) {
       const targetRow = offset + r;
       const srcRow = ws.getRow(r);
       const tgtRow = ws.getRow(targetRow);
@@ -231,75 +265,58 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       });
     }
 
-    // Recreate known header merges at the offset
-    const headerMerges = [
-      "A1:F1", "A2:F2", "A3:F3", "A4:F4", "A5:F5",
-      "A6:B6", "A7:B7", "A8:C8", "A9:F9",
-      "A10:B10", "C10:D10",
-      "A11:B11", "A12:B12", "A13:B13",
-      "C11:D11", "C12:D12", "C13:D13",
-      "A14:B14", "C14:D14",
-      "A15:B15", "C15:D15",
-      "A16:F16",
-      "A17:F19",
-      "A20:A20", "B20:C20",
-    ];
-    for (const merge of headerMerges) {
+    for (const merge of templatePageMerges) {
       const [mStart, mEnd = mStart] = merge.split(":");
       const mStartCol = mStart.replace(/\d+/, "");
       const mStartRow = Number(mStart.replace(/[A-Z]+/, ""));
       const mEndCol = mEnd.replace(/\d+/, "");
       const mEndRow = Number(mEnd.replace(/[A-Z]+/, ""));
       const newRange = `${mStartCol}${mStartRow + offset}:${mEndCol}${mEndRow + offset}`;
-      try { safeMerge(newRange); } catch { /* skip if merge fails */ }
+      try { safeMerge(newRange); } catch { }
     }
+
+    templateImages.forEach((image) => {
+      (ws as any).addImage(image.imageId, {
+        tl: { col: image.fromCol, row: image.fromRow + offset },
+        br: { col: image.toCol, row: image.toRow + offset },
+        editAs: image.editAs ?? "oneCell",
+      });
+    });
+  }
+
+  for (let pageIdx = 1; pageIdx < pages.length; pageIdx++) {
+    copyTemplatePage(pageIdx);
+    ws.getRow(pageIdx * ROWS_PER_PAGE + 1).addPageBreak();
   }
 
   // Render line items for each page
   const leftBorder: Partial<ExcelJS.Border> = { style: "thin" };
-  const allItemRanges: string[] = []; // Track F-column ranges for total formula
+  const allItemRanges: string[] = [];
 
   for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
     const page = pages[pageIdx];
     const offset = pageIdx * ROWS_PER_PAGE;
-    const pageStartRow = offset + startRow; // line items start
-    const pageEndRow = offset + templateEndRow; // line items end (row 43 offset)
-    const pageTotalRow = offset + ROWS_PER_PAGE; // row 44 offset
+    const pageStartRow = offset + startRow;
+    const pageEndRow = offset + templateEndRow;
+    const pageTotalStartRow = offset + PAGE_TOTAL_START_ROW;
+    const pageTotalEndRow = offset + PAGE_TOTAL_END_ROW;
 
-    // For pages 2+, copy header
-    if (pageIdx > 0) {
-      copyHeader(pageIdx);
-      // Add page break before this page's header
-      ws.getRow(offset + 1).addPageBreak();
-    }
-
-    // Set explicit row heights for line-item rows (21–43) and total row (44)
-    // Usable height: 10.15" = ~731 points; 731 / 44 ≈ 16.6 points per row
-    const LINE_ITEM_ROW_HEIGHT = 16.6;
-    for (let r = offset + startRow; r <= offset + ROWS_PER_PAGE; r++) {
-      ws.getRow(r).height = LINE_ITEM_ROW_HEIGHT;
-    }
-
-    // Clear line-item area for this page
     for (let r = pageStartRow; r <= pageEndRow; r++) {
       ["A", "B", "C", "D", "E", "F"].forEach((col) => {
         ws.getCell(`${col}${r}`).value = null;
       });
     }
 
-    // Render groups for this page
     let rowCursor = pageStartRow;
 
     page.groups.forEach((gd, gi) => {
       const groupStartRow = rowCursor;
       const { group, descHeights, groupHeight } = gd;
 
-      // Write each description
       descHeights.forEach((dh, ii) => {
         const descStartRow = rowCursor;
         const descRows = dh.rows;
 
-        // Merge B:C across descRows
         if (descRows > 1) {
           safeMerge(`B${descStartRow}:C${descStartRow + descRows - 1}`);
         } else {
@@ -310,7 +327,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
         descCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
         descCell.font = calibriFont;
 
-        // Qty, Rate, Amount on first row
         ws.getCell(`D${descStartRow}`).value = dh.item.qty;
         ws.getCell(`D${descStartRow}`).font = calibriFont;
         ws.getCell(`E${descStartRow}`).value = dh.item.rate;
@@ -323,14 +339,12 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
         rowCursor += descRows;
 
-        // Internal separator
         if (ii < descHeights.length - 1) {
           safeMerge(`B${rowCursor}:C${rowCursor}`);
           rowCursor++;
         }
       });
 
-      // Trailing empty rows for group
       const contentUsed = rowCursor - groupStartRow;
       const trailingRows = groupHeight - contentUsed;
       for (let t = 0; t < trailingRows; t++) {
@@ -340,7 +354,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
       const groupEndRow = groupStartRow + groupHeight - 1;
 
-      // Merge Item name cell
       if (groupHeight > 1) {
         safeMerge(`A${groupStartRow}:A${groupEndRow}`);
       }
@@ -349,7 +362,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       nameCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
       nameCell.font = calibriFont;
 
-      // Borders for A/B
       for (let r = groupStartRow; r <= groupEndRow; r++) {
         ws.getCell(`A${r}`).border = {
           ...ws.getCell(`A${r}`).border,
@@ -362,7 +374,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
         };
       }
 
-      // Inter-group separator
       if (gi < page.groups.length - 1) {
         safeMerge(`B${rowCursor}:C${rowCursor}`);
         ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
@@ -372,7 +383,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       }
     });
 
-    // Fill remaining empty rows on this page
     for (let r = rowCursor; r <= pageEndRow; r++) {
       safeMerge(`B${r}:C${r}`);
       ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
@@ -380,7 +390,6 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       ws.getCell(`B${r}`).font = calibriFont;
     }
 
-    // Ensure all F cells have formulas
     for (let r = pageStartRow; r <= pageEndRow; r++) {
       const cell = ws.getCell(`F${r}`);
       if (cell.value === null || cell.value === undefined) {
@@ -390,17 +399,17 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
     allItemRanges.push(`F${pageStartRow}:F${pageEndRow}`);
 
-    // Clear total row for intermediate pages
     if (pageIdx < pages.length - 1) {
-      ["A", "B", "C", "D", "E", "F"].forEach((col) => {
-        ws.getCell(`${col}${pageTotalRow}`).value = null;
-      });
+      for (let r = pageTotalStartRow; r <= pageTotalEndRow; r++) {
+        ["A", "B", "C", "D", "E", "F"].forEach((col) => {
+          ws.getCell(`${col}${r}`).value = null;
+        });
+      }
     }
   }
 
-  // Total formula on the last page's total row
   const lastPageOffset = (pages.length - 1) * ROWS_PER_PAGE;
-  const lastTotalRow = lastPageOffset + ROWS_PER_PAGE;
+  const lastTotalRow = lastPageOffset + PAGE_TOTAL_START_ROW;
   const totalFormula = allItemRanges.length === 1
     ? `SUM(${allItemRanges[0]})`
     : `SUM(${allItemRanges.join(",")})`;
