@@ -477,7 +477,8 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                 </TableRow>
               </TableBody>
             </Table>
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
 
