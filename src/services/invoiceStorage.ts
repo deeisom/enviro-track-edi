@@ -12,7 +12,8 @@ export async function getAllRates(): Promise<RateItem[]> {
 export async function createRate(input: Omit<RateItem, "id">): Promise<RateItem> {
   const { data, error } = await supabase.from("rates").insert({
     name: input.name,
-    description: input.description,
+    item: input.item,
+    item_description: input.itemDescription,
     category: input.category,
     default_rate: input.defaultRate,
     unit: input.unit,
@@ -24,7 +25,8 @@ export async function createRate(input: Omit<RateItem, "id">): Promise<RateItem>
 export async function updateRate(id: string, input: Partial<RateItem>): Promise<RateItem | undefined> {
   const updateData: any = {};
   if (input.name !== undefined) updateData.name = input.name;
-  if (input.description !== undefined) updateData.description = input.description;
+  if (input.item !== undefined) updateData.item = input.item;
+  if (input.itemDescription !== undefined) updateData.item_description = input.itemDescription;
   if (input.category !== undefined) updateData.category = input.category;
   if (input.defaultRate !== undefined) updateData.default_rate = input.defaultRate;
   if (input.unit !== undefined) updateData.unit = input.unit;
@@ -45,7 +47,8 @@ function mapRate(row: any): RateItem {
   return {
     id: row.id,
     name: row.name,
-    description: row.description || "",
+    item: row.item || "",
+    itemDescription: row.item_description || "",
     category: row.category as RateItem["category"],
     defaultRate: Number(row.default_rate),
     unit: row.unit,

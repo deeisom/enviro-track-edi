@@ -193,8 +193,8 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
     const item: InvoiceLineItem = {
       id: crypto.randomUUID(),
       rateItemId: rateItem?.id,
-      name: rateItem?.name || "",
-      description: rateItem?.description || "",
+      name: rateItem?.item || "",
+      description: rateItem?.itemDescription || "",
       qty: 1,
       rate: rateItem?.defaultRate || 0,
       amount: rateItem?.defaultRate || 0,

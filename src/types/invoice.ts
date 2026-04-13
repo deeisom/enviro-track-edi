@@ -3,7 +3,8 @@ export type RateCategory = "services" | "equipment" | "analytical" | "consumable
 export interface RateItem {
   id: string;
   name: string;
-  description: string;
+  item: string;
+  itemDescription: string;
   category: RateCategory;
   defaultRate: number;
   unit: string; // "per hour", "per day", "per sample", "flat"
