@@ -1,45 +1,65 @@
 
-## Plan: Populate all 13 existing rate items with Item and Item Description data
 
-I verified the current setup:
+## Plan: Dynamic Multi-Page Invoice Export with Grouped Line Items
 
-- The app UI is already reading `item` and `item_description`
-- The invoice builder already uses those fields when adding from the rate table
-- The schema change only added the new columns with empty defaults
-- In the live data, 7 rates are blank and 6 have values, but since you want all 13 explicitly aligned to your provided mapping, I should update all 13 existing rows
+### Problem
 
-### What I’ll do
+1. Line items beyond row 43 are silently dropped — no multi-page support
+2. Every line item currently uses a fixed 4-row description block regardless of content length
+3. Line items with the same "Item" name (e.g., two "Equipment" entries) should be grouped under a single merged Item cell
+4. Item column text should be left-aligned, not centered
 
-1. Update the existing 13 rows in the `rates` table so every current rate has the exact **Name / Item / Item Description** mapping you provided.
-2. Match rows by the current rate **name** values already in your database/app.
-3. Leave the UI/code alone unless I find one of the names needs normalization for your exact wording.
+### Layout Rules (from your example)
 
-### Data to apply
+Based on the uploaded INV-0004_EXAMPLE.xlsx:
 
-| Current Name in app/database | Item | Item Description |
-|---|---|---|
-| Program Administration | Program Administration | Review & update documentation; data interpretation; DOE/DEP forms preparation; project communications & coordination |
-| Sample Collection | Sample Collection | Fieldwork - on-site first-draw sample collection; field recordation; sample processing |
-| Lead in Water - EPA 200.8 | Analytical | Analysis for lead in water per EPA Method 200.8 (ICP-MS); includes QA/QC blanks; 2-week turnaround |
-| Sample Bottles & Supplies | Consumables | Supplies; 250Ml sample bottles with preservative; gloves, labels |
-| Psychrometer/TSI-Calc | Equipment | Psychrometer/TSI-Calc for temperature and humidity readings at sample locations. |
-| Project Manager | Project Manager | Project Manager |
-| Asbestos Air Monitor | Asbestos Air Monitor | Asbestos Air Monitor |
-| Final Report | Final Report | Final Report |
-| TEM Air Samples 6-Hour TAT | Lab Fees | TEM air samples 6-hour TAT |
-| Industrial Hygiene Services | Industrial Hygiene Services | Project oversight; onsite sampling and data collection; sample preparation; lab transmittal; data interpretation; final report preparation; project communications |
-| Mold in Air Samples | Analytical | Mold in air samples |
-| Sampling Cassettes for Mold | Analytical | Sampling cassettes for mold in air |
-| Zefon Sampling Pump | Equipment | Zefon sampling pump |
+```text
+Row  | Col A (Item)       | Col B:C (Description)                    | D (Qty) | E (Rate) | F (Amount)
+-----|--------------------|------------------------------------------|---------|----------|----------
+ 21  | Asbestos Air       | Asbestos Air Monitor                     |    1    |  $65.00  |  $65.00
+ 22  | Monitor (merged)   |                                          |         |          |    $-
+ 23  |                    |          (separator between groups)       |         |          |    $-
+ 24  | Final Report       | Final Report                             |    1    | $150.00  | $150.00
+ 25  | (merged)           |                                          |         |          |    $-
+ 26  |                    |          (separator between groups)       |         |          |    $-
+ 27  | Equipment          | Zefon sampling pump                      |    1    |  $30.00  |  $30.00
+ 28  | (merged 3 rows)    |          (separator within group)        |         |          |    $-
+ 29  |                    | Psychrometer/TSI-Calc for temp and...    |    1    |  $82.00  |  $82.00
+ 30  |                    |          (separator between groups)       |         |          |    $-
+```
 
-### Important note
+- Each description = 1 row (with wrap text), qty/rate/amount on that same row
+- 1 empty separator row between descriptions within a group
+- 1 empty separator row between groups
+- Item cell merges vertically across all rows in the group (descriptions + internal separators)
+- Item text: left-aligned, vertical middle, wrap text
 
-Your spreadsheet wording and the current database names differ slightly for some rows. I will update the existing records using the current app/database names above so the right rows get filled in.
+### Changes
 
-### Technical details
+**`src/services/invoiceExport.ts`** — Complete rewrite of the line-item section in `exportInvoiceToExcel`:
 
-- No schema change needed
-- No UI change needed
-- This is a data update only: 13 `UPDATE` statements against `public.rates`
-- After that, the Rate Table page should show Item and Item Description populated for every one of the 13 current rates, and “Add from rate table” will carry those values into invoices/estimates
+1. **Group consecutive line items by `name`**: Build groups where items sharing the same `name` value are combined. Each group has one merged Item cell and multiple description rows.
+
+2. **Calculate rows dynamically**: For each group: `(number of descriptions) + (number of descriptions - 1 internal separators)`. Between groups: 1 separator row. Total rows = sum of all group heights + inter-group separators.
+
+3. **Remove fixed row 21-43 constraint**: If total rows needed exceeds 23 (the original range), insert additional rows into the worksheet. Move the Total formula row (currently F44) down accordingly.
+
+4. **Render each group**:
+   - Merge `A{start}:A{end}` for the Item name (left-aligned, vertical middle, wrap text)
+   - For each description in the group: write description in `B:C` (merged, 1 row), qty in D, rate in E, formula in F
+   - Insert blank separator rows between descriptions and between groups
+
+5. **Update Total formula**: Adjust `SUM(F21:F{lastRow})` to cover the actual range used.
+
+6. **Left-align Item column**: Change `horizontal: "center"` to `horizontal: "left"` for Item cells.
+
+7. **Fill remaining empty rows** with merged B:C and zero formulas in F (same as current behavior, just extended if needed).
+
+### Technical Details
+
+- The grouping is done at export time by scanning `lineItems` and collecting consecutive items with matching `name` values into groups
+- Row heights will use ExcelJS default (auto-fit with wrap text)
+- The template's existing header/footer/borders are preserved; only the line-item area and total row are modified
+- Print settings remain: fitToWidth=1, fitToHeight=0 (allows multi-page)
+- No database or type changes needed — this is purely an export formatting change
 
