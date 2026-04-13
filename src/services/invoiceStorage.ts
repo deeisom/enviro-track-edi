@@ -81,8 +81,8 @@ export async function getInvoicesByProject(projectId: string): Promise<Invoice[]
   return (data || []).map(mapInvoice);
 }
 
-export async function createInvoice(input: Omit<Invoice, "id" | "invoiceNumber" | "createdAt" | "updatedAt">): Promise<Invoice> {
-  const invoiceNumber = await getNextInvoiceNumber(input.type);
+export async function createInvoice(input: Omit<Invoice, "id" | "invoiceNumber" | "createdAt" | "updatedAt">, overrideInvoiceNumber?: string): Promise<Invoice> {
+  const invoiceNumber = overrideInvoiceNumber || await getNextInvoiceNumber(input.type);
   const { data, error } = await supabase.from("invoices").insert({
     invoice_number: invoiceNumber,
     type: input.type,

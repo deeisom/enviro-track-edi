@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRates } from "@/services/invoiceStorage";
 import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivity } from "@/services/storage";
@@ -15,7 +17,7 @@ import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from
 import { Project, Client } from "@/types";
 import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf } from "lucide-react";
+import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
 
 function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -139,6 +141,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [rates, setRates] = useState<RateItem[]>([]);
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
 
   const isEditing = !!existingInvoice;
 
@@ -154,13 +157,32 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(existingInvoice?.lineItems || []);
   const [status, setStatus] = useState<"draft" | "sent" | "paid">(existingInvoice?.status || "draft");
 
+  const [isContinuation, setIsContinuation] = useState(false);
+  const [parentInvoiceId, setParentInvoiceId] = useState("");
+
   useEffect(() => {
-    Promise.all([getAllProjects(), getAllClients(), getAllRates()]).then(([p, c, r]) => {
+    Promise.all([getAllProjects(), getAllClients(), getAllRates(), getAllInvoices()]).then(([p, c, r, inv]) => {
       setProjects(p);
       setClients(c);
       setRates(r);
+      setAllInvoices(inv);
     });
   }, []);
+
+  // Auto-fill from parent invoice when continuation is selected
+  useEffect(() => {
+    if (!isContinuation || !parentInvoiceId) return;
+    const parent = allInvoices.find(i => i.id === parentInvoiceId);
+    if (!parent) return;
+    setBillToName(parent.billTo.name);
+    setBillToAddress(parent.billTo.address);
+    setPoNumber(parent.poNumber);
+    setDate(parent.date);
+    setTerms(parent.terms);
+    setDueDate(parent.dueDate);
+    setProjectSummary(parent.projectSummary);
+    if (parent.projectId) setProjectId(parent.projectId);
+  }, [parentInvoiceId, isContinuation]);
 
   useEffect(() => {
     if (isEditing) return;
@@ -234,6 +256,16 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
       if (isEditing) {
         await updateInvoice(existingInvoice.id, invoiceData);
         toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} updated` });
+      } else if (isContinuation && parentInvoiceId) {
+        const parent = allInvoices.find(i => i.id === parentInvoiceId);
+        if (!parent) { toast({ title: "Parent invoice not found", variant: "destructive" }); return; }
+        const existingContinuations = allInvoices.filter(i => 
+          i.invoiceNumber.startsWith(parent.invoiceNumber + "-")
+        ).length;
+        const suffix = String(existingContinuations + 1).padStart(2, "0");
+        const continuationNumber = `${parent.invoiceNumber}-${suffix}`;
+        await createInvoice(invoiceData, continuationNumber);
+        toast({ title: `Continuation page ${continuationNumber} created` });
       } else {
         await createInvoice(invoiceData);
         toast({ title: `${type === "invoice" ? "Invoice" : "Estimate"} created` });
@@ -291,6 +323,41 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
               </Select>
             </div>
           </div>
+          {!isEditing && (
+            <div className="flex items-center gap-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="continuation"
+                  checked={isContinuation}
+                  onCheckedChange={(checked) => {
+                    setIsContinuation(!!checked);
+                    if (!checked) setParentInvoiceId("");
+                  }}
+                />
+                <Label htmlFor="continuation" className="text-sm font-normal cursor-pointer">
+                  This is a continuation page
+                </Label>
+              </div>
+              {isContinuation && (
+                <div className="flex-1 max-w-xs">
+                  <Select value={parentInvoiceId} onValueChange={setParentInvoiceId}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Select parent invoice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allInvoices
+                        .filter(i => i.type === type && !i.invoiceNumber.includes("-"))
+                        .map(i => (
+                          <SelectItem key={i.id} value={i.id}>
+                            {i.invoiceNumber} — {i.billTo.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -327,6 +394,14 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
 
       <Card>
         <CardContent className="pt-6 space-y-4">
+          {lineItems.length >= 8 && (
+            <Alert className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-sm">
+                This invoice may exceed a single page. Consider creating a continuation page for additional items.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Line Items</h3>
             <div className="flex gap-2">

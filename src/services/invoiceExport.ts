@@ -30,6 +30,7 @@ function splitAddress(address: string): [string, string] {
  * overwrite the dynamic data cells and clear/fill the line-item rows.
  */
 export async function exportInvoiceToExcel(invoice: Invoice) {
+  try {
   const wb = new ExcelJS.Workbook();
   const response = await fetch("/invoice-template.xlsx");
   const buffer = await response.arrayBuffer();
@@ -278,6 +279,13 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }),
     `${invoice.invoiceNumber}.xlsx`
   );
+  } catch (err: any) {
+    const msg = String(err?.message || err);
+    if (msg.toLowerCase().includes("merge")) {
+      throw new Error("This invoice has too many line items for a single page. Please create a continuation page to split the remaining items.");
+    }
+    throw err;
+  }
 }
 
 export async function exportInvoiceToPDF(invoice: Invoice) {
