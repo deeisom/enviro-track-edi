@@ -196,9 +196,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
       // Merge B:C across descRows if needed
       if (descRows > 1) {
-        ws.mergeCells(`B${descStartRow}:C${descStartRow + descRows - 1}`);
+        safeMerge(`B${descStartRow}:C${descStartRow + descRows - 1}`);
       } else {
-        ws.mergeCells(`B${descStartRow}:C${descStartRow}`);
+        safeMerge(`B${descStartRow}:C${descStartRow}`);
       }
       const descCell = ws.getCell(`B${descStartRow}`);
       descCell.value = dh.item.description;
@@ -220,7 +220,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
       // Internal separator row between descriptions within same group
       if (ii < descHeights.length - 1) {
-        ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+        safeMerge(`B${rowCursor}:C${rowCursor}`);
         rowCursor++;
       }
     });
@@ -229,7 +229,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     const contentUsed = rowCursor - groupStartRow;
     const trailingRows = groupHeight - contentUsed;
     for (let t = 0; t < trailingRows; t++) {
-      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+      safeMerge(`B${rowCursor}:C${rowCursor}`);
       rowCursor++;
     }
 
@@ -237,7 +237,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
     // Merge Item name cell across the group height (only if > 1 row)
     if (groupHeight > 1) {
-      ws.mergeCells(`A${groupStartRow}:A${groupEndRow}`);
+      safeMerge(`A${groupStartRow}:A${groupEndRow}`);
     }
     const nameCell = ws.getCell(`A${groupStartRow}`);
     nameCell.value = group.name;
@@ -259,7 +259,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
     // Inter-group separator row
     if (gi < groupData.length - 1) {
-      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+      safeMerge(`B${rowCursor}:C${rowCursor}`);
       ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
       ws.getCell(`A${rowCursor}`).font = calibriFont;
       ws.getCell(`B${rowCursor}`).font = calibriFont;
@@ -269,7 +269,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
   // Fill remaining empty rows
   for (let r = rowCursor; r <= actualEndRow; r++) {
-    ws.mergeCells(`B${r}:C${r}`);
+    safeMerge(`B${r}:C${r}`);
     ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
     ws.getCell(`A${r}`).font = calibriFont;
     ws.getCell(`B${r}`).font = calibriFont;
