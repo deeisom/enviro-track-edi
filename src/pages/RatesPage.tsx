@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -14,7 +15,7 @@ import { Plus, Edit, Trash2, Leaf } from "lucide-react";
 
 const UNITS = ["per hour", "per day", "per sample", "each", "flat"];
 
-const emptyForm = { name: "", description: "", category: "services" as RateCategory, defaultRate: 0, unit: "per hour" };
+const emptyForm = { name: "", item: "", itemDescription: "", category: "services" as RateCategory, defaultRate: 0, unit: "per hour" };
 
 export default function RatesPage() {
   const [rates, setRates] = useState<RateItem[]>([]);
@@ -31,7 +32,7 @@ export default function RatesPage() {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialog(true); };
   const openEdit = (r: RateItem) => {
     setEditId(r.id);
-    setForm({ name: r.name, description: r.description, category: r.category, defaultRate: r.defaultRate, unit: r.unit });
+    setForm({ name: r.name, item: r.item, itemDescription: r.itemDescription, category: r.category, defaultRate: r.defaultRate, unit: r.unit });
     setDialog(true);
   };
 
@@ -90,6 +91,8 @@ export default function RatesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>Item Description</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Unit</TableHead>
@@ -98,13 +101,14 @@ export default function RatesPage() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No rate items yet. Click "Add Item" to get started.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No rate items yet. Click "Add Item" to get started.</TableCell></TableRow>
               ) : filtered.map(r => (
                 <TableRow key={r.id}>
                   <TableCell>
                     <div className="font-medium">{r.name}</div>
-                    {r.description && <div className="text-xs text-muted-foreground">{r.description}</div>}
                   </TableCell>
+                  <TableCell className="text-sm">{r.item}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{r.itemDescription}</TableCell>
                   <TableCell className="text-sm">{getCatLabel(r.category)}</TableCell>
                   <TableCell className="font-mono">${r.defaultRate.toFixed(2)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.unit}</TableCell>
@@ -143,12 +147,16 @@ export default function RatesPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Name *</Label>
+              <Label>Name * (internal label for dropdown)</Label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Program Administration" />
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
-              <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description of the service" />
+              <Label>Item (appears on invoice)</Label>
+              <Input value={form.item} onChange={e => setForm(f => ({ ...f, item: e.target.value }))} placeholder="e.g. Program Administration" />
+            </div>
+            <div className="space-y-2">
+              <Label>Item Description (appears on invoice)</Label>
+              <Textarea value={form.itemDescription} onChange={e => setForm(f => ({ ...f, itemDescription: e.target.value }))} placeholder="Detailed description for the invoice line item" rows={3} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
