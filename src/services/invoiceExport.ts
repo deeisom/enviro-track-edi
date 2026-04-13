@@ -46,7 +46,8 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   // Print scaling — fit all columns on one page width
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
-  ws.pageSetup.fitToHeight = 0;
+  ws.pageSetup.fitToHeight = 0; // Will be updated after page-packing
+  (ws.pageSetup as any).paperSize = 1; // US Letter
 
   // Custom print margins (inches)
   ws.pageSetup.margins = {
@@ -158,6 +159,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     pages.push({ groups: [], usedRows: 0 });
   }
 
+  // Lock fitToHeight to exact page count
+  ws.pageSetup.fitToHeight = pages.length;
+
   // Calculate total worksheet rows needed
   const totalWsRows = pages.length * ROWS_PER_PAGE;
 
@@ -267,6 +271,13 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       copyHeader(pageIdx);
       // Add page break before this page's header
       ws.getRow(offset + 1).addPageBreak();
+    }
+
+    // Set explicit row heights for line-item rows (21–43) and total row (44)
+    // Usable height: 10.15" = ~731 points; 731 / 44 ≈ 16.6 points per row
+    const LINE_ITEM_ROW_HEIGHT = 16.6;
+    for (let r = offset + startRow; r <= offset + ROWS_PER_PAGE; r++) {
+      ws.getRow(r).height = LINE_ITEM_ROW_HEIGHT;
     }
 
     // Clear line-item area for this page
