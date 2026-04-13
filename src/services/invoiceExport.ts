@@ -80,8 +80,17 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
   // --- Line items (dynamic rows starting at 21) ---
   const startRow = 21;
-  const templateEndRow = 43; // original template line-item area
-  const totalFormulaRow = 44; // row where SUM formula lives in template
+  const templateEndRow = 43;
+
+  // Estimate how many rows a text string needs given approximate char width
+  function estimateRows(text: string, charsPerRow: number): number {
+    if (!text) return 1;
+    return Math.max(1, Math.ceil(text.length / charsPerRow));
+  }
+
+  const CHARS_PER_ROW_A = 15;  // Column A width (~15 chars for Calibri 11)
+  const CHARS_PER_ROW_BC = 45; // Merged B:C width (~45 chars for Calibri 11)
+  const calibriFont: Partial<ExcelJS.Font> = { name: "Calibri", size: 11 };
 
   // Group consecutive line items by name
   interface LineGroup {
@@ -98,20 +107,34 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }
   }
 
-  // Calculate total rows needed:
-  // Each group: (num descriptions) + (num descriptions - 1) internal separators
-  // Between groups: 1 separator row
+  // Pre-calculate description row heights for each item
+  interface DescHeight { item: typeof invoice.lineItems[0]; rows: number; }
+  const groupData: { group: LineGroup; descHeights: DescHeight[]; contentHeight: number; nameRows: number; groupHeight: number; }[] = [];
+
+  for (const group of groups) {
+    const descHeights: DescHeight[] = group.items.map(item => ({
+      item,
+      rows: estimateRows(item.description, CHARS_PER_ROW_BC),
+    }));
+    // Content height = sum of desc rows + internal separators between descriptions
+    const contentHeight = descHeights.reduce((sum, d) => sum + d.rows, 0)
+      + (group.items.length > 1 ? group.items.length - 1 : 0);
+    const nameRows = estimateRows(group.name, CHARS_PER_ROW_A);
+    const groupHeight = Math.max(contentHeight, nameRows);
+    groupData.push({ group, descHeights, contentHeight, nameRows, groupHeight });
+  }
+
+  // Calculate total rows needed (group heights + inter-group separators)
   let totalRowsNeeded = 0;
-  groups.forEach((g, gi) => {
-    totalRowsNeeded += g.items.length + (g.items.length - 1); // desc rows + internal separators
-    if (gi < groups.length - 1) totalRowsNeeded += 1; // inter-group separator
+  groupData.forEach((gd, gi) => {
+    totalRowsNeeded += gd.groupHeight;
+    if (gi < groupData.length - 1) totalRowsNeeded += 1;
   });
 
-  // If we need more rows than the template provides, insert extra rows
-  const templateRows = templateEndRow - startRow + 1; // 23
+  // Insert extra rows if needed
+  const templateRows = templateEndRow - startRow + 1;
   if (totalRowsNeeded > templateRows) {
     const extraRows = totalRowsNeeded - templateRows;
-    // Insert blank rows before the total formula row to push it down
     for (let i = 0; i < extraRows; i++) {
       ws.insertRow(templateEndRow + 1 + i, []);
     }
@@ -142,50 +165,66 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 
   // Render grouped line items
   const leftBorder: Partial<ExcelJS.Border> = { style: "thin" };
-  const usedRows = new Set<number>();
   let rowCursor = startRow;
 
-  groups.forEach((group, gi) => {
+  groupData.forEach((gd, gi) => {
     const groupStartRow = rowCursor;
-    // Height of this group: descriptions + internal separators
-    const groupHeight = group.items.length + (group.items.length - 1);
+    const { group, descHeights, groupHeight } = gd;
 
-    // Write each description row with separator rows between them
-    group.items.forEach((item, ii) => {
-      // Description row
-      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
-      const descCell = ws.getCell(`B${rowCursor}`);
-      descCell.value = item.description;
+    // Write each description with its calculated row height
+    descHeights.forEach((dh, ii) => {
+      const descStartRow = rowCursor;
+      const descRows = dh.rows;
+
+      // Merge B:C across descRows if needed
+      if (descRows > 1) {
+        ws.mergeCells(`B${descStartRow}:C${descStartRow + descRows - 1}`);
+      } else {
+        ws.mergeCells(`B${descStartRow}:C${descStartRow}`);
+      }
+      const descCell = ws.getCell(`B${descStartRow}`);
+      descCell.value = dh.item.description;
       descCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
+      descCell.font = calibriFont;
 
-      // Qty, Rate, Amount on the description row
-      ws.getCell(`D${rowCursor}`).value = item.qty;
-      ws.getCell(`E${rowCursor}`).value = item.rate;
-      ws.getCell(`F${rowCursor}`).value = {
-        formula: `E${rowCursor}*D${rowCursor}`,
-        result: item.amount,
+      // Qty, Rate, Amount on the first row of the description
+      ws.getCell(`D${descStartRow}`).value = dh.item.qty;
+      ws.getCell(`D${descStartRow}`).font = calibriFont;
+      ws.getCell(`E${descStartRow}`).value = dh.item.rate;
+      ws.getCell(`E${descStartRow}`).font = calibriFont;
+      ws.getCell(`F${descStartRow}`).value = {
+        formula: `E${descStartRow}*D${descStartRow}`,
+        result: dh.item.amount,
       };
+      ws.getCell(`F${descStartRow}`).font = calibriFont;
 
-      usedRows.add(rowCursor);
-      rowCursor++;
+      rowCursor += descRows;
 
-      // Internal separator row (between descriptions within same group)
-      if (ii < group.items.length - 1) {
+      // Internal separator row between descriptions within same group
+      if (ii < descHeights.length - 1) {
         ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
-        usedRows.add(rowCursor);
         rowCursor++;
       }
     });
 
+    // If groupHeight > content used, add trailing empty rows
+    const contentUsed = rowCursor - groupStartRow;
+    const trailingRows = groupHeight - contentUsed;
+    for (let t = 0; t < trailingRows; t++) {
+      ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+      rowCursor++;
+    }
+
     const groupEndRow = groupStartRow + groupHeight - 1;
 
-    // Merge Item name cell across the entire group height
+    // Merge Item name cell across the group height (only if > 1 row)
     if (groupHeight > 1) {
       ws.mergeCells(`A${groupStartRow}:A${groupEndRow}`);
     }
     const nameCell = ws.getCell(`A${groupStartRow}`);
     nameCell.value = group.name;
     nameCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+    nameCell.font = calibriFont;
 
     // Reinforce A/B column borders for the group
     for (let r = groupStartRow; r <= groupEndRow; r++) {
@@ -201,20 +240,17 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }
 
     // Inter-group separator row
-    if (gi < groups.length - 1) {
+    if (gi < groupData.length - 1) {
       ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
       ws.getCell(`A${rowCursor}`).border = { left: leftBorder };
-      usedRows.add(rowCursor);
       rowCursor++;
     }
   });
 
-  // Fill remaining empty rows (if template area is larger than needed)
+  // Fill remaining empty rows
   for (let r = rowCursor; r <= actualEndRow; r++) {
-    if (!usedRows.has(r)) {
-      ws.mergeCells(`B${r}:C${r}`);
-      ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder };
-    }
+    ws.mergeCells(`B${r}:C${r}`);
+    ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder };
   }
 
   // Ensure all F cells have formulas so SUM works
@@ -225,7 +261,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }
   }
 
-  // Update Total formula to cover the actual range
+  // Update Total formula
   ws.getCell(`F${actualTotalRow}`).value = {
     formula: `SUM(F${startRow}:F${actualEndRow})`,
     result: invoice.total,
