@@ -47,7 +47,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0; // Will be updated after page-packing
-  ws.pageSetup.paperSize = 1; // US Letter
+  (ws.pageSetup as any).paperSize = 1; // US Letter
 
   // Custom print margins (inches)
   ws.pageSetup.margins = {
