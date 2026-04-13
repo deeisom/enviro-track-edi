@@ -1,45 +1,39 @@
 
 
-## Plan: Fix Multi-Page with Clean Page Breaks
+## Plan: Fix separator row font and borders
 
-### Root Cause
+### Problem
+Inter-group separator rows (the empty rows between item groups) have two issues:
+1. Cells A and B default to Times New Roman instead of Calibri 11
+2. Cell A is missing its right-side border
 
-The template already has working print settings: `scale: 84%`, `fitToPage: true`, `fitToWidth: 1`, `fitToHeight: 0` (unlimited pages). At 84% scale, the 52-row template fits perfectly on one US Letter page.
+### Changes to `src/services/invoiceExport.ts`
 
-The current code breaks this by:
-1. Overriding margins (changing available space so 52 rows no longer fit at 84%)
-2. Setting `fitToHeight = pages.length` (forces Excel to rescale, causing compression/stretching)
-3. Setting `scale = undefined` (removes the working 84% scale)
+**Lines 243-246** — In the inter-group separator block, add Calibri font to cells A and B, and add right border to cell A:
 
-### Fix (single file: `src/services/invoiceExport.ts`)
-
-**Stop overriding the template's page setup.** Instead:
-
-1. **Remove margin overrides** (lines 53-60) — keep whatever margins the template already has
-2. **Remove `fitToHeight` override** — leave it at `0` (unlimited pages tall) as the template specifies
-3. **Remove `scale = undefined`** — keep the template's `scale: 84`
-4. **Keep `paperSize = 1`** (US Letter) as a safety net
-5. **Use explicit page breaks only** — after `copyTemplatePage`, call `ws.getRow(pageIdx * ROWS_PER_PAGE + 1).addPageBreak()` (already in code)
-6. **Remove `printArea` override** — or set it correctly to cover all pages without forcing rescaling
-
-The result: each 52-row block uses the template's proven scale/margin settings and fits exactly on one page. Page breaks create clean separations. No rescaling, no bleeding.
-
-### Changes
-
-Lines 46-60 become:
 ```typescript
-// Keep template's original page setup (scale: 84%, fitToWidth: 1, fitToHeight: 0)
-// Only ensure paper size is US Letter
-(ws.pageSetup as any).paperSize = 1;
+// Inter-group separator row
+if (gi < groupData.length - 1) {
+  ws.mergeCells(`B${rowCursor}:C${rowCursor}`);
+  ws.getCell(`A${rowCursor}`).border = { left: leftBorder, right: leftBorder };
+  ws.getCell(`A${rowCursor}`).font = calibriFont;
+  ws.getCell(`B${rowCursor}`).font = calibriFont;
+  rowCursor++;
+}
 ```
 
-Lines 162-163 — remove `fitToHeight = pages.length` and `scale = undefined`
+**Lines 250-254** — Same fix for remaining empty rows at the bottom:
 
-Line 166 — remove `printArea` override (or keep it but without fitToHeight forcing rescaling)
+```typescript
+for (let r = rowCursor; r <= actualEndRow; r++) {
+  ws.mergeCells(`B${r}:C${r}`);
+  ws.getCell(`A${r}`).border = { ...ws.getCell(`A${r}`).border, left: leftBorder, right: leftBorder };
+  ws.getCell(`A${r}`).font = calibriFont;
+  ws.getCell(`B${r}`).font = calibriFont;
+}
+```
 
 ### Summary
-- Single file: `src/services/invoiceExport.ts`
-- Removes ~15 lines of page setup overrides
-- Relies on template's proven settings + explicit page breaks
+- Two small edits in `src/services/invoiceExport.ts`
 - No database, type, or UI changes
 
