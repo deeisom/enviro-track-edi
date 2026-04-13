@@ -244,9 +244,38 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     ws.mergeCells(range);
   }
 
+  // Build set of "slave" cells (non-master cells in template merges)
+  const slaveCells = new Set<string>();
+  for (const merge of templatePageMerges) {
+    const [mStart, mEnd = mStart] = merge.split(":");
+    const startCol = mStart.replace(/\d+/, "");
+    const startRowNum = Number(mStart.replace(/[A-Z]+/, ""));
+    const endCol = mEnd.replace(/\d+/, "");
+    const endRowNum = Number(mEnd.replace(/[A-Z]+/, ""));
+    const cols = ["A", "B", "C", "D", "E", "F"].filter(c => c >= startCol && c <= endCol);
+    for (let r = startRowNum; r <= endRowNum; r++) {
+      for (const c of cols) {
+        if (c === startCol && r === startRowNum) continue; // skip master
+        slaveCells.add(`${c}${r}`);
+      }
+    }
+  }
+
   function copyTemplatePage(pageIndex: number) {
     const offset = pageIndex * ROWS_PER_PAGE;
 
+    // Apply merges first so structure is in place
+    for (const merge of templatePageMerges) {
+      const [mStart, mEnd = mStart] = merge.split(":");
+      const mStartCol = mStart.replace(/\d+/, "");
+      const mStartRow = Number(mStart.replace(/[A-Z]+/, ""));
+      const mEndCol = mEnd.replace(/\d+/, "");
+      const mEndRow = Number(mEnd.replace(/[A-Z]+/, ""));
+      const newRange = `${mStartCol}${mStartRow + offset}:${mEndCol}${mEndRow + offset}`;
+      safeMerge(newRange);
+    }
+
+    // Copy cells — skip .value for slave cells to prevent duplication
     for (let r = 1; r <= ROWS_PER_PAGE; r++) {
       const targetRow = offset + r;
       const srcRow = ws.getRow(r);
@@ -256,7 +285,9 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       ["A", "B", "C", "D", "E", "F"].forEach((col) => {
         const srcCell = ws.getCell(`${col}${r}`);
         const tgtCell = ws.getCell(`${col}${targetRow}`);
-        tgtCell.value = srcCell.value;
+        if (!slaveCells.has(`${col}${r}`)) {
+          tgtCell.value = srcCell.value;
+        }
         tgtCell.font = srcCell.font ? { ...srcCell.font } : undefined;
         tgtCell.alignment = srcCell.alignment ? { ...srcCell.alignment } : undefined;
         tgtCell.border = srcCell.border ? { ...srcCell.border } : undefined;
@@ -265,16 +296,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
       });
     }
 
-    for (const merge of templatePageMerges) {
-      const [mStart, mEnd = mStart] = merge.split(":");
-      const mStartCol = mStart.replace(/\d+/, "");
-      const mStartRow = Number(mStart.replace(/[A-Z]+/, ""));
-      const mEndCol = mEnd.replace(/\d+/, "");
-      const mEndRow = Number(mEnd.replace(/[A-Z]+/, ""));
-      const newRange = `${mStartCol}${mStartRow + offset}:${mEndCol}${mEndRow + offset}`;
-      try { safeMerge(newRange); } catch { }
-    }
-
+    // Copy images with offset
     templateImages.forEach((image) => {
       (ws as any).addImage(image.imageId, {
         tl: { col: image.fromCol, row: image.fromRow + offset },
