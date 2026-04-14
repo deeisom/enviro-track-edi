@@ -350,6 +350,166 @@ export type Database = {
           },
         ]
       }
+      proposal_clauses: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: string
+          is_default: boolean
+          service_types: string[]
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          service_types?: string[]
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          service_types?: string[]
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      proposal_counter: {
+        Row: {
+          counter: number
+          id: number
+        }
+        Insert: {
+          counter?: number
+          id?: number
+        }
+        Update: {
+          counter?: number
+          id?: number
+        }
+        Relationships: []
+      }
+      proposals: {
+        Row: {
+          acceptance: Json
+          background: Json
+          building_area: string
+          client_id: string | null
+          client_signer_name: string
+          client_signer_title: string
+          company_rep_name: string
+          company_rep_title: string
+          cover_page: Json
+          created_at: string
+          estimate_id: string | null
+          expiration_date: string
+          fee_items: Json
+          id: string
+          project_id: string | null
+          proposal_date: string
+          proposal_details: Json
+          proposal_number: string
+          scope: Json
+          service_type: string
+          site_address: string
+          site_name: string
+          status: string
+          terms_selections: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          acceptance?: Json
+          background?: Json
+          building_area?: string
+          client_id?: string | null
+          client_signer_name?: string
+          client_signer_title?: string
+          company_rep_name?: string
+          company_rep_title?: string
+          cover_page?: Json
+          created_at?: string
+          estimate_id?: string | null
+          expiration_date?: string
+          fee_items?: Json
+          id?: string
+          project_id?: string | null
+          proposal_date?: string
+          proposal_details?: Json
+          proposal_number: string
+          scope?: Json
+          service_type?: string
+          site_address?: string
+          site_name?: string
+          status?: string
+          terms_selections?: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          acceptance?: Json
+          background?: Json
+          building_area?: string
+          client_id?: string | null
+          client_signer_name?: string
+          client_signer_title?: string
+          company_rep_name?: string
+          company_rep_title?: string
+          cover_page?: Json
+          created_at?: string
+          estimate_id?: string | null
+          expiration_date?: string
+          fee_items?: Json
+          id?: string
+          project_id?: string | null
+          proposal_date?: string
+          proposal_details?: Json
+          proposal_number?: string
+          scope?: Json
+          service_type?: string
+          site_address?: string
+          site_name?: string
+          status?: string
+          terms_selections?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rates: {
         Row: {
           category: string
@@ -408,6 +568,7 @@ export type Database = {
     Functions: {
       get_next_invoice_number: { Args: { _type: string }; Returns: string }
       get_next_project_number: { Args: never; Returns: string }
+      get_next_proposal_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
