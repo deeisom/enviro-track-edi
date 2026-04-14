@@ -220,7 +220,7 @@ function buildDetailsPage(data: ExportData): any {
   };
 }
 
-function buildFeeSchedulePage(data: ExportData): any {
+function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
   const p = data.proposal;
   const feeItems = (p.feeItems || []) as ProposalFeeItem[];
   const projectNumber = data.project?.projectNumber || "";
