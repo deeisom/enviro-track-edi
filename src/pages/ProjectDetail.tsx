@@ -30,7 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canEdit } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -95,17 +95,21 @@ export default function ProjectDetail() {
           <h1 className="text-xl font-frontier font-bold italic tracking-wide mt-1 flex items-center gap-2">{project.name} <Leaf className="h-5 w-5 text-primary" /></h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link to={`/invoices?new=1&projectId=${project.id}`}>
-              <FileText className="h-4 w-4 mr-1" /> Create Invoice
-            </Link>
-          </Button>
-          <Button variant="outline" onClick={handleEdit}>
-            <Edit className="h-4 w-4 mr-1" /> Edit
-          </Button>
-          <Button onClick={() => { setNewStatus(project.status); setStatusDialog(true); }}>
-            Update Status
-          </Button>
+          {canEdit && (
+            <>
+              <Button variant="outline" asChild>
+                <Link to={`/invoices?new=1&projectId=${project.id}`}>
+                  <FileText className="h-4 w-4 mr-1" /> Create Invoice
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={handleEdit}>
+                <Edit className="h-4 w-4 mr-1" /> Edit
+              </Button>
+              <Button onClick={() => { setNewStatus(project.status); setStatusDialog(true); }}>
+                Update Status
+              </Button>
+            </>
+          )}
           {isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

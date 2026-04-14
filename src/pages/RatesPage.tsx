@@ -12,12 +12,14 @@ import { getAllRates, createRate, updateRate, deleteRate } from "@/services/invo
 import { RateItem, RateCategory, RATE_CATEGORIES } from "@/types/invoice";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, Leaf } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const UNITS = ["per hour", "per day", "per sample", "each", "flat"];
 
 const emptyForm = { name: "", item: "", itemDescription: "", category: "services" as RateCategory, defaultRate: 0, unit: "per hour" };
 
 export default function RatesPage() {
+  const { canEdit, isAdmin } = useAuth();
   const [rates, setRates] = useState<RateItem[]>([]);
   const [dialog, setDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export default function RatesPage() {
           <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Rate Table <Leaf className="h-5 w-5 text-primary" /></h1>
           <p className="text-muted-foreground text-sm">Manage reusable line items for estimates and invoices</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add Item</Button>
+        {canEdit && <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add Item</Button>}
       </div>
 
       <div className="flex gap-2">

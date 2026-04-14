@@ -10,6 +10,7 @@ import { getAllProjects, getAllClients } from "@/services/storage";
 import type { Proposal, ProposalStatus } from "@/types/proposal";
 import type { Client, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const statusColors: Record<ProposalStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -35,6 +36,7 @@ const statusLabels: Record<ProposalStatus, string> = {
 
 export default function ProposalsPage() {
   const navigate = useNavigate();
+  const { canEdit, isAdmin } = useAuth();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -87,9 +89,11 @@ export default function ProposalsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Proposals</h1>
-        <Button onClick={() => navigate("/proposals/new")}>
-          <Plus className="h-4 w-4 mr-2" /> New Proposal
-        </Button>
+        {canEdit && (
+          <Button onClick={() => navigate("/proposals/new")}>
+            <Plus className="h-4 w-4 mr-2" /> New Proposal
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -133,12 +137,16 @@ export default function ProposalsPage() {
                         <Button variant="ghost" size="icon" onClick={() => navigate(`/proposals/${p.id}`)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDuplicate(p.id)}>
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDuplicate(p.id)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
