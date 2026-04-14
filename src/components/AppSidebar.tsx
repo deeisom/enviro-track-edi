@@ -47,7 +47,7 @@ export function AppSidebar() {
 
   let items = canEdit
     ? mainItems
-    : mainItems.filter(i => i.url !== "/projects/new");
+    : mainItems.filter(i => i.url !== "/projects/new" && i.url !== "/clients");
 
   if (isAdmin) {
     items = [...items, { title: "Users", url: "/users", icon: Shield }];
