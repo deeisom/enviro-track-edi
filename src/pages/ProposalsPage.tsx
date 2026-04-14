@@ -43,7 +43,7 @@ export default function ProposalsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [p, c, pr] = await Promise.all([getAllProposals(), getClients(), getAllProjects()]);
+      const [p, c, pr] = await Promise.all([getAllProposals(), getAllClients(), getAllProjects()]);
       setProposals(p);
       setClients(c);
       setProjects(pr);
