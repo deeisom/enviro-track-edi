@@ -475,7 +475,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                   <TableRow>
                     <TableHead>Item</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="w-20">Qty</TableHead>
+                    <TableHead className="w-28">Qty</TableHead>
                     <TableHead className="w-24">Rate</TableHead>
                     <TableHead className="w-24 text-right">Amount</TableHead>
                     <TableHead className="w-10"></TableHead>

@@ -56,6 +56,14 @@ export default function AuthPage() {
           <CardTitle className="text-lg">{isSignUp ? "Create Account" : "Sign In"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!isSignUp && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center text-sm text-primary">
+              <strong>New here?</strong>{" "}
+              <button className="underline font-semibold hover:text-primary/80" onClick={() => setIsSignUp(true)}>
+                Create an account first
+              </button>
+            </div>
+          )}
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -81,7 +89,7 @@ export default function AuthPage() {
 
           <p className="text-center text-sm text-muted-foreground">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button className="text-primary hover:underline" onClick={() => setIsSignUp(!isSignUp)}>
+            <button className="text-primary font-semibold hover:underline" onClick={() => setIsSignUp(!isSignUp)}>
               {isSignUp ? "Sign in" : "Sign up"}
             </button>
           </p>
