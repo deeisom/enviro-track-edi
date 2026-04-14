@@ -172,8 +172,8 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(existingInvoice?.lineItems || []);
   const [status, setStatus] = useState<"draft" | "sent" | "paid">(existingInvoice?.status || "draft");
 
-  const [isContinuation, setIsContinuation] = useState(false);
-  const [parentInvoiceId, setParentInvoiceId] = useState("");
+  const [isContinuation, setIsContinuation] = useState(!!existingInvoice?.parentInvoiceId);
+  const [parentInvoiceId, setParentInvoiceId] = useState(existingInvoice?.parentInvoiceId || "");
 
   useEffect(() => {
     Promise.all([getAllProjects(), getAllClients(), getAllRates(), getAllInvoices()]).then(([p, c, r, inv]) => {
@@ -262,6 +262,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
       type,
       projectId: projectId || null,
       clientId: null as string | null,
+      parentInvoiceId: (isContinuation && parentInvoiceId) ? parentInvoiceId : null,
       billTo: { name: billToName, address: billToAddress },
       poNumber, date, dueDate, terms, projectSummary,
       lineItems, total, status,
@@ -338,12 +339,13 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
               </Select>
             </div>
           </div>
-          {!isEditing && (
+          {(!isEditing || isContinuation) && (
             <div className="flex items-center gap-4 pt-2 border-t">
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="continuation"
                   checked={isContinuation}
+                  disabled={isEditing}
                   onCheckedChange={(checked) => {
                     setIsContinuation(!!checked);
                     if (!checked) setParentInvoiceId("");
@@ -353,7 +355,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                   This is a continuation page
                 </Label>
               </div>
-              {isContinuation && (
+              {isContinuation && !isEditing && (
                 <div className="flex-1 max-w-xs">
                   <Select value={parentInvoiceId} onValueChange={setParentInvoiceId}>
                     <SelectTrigger className="h-8 text-sm">
@@ -361,7 +363,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                     </SelectTrigger>
                     <SelectContent>
                       {allInvoices
-                        .filter(i => i.type === type && !/\-\d{2}$/.test(i.invoiceNumber))
+                        .filter(i => i.type === type && !i.parentInvoiceId)
                         .map(i => (
                           <SelectItem key={i.id} value={i.id}>
                             {i.invoiceNumber} — {i.billTo.name}
@@ -370,6 +372,11 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                     </SelectContent>
                   </Select>
                 </div>
+              )}
+              {isContinuation && isEditing && parentInvoiceId && (
+                <span className="text-sm text-muted-foreground">
+                  Linked to: {allInvoices.find(i => i.id === parentInvoiceId)?.invoiceNumber || "Unknown"}
+                </span>
               )}
             </div>
           )}
@@ -439,10 +446,24 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
           </div>
 
           {(() => {
-            const parentItems = isContinuation && parentInvoiceId
-              ? (allInvoices.find(i => i.id === parentInvoiceId)?.lineItems || [])
-              : [];
-            const parentItemNames = new Set(parentItems.map(li => li.name.toLowerCase().trim()).filter(Boolean));
+            // Collect line items from parent AND all sibling continuation pages
+            const resolvedParentId = isContinuation ? parentInvoiceId : (existingInvoice?.parentInvoiceId || "");
+            let relatedItemNames = new Set<string>();
+            if (resolvedParentId) {
+              const parent = allInvoices.find(i => i.id === resolvedParentId);
+              if (parent) {
+                parent.lineItems.forEach(li => {
+                  if (li.name.trim()) relatedItemNames.add(li.name.toLowerCase().trim());
+                });
+              }
+              // Also check all other continuation pages for the same parent
+              const siblings = allInvoices.filter(i => i.parentInvoiceId === resolvedParentId && i.id !== existingInvoice?.id);
+              siblings.forEach(sib => {
+                sib.lineItems.forEach(li => {
+                  if (li.name.trim()) relatedItemNames.add(li.name.toLowerCase().trim());
+                });
+              });
+            }
 
             return lineItems.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-6">No line items yet. Add from your rate table or create a custom item.</p>
@@ -460,14 +481,14 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                 </TableHeader>
                 <TableBody>
                   {lineItems.map(li => {
-                    const isDuplicate = isContinuation && parentItemNames.has(li.name.toLowerCase().trim()) && li.name.trim() !== "";
+                    const isDuplicate = resolvedParentId && relatedItemNames.has(li.name.toLowerCase().trim()) && li.name.trim() !== "";
                     return (
                       <TableRow key={li.id} className={isDuplicate ? "bg-yellow-50/50 dark:bg-yellow-950/10" : ""}>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Input value={li.name} onChange={e => updateLineItem(li.id, "name", e.target.value)} className="h-8 text-sm" />
                             {isDuplicate && (
-                              <span title="This item also exists on the parent invoice" className="text-yellow-600 shrink-0">
+                              <span title="This item also exists on previous pages of the invoice" className="text-yellow-600 shrink-0">
                                 <AlertTriangle className="h-3.5 w-3.5" />
                               </span>
                             )}
