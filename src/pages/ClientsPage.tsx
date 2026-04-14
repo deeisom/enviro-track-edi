@@ -20,6 +20,7 @@ import { Client, Contact, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil, Leaf, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -30,6 +31,7 @@ const PAGE_SIZE = 50;
 type MatchInfo = { field: string; value: string } | null;
 
 function ClientsList() {
+  const { canEdit } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
@@ -105,7 +107,7 @@ function ClientsList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Clients & Contacts <Leaf className="h-5 w-5 text-primary" /></h1>
-        <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>
+        {canEdit && <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>}
       </div>
 
       <div className="flex items-center gap-3">
@@ -222,6 +224,7 @@ function ClientsList() {
   );
 }
 function ClientDetail() {
+  const { canEdit, isAdmin } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
@@ -312,8 +315,8 @@ function ClientDetail() {
           <h1 className="text-xl font-bold">{client.companyName}</h1>
           {client.industryType && <p className="text-sm text-muted-foreground">{client.industryType}</p>}
         </div>
-        <Button variant="outline" size="sm" onClick={handleEdit}><Pencil className="h-3 w-3 mr-1" /> Edit</Button>
-        <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}><Trash2 className="h-3 w-3 mr-1" /> Delete</Button>
+        {canEdit && <Button variant="outline" size="sm" onClick={handleEdit}><Pencil className="h-3 w-3 mr-1" /> Edit</Button>}
+        {isAdmin && <Button variant="destructive" size="sm" onClick={() => setDeleteDialog(true)}><Trash2 className="h-3 w-3 mr-1" /> Delete</Button>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -330,7 +333,7 @@ function ClientDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Contacts</CardTitle>
-            <Button size="sm" variant="outline" onClick={openAddContact}><Plus className="h-3 w-3 mr-1" /> Add</Button>
+            {canEdit && <Button size="sm" variant="outline" onClick={openAddContact}><Plus className="h-3 w-3 mr-1" /> Add</Button>}
           </CardHeader>
           <CardContent>
             {contacts.length === 0 ? (

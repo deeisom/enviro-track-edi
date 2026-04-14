@@ -43,11 +43,15 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { isAdmin, user, signOut } = useAuth();
+  const { isAdmin, user, signOut, canEdit } = useAuth();
 
-  const items = isAdmin
-    ? [...mainItems, { title: "Users", url: "/users", icon: Shield }]
-    : mainItems;
+  let items = canEdit
+    ? mainItems
+    : mainItems.filter(i => i.url !== "/projects/new");
+
+  if (isAdmin) {
+    items = [...items, { title: "Users", url: "/users", icon: Shield }];
+  }
 
   return (
     <Sidebar collapsible="icon">

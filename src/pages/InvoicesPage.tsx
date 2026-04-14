@@ -18,8 +18,10 @@ import { Project, Client } from "@/types";
 import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
 import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
+  const { canEdit, isAdmin } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -79,7 +81,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
           <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Invoices & Estimates <Leaf className="h-5 w-5 text-primary" /></h1>
           <p className="text-muted-foreground text-sm">Create, manage, and export your documents</p>
         </div>
-        <Button onClick={onNew}><Plus className="h-4 w-4 mr-1" /> Create New</Button>
+        {canEdit && <Button onClick={onNew}><Plus className="h-4 w-4 mr-1" /> Create New</Button>}
       </div>
       <Card>
         <CardContent className="p-0">
