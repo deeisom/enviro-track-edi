@@ -1,49 +1,36 @@
 
 
-## Plan: Continuation Page Invoices with Sequential Numbering
+## Plan: Import Excel Client & Contact Data
 
 ### Overview
-Three changes: better export error messaging, a line-item count warning, and a "Continuation Page" feature where continuation invoices inherit the parent's invoice number with a `-01`, `-02` suffix.
+Run a one-time import script that reads the uploaded Excel file and inserts rows into the `clients` and `contacts` tables.
 
-### 1. Improved export error message (`src/services/invoiceExport.ts`)
-- Wrap `exportInvoiceToExcel` body in try/catch
-- If error contains "merge", show: "This invoice has too many line items for a single page. Please create a continuation page to split the remaining items."
-- Re-throw with this user-friendly message
+### Column Mapping
 
-### 2. Line item count warning (`src/pages/InvoicesPage.tsx`)
-- Below the "Line Items" heading, when `lineItems.length >= 8`, show a yellow Alert: "This invoice may exceed a single page. Consider creating a continuation page for additional items."
+**Client fields** (from Excel → DB):
+- `Company Name` → `company_name`
+- `Business Street` + `Business City` + `Business State` + `Business Postal Code` + `Business Country/Region` → concatenated into `address`
+- `Business Phone` → `phone`
+- `Business Fax` → `fax`
+- `Business Web Site` → `website`
+- `Notes` → `notes`
 
-### 3. Continuation Page feature (`src/pages/InvoicesPage.tsx`)
+**Contact fields** (from Excel → DB):
+- `Contacts` → `name`
+- `Phone` → `phone`
+- `Mobile Phone` → `mobile_phone`
+- `E-mail Address` → `email`
+- `Secondary E-mail Address` → `secondary_email`
+- `title` → empty string (not in Excel)
+- `client_id` → linked to the client created from the same row
 
-**New state variables in InvoiceEditor:**
-- `isContinuation` (boolean)
-- `parentInvoiceId` (string)
-- `allInvoices` (Invoice[]) — loaded on mount alongside projects/clients/rates
+### Implementation
+1. Copy the Excel file to `/tmp/`
+2. Write a Python script using `openpyxl` to read each row
+3. For each row, use `psql` to insert a client record, get its UUID, then insert the contact linked to that client
+4. Handle deduplication: if a company name already exists, reuse the existing client ID
+5. Skip rows with empty company names
 
-**UI — new row in the first Card (below Document Type/Project/Status):**
-- Checkbox: "This is a continuation page"
-- When checked, show a Select dropdown listing invoices of the same `type`, displaying their invoice number and bill-to name
-- When a parent is selected, auto-fill: billToName, billToAddress, poNumber, date, terms, dueDate, projectSummary, projectId from the parent
-
-**Invoice number generation:**
-- When `isContinuation` is true and a parent is selected, skip calling `getNextInvoiceNumber`
-- Instead, query existing invoices to count how many continuation pages already exist for that parent (invoices whose `invoice_number` starts with the parent's number followed by `-`)
-- Generate number as: `{parentInvoiceNumber}-{String(count + 1).padStart(2, '0')}`
-- Example: parent is `INV-0004`, first continuation is `INV-0004-01`, second is `INV-0004-02`
-
-**Changes to `handleSave` in InvoiceEditor:**
-- If `isContinuation && parentInvoiceId`, compute the continuation number client-side before calling `createInvoice`
-- Pass the computed invoice number directly — requires a small addition to `createInvoice` in `invoiceStorage.ts` to accept an optional `invoiceNumber` override
-
-**Changes to `src/services/invoiceStorage.ts`:**
-- Modify `createInvoice` to accept an optional `invoiceNumber` parameter
-- If provided, use it instead of calling `getNextInvoiceNumber`
-
-### Files modified
-- `src/pages/InvoicesPage.tsx` — continuation UI, warning, state
-- `src/services/invoiceStorage.ts` — optional invoice number override in `createInvoice`
-- `src/services/invoiceExport.ts` — better error message
-
-### No database changes needed
-The continuation relationship is tracked by the invoice number convention. No new columns or tables required.
+### No code changes needed
+This is a one-time data import via script — no application code is modified.
 
