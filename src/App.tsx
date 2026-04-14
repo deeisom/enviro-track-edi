@@ -40,8 +40,8 @@ function ProtectedRoutes() {
         <Route path="/projects" element={<ProjectsList />} />
         <Route path="/projects/new" element={<CreateProject />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
-        <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/clients/:id" element={<ClientsPage />} />
+        {canEdit && <Route path="/clients" element={<ClientsPage />} />}
+        {canEdit && <Route path="/clients/:id" element={<ClientsPage />} />}
         <Route path="/rates" element={<RatesPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/proposals" element={<ProposalsPage />} />
