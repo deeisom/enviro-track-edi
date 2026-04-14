@@ -13,10 +13,12 @@ import { ProposalDetails } from "@/components/proposals/ProposalDetails";
 import { ProposalContentEditor } from "@/components/proposals/ProposalContentEditor";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
 import { ArrowLeft, Save, FileDown } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProposalBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
   const isNew = !id || id === "new";
 
   const [proposal, setProposal] = useState<Partial<Proposal>>({
@@ -160,14 +162,18 @@ export default function ProposalBuilder() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExportDocx} disabled={exporting}>
-            <FileDown className="h-4 w-4 mr-2" />
-            {exporting ? "Exporting..." : "Export DOCX"}
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? "Saving..." : "Save"}
-          </Button>
+          {canEdit && (
+            <>
+              <Button variant="outline" onClick={handleExportDocx} disabled={exporting}>
+                <FileDown className="h-4 w-4 mr-2" />
+                {exporting ? "Exporting..." : "Export DOCX"}
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
