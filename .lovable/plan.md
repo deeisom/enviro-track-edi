@@ -1,36 +1,31 @@
 
 
-## Plan: Import Excel Client & Contact Data
+## Plan: Enhanced Client & Contact Search
 
-### Overview
-Run a one-time import script that reads the uploaded Excel file and inserts rows into the `clients` and `contacts` tables.
+### Problem
+Current search only matches client company names. With ~3,000 clients and ~3,400 contacts, users need to search across multiple fields including contact names, emails, and phone numbers.
 
-### Column Mapping
+### Solution
+Replace the simple text input with a comprehensive search that:
 
-**Client fields** (from Excel → DB):
-- `Company Name` → `company_name`
-- `Business Street` + `Business City` + `Business State` + `Business Postal Code` + `Business Country/Region` → concatenated into `address`
-- `Business Phone` → `phone`
-- `Business Fax` → `fax`
-- `Business Web Site` → `website`
-- `Notes` → `notes`
+1. **Searches across all fields** -- company name, address, industry, phone, website, AND contact names, emails, and phone numbers
+2. **Shows what matched** -- when a result matches on a contact name or email, display that info on the card so users know why it appeared
+3. **Loads contacts alongside clients** -- fetch all contacts on page load and index them by `clientId` for fast cross-referencing
+4. **Adds a switchable view** -- toggle between card grid view and a compact table/list view for scanning large result sets faster
+5. **Pagination** -- show results in pages (e.g. 50 at a time) instead of rendering all 3,000 cards at once
 
-**Contact fields** (from Excel → DB):
-- `Contacts` → `name`
-- `Phone` → `phone`
-- `Mobile Phone` → `mobile_phone`
-- `E-mail Address` → `email`
-- `Secondary E-mail Address` → `secondary_email`
-- `title` → empty string (not in Excel)
-- `client_id` → linked to the client created from the same row
+### Technical Details
 
-### Implementation
-1. Copy the Excel file to `/tmp/`
-2. Write a Python script using `openpyxl` to read each row
-3. For each row, use `psql` to insert a client record, get its UUID, then insert the contact linked to that client
-4. Handle deduplication: if a company name already exists, reuse the existing client ID
-5. Skip rows with empty company names
+**File: `src/pages/ClientsPage.tsx`** (ClientsList component)
+- Add state: `contacts` (all contacts loaded via `getAllContacts()`), `viewMode` (grid/table), `page` number
+- Build a contacts-by-client map: `Map<string, Contact[]>`
+- Update filter logic to search across client fields AND associated contact fields
+- When a match comes from a contact, show the matching contact name/email on the client card
+- Add a view toggle (grid vs table) and pagination controls
+- Table view shows: company name, industry, phone, contact count, matched contact info
 
-### No code changes needed
-This is a one-time data import via script — no application code is modified.
+**No database or backend changes needed** -- all done client-side with existing data.
+
+### Files Modified
+- `src/pages/ClientsPage.tsx` -- enhanced search, view toggle, pagination
 
