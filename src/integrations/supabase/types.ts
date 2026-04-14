@@ -154,6 +154,7 @@ export type Database = {
           id: string
           invoice_number: string
           line_items: Json
+          parent_invoice_id: string | null
           po_number: string
           project_id: string | null
           project_summary: string
@@ -172,6 +173,7 @@ export type Database = {
           id?: string
           invoice_number: string
           line_items?: Json
+          parent_invoice_id?: string | null
           po_number?: string
           project_id?: string | null
           project_summary?: string
@@ -190,6 +192,7 @@ export type Database = {
           id?: string
           invoice_number?: string
           line_items?: Json
+          parent_invoice_id?: string | null
           po_number?: string
           project_id?: string | null
           project_summary?: string
@@ -205,6 +208,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_parent_invoice_id_fkey"
+            columns: ["parent_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {

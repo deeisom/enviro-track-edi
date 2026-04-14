@@ -1,0 +1,1 @@
+ALTER TABLE public.invoices ADD COLUMN parent_invoice_id uuid REFERENCES public.invoices(id) ON DELETE SET NULL DEFAULT NULL;
