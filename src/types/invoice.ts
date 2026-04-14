@@ -29,6 +29,7 @@ export interface Invoice {
   type: InvoiceType;
   projectId: string | null;
   clientId: string | null;
+  parentInvoiceId: string | null;
   billTo: { name: string; address: string };
   poNumber: string;
   date: string;
