@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ViewOnlyBanner } from "@/components/ViewOnlyBanner";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               Environmental Project Management
             </span>
           </header>
+          <ViewOnlyBanner />
           <main className="flex-1 p-6 overflow-auto">{children}</main>
         </div>
       </div>
