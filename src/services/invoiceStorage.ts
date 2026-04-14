@@ -88,6 +88,7 @@ export async function createInvoice(input: Omit<Invoice, "id" | "invoiceNumber" 
     type: input.type,
     project_id: input.projectId || null,
     client_id: input.clientId || null,
+    parent_invoice_id: input.parentInvoiceId || null,
     bill_to: input.billTo as any,
     po_number: input.poNumber,
     date: input.date,
@@ -107,6 +108,7 @@ export async function updateInvoice(id: string, input: Partial<Invoice>): Promis
   if (input.type !== undefined) updateData.type = input.type;
   if (input.projectId !== undefined) updateData.project_id = input.projectId;
   if (input.clientId !== undefined) updateData.client_id = input.clientId;
+  if (input.parentInvoiceId !== undefined) updateData.parent_invoice_id = input.parentInvoiceId;
   if (input.billTo !== undefined) updateData.bill_to = input.billTo;
   if (input.poNumber !== undefined) updateData.po_number = input.poNumber;
   if (input.date !== undefined) updateData.date = input.date;
@@ -134,6 +136,7 @@ function mapInvoice(row: any): Invoice {
     type: row.type as Invoice["type"],
     projectId: row.project_id,
     clientId: row.client_id,
+    parentInvoiceId: row.parent_invoice_id || null,
     billTo: (row.bill_to as any) || { name: "", address: "" },
     poNumber: row.po_number || "",
     date: row.date || "",
