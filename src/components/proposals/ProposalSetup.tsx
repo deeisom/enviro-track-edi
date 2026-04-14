@@ -6,8 +6,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "cmdk";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Proposal } from "@/types/proposal";
+import type { Proposal, ProposalFeeItem } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
+import { EstimateLinker } from "./EstimateLinker";
 
 interface Props {
   proposal: Partial<Proposal>;
@@ -26,10 +27,13 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
   const selectedClient = clients.find(c => c.id === proposal.clientId);
   const selectedProject = projects.find(p => p.id === proposal.projectId);
 
-  // Filter projects by selected client
   const filteredProjects = proposal.clientId
     ? projects.filter(p => p.clientId === proposal.clientId || !p.clientId)
     : projects;
+
+  const handleEstimateSelect = (estimateId: string, feeItems: ProposalFeeItem[]) => {
+    onUpdate({ estimateId, feeItems });
+  };
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -58,7 +62,6 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
                           onSelect={() => {
                             onClientChange(c.id);
                             setClientOpen(false);
-                            // Auto-fill address info
                             onUpdate({
                               clientId: c.id,
                               siteAddress: c.address,
@@ -124,7 +127,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Project</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Project & Estimate</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div>
             <Label>Select Project</Label>
@@ -171,12 +174,11 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
             )}
           </div>
 
-          <div>
-            <Label>Linked Estimate</Label>
-            <p className="text-sm text-muted-foreground mt-1">
-              Estimate linking will be available in Phase 2.
-            </p>
-          </div>
+          <EstimateLinker
+            projectId={proposal.projectId || null}
+            estimateId={proposal.estimateId || null}
+            onEstimateSelect={handleEstimateSelect}
+          />
         </CardContent>
       </Card>
     </div>
