@@ -225,7 +225,7 @@ function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
   const feeItems = (p.feeItems || []) as ProposalFeeItem[];
   const projectNumber = data.project?.projectNumber || "";
   const feeTotal = feeItems.reduce((sum, item) => sum + (item.displayAmount || 0), 0);
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
   children.push(para([text("Fee Schedule", { bold: true, size: 24 })], { spacing: { after: 100 } }));
