@@ -39,6 +39,21 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
   const handleStatusChange = async (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
     await updateInvoice(inv.id, { status: newStatus });
 
+    // Also update all continuation pages linked to this invoice
+    const continuations = invoices.filter(i => i.parentInvoiceId === inv.id);
+    for (const cont of continuations) {
+      await updateInvoice(cont.id, { status: newStatus });
+    }
+
+    // If this is a continuation, also update parent and siblings
+    if (inv.parentInvoiceId) {
+      await updateInvoice(inv.parentInvoiceId, { status: newStatus });
+      const siblings = invoices.filter(i => i.parentInvoiceId === inv.parentInvoiceId && i.id !== inv.id);
+      for (const sib of siblings) {
+        await updateInvoice(sib.id, { status: newStatus });
+      }
+    }
+
     if (inv.type === "invoice" && (newStatus === "sent" || newStatus === "paid") && inv.projectId) {
       const project = projects.find(p => p.id === inv.projectId);
       if (project) {
