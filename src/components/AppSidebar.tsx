@@ -76,7 +76,16 @@ export function AppSidebar() {
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && (
+                        <span className="flex items-center gap-1.5">
+                          {item.title}
+                          {item.title === "Proposals" && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-semibold bg-primary/10 text-primary">
+                              BETA
+                            </Badge>
+                          )}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
