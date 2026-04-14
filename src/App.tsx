@@ -21,7 +21,7 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, canEdit } = useAuth();
 
   if (loading) {
     return (
