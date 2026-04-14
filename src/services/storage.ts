@@ -136,6 +136,9 @@ export async function createClient(input: Omit<Client, "id" | "createdAt" | "upd
     address: input.address,
     industry_type: input.industryType,
     notes: input.notes,
+    phone: input.phone,
+    fax: input.fax,
+    website: input.website,
   } as any).select().single();
   if (error) throw error;
   return mapClient(data);
@@ -147,6 +150,9 @@ export async function updateClient(id: string, input: Partial<Client>): Promise<
   if (input.address !== undefined) updateData.address = input.address;
   if (input.industryType !== undefined) updateData.industry_type = input.industryType;
   if (input.notes !== undefined) updateData.notes = input.notes;
+  if (input.phone !== undefined) updateData.phone = input.phone;
+  if (input.fax !== undefined) updateData.fax = input.fax;
+  if (input.website !== undefined) updateData.website = input.website;
 
   const { data, error } = await supabase.from("clients").update(updateData).eq("id", id).select().single();
   if (error) throw error;
@@ -165,6 +171,9 @@ function mapClient(row: any): Client {
     address: row.address || "",
     industryType: row.industry_type || "",
     notes: row.notes || "",
+    phone: row.phone || "",
+    fax: row.fax || "",
+    website: row.website || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -191,6 +200,8 @@ export async function createContact(input: Omit<Contact, "id" | "createdAt">): P
     title: input.title,
     email: input.email,
     phone: input.phone,
+    mobile_phone: input.mobilePhone,
+    secondary_email: input.secondaryEmail,
   } as any).select().single();
   if (error) throw error;
   return mapContact(data);
@@ -202,6 +213,8 @@ export async function updateContact(id: string, input: Partial<Contact>): Promis
   if (input.title !== undefined) updateData.title = input.title;
   if (input.email !== undefined) updateData.email = input.email;
   if (input.phone !== undefined) updateData.phone = input.phone;
+  if (input.mobilePhone !== undefined) updateData.mobile_phone = input.mobilePhone;
+  if (input.secondaryEmail !== undefined) updateData.secondary_email = input.secondaryEmail;
 
   const { data, error } = await supabase.from("contacts").update(updateData).eq("id", id).select().single();
   if (error) throw error;
@@ -221,6 +234,8 @@ function mapContact(row: any): Contact {
     title: row.title || "",
     email: row.email || "",
     phone: row.phone || "",
+    mobilePhone: row.mobile_phone || "",
+    secondaryEmail: row.secondary_email || "",
     createdAt: row.created_at,
   };
 }
