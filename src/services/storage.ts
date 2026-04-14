@@ -21,8 +21,8 @@ export async function getProject(id: string): Promise<Project | undefined> {
   return data ? mapProject(data) : undefined;
 }
 
-export async function createProject(input: Omit<Project, "id" | "projectNumber" | "createdAt" | "updatedAt">): Promise<Project> {
-  const projectNumber = await getNextProjectNumber();
+export async function createProject(input: Omit<Project, "id" | "projectNumber" | "createdAt" | "updatedAt"> & { manualProjectNumber?: string }): Promise<Project> {
+  const projectNumber = input.manualProjectNumber || await getNextProjectNumber();
   const { data, error } = await supabase.from("projects").insert({
     project_number: projectNumber,
     name: input.name,
