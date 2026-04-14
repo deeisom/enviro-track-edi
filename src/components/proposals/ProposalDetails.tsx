@@ -55,7 +55,14 @@ export function ProposalDetails({ proposal, contacts, onUpdate }: Props) {
         <CardHeader><CardTitle>Client Acceptance Signer</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {field("Signer Name", "clientSignerName")}
-          {field("Signer Title", "clientSignerTitle")}
+          <div>
+            <Label>Signer Title</Label>
+            <Input
+              className="mt-1"
+              value="Client Authorized Representative"
+              disabled
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

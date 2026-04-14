@@ -27,9 +27,8 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
   const selectedClient = clients.find(c => c.id === proposal.clientId);
   const selectedProject = projects.find(p => p.id === proposal.projectId);
 
-  const filteredProjects = proposal.clientId
-    ? projects.filter(p => p.clientId === proposal.clientId || !p.clientId)
-    : projects;
+  // Show all projects — don't filter by client so user can always pick any project
+  const filteredProjects = projects;
 
   const handleEstimateSelect = (estimateId: string, feeItems: ProposalFeeItem[]) => {
     onUpdate({ estimateId, feeItems });
@@ -105,7 +104,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
                             onUpdate({
                               proposalDetails: { ...proposal.proposalDetails, contactId: ct.id },
                               clientSignerName: ct.name,
-                              clientSignerTitle: ct.title,
+                              clientSignerTitle: "Client Authorized Representative",
                             });
                             setContactOpen(false);
                           }}
