@@ -1,18 +1,18 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { getProposal, createProposal, updateProposal, getNextProposalNumber, getAllClauses } from "@/services/proposalStorage";
 import { getAllClients, getAllProjects, getContactsByClient } from "@/services/storage";
+import { exportProposalDocx } from "@/services/proposalExport";
 import type { Proposal, ProposalFeeItem, ProposalClauseSelection } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
 import { ProposalSetup } from "@/components/proposals/ProposalSetup";
 import { ProposalDetails } from "@/components/proposals/ProposalDetails";
 import { ProposalContentEditor } from "@/components/proposals/ProposalContentEditor";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, FileDown } from "lucide-react";
 
 export default function ProposalBuilder() {
   const { id } = useParams<{ id: string }>();
@@ -47,6 +47,7 @@ export default function ProposalBuilder() {
   const [clauses, setClauses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("setup");
 
   useEffect(() => {
@@ -67,7 +68,6 @@ export default function ProposalBuilder() {
             }
           }
         } else {
-          // For new proposals, default terms selections from default clauses
           const defaultSelections: ProposalClauseSelection[] = cl
             .filter((c: any) => c.isDefault)
             .map((c: any) => ({ clauseId: c.id, included: true }));
@@ -115,6 +115,27 @@ export default function ProposalBuilder() {
     }
   };
 
+  const handleExportDocx = async () => {
+    setExporting(true);
+    try {
+      const clientObj = clients.find(c => c.id === proposal.clientId);
+      const project = projects.find(p => p.id === proposal.projectId);
+      await exportProposalDocx({
+        proposal,
+        clientName: clientObj?.companyName || "",
+        clientAddress: clientObj?.address || "",
+        project,
+        clauses,
+        contacts,
+      });
+      toast({ title: "DOCX exported successfully" });
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const clientName = clients.find(c => c.id === proposal.clientId)?.companyName || "";
   const clientAddress = clients.find(c => c.id === proposal.clientId)?.address || "";
   const project = projects.find(p => p.id === proposal.projectId);
@@ -138,10 +159,16 @@ export default function ProposalBuilder() {
             {isNew ? "New Proposal" : `Proposal ${(proposal as Proposal).proposalNumber || ""}`}
           </h1>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? "Saving..." : "Save"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportDocx} disabled={exporting}>
+            <FileDown className="h-4 w-4 mr-2" />
+            {exporting ? "Exporting..." : "Export DOCX"}
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
