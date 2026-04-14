@@ -25,8 +25,9 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       setLoading(true);
       try {
         const all = await getAllInvoices();
+        // Show all estimates — don't filter by project
         const ests = all.filter(i => i.type === "estimate");
-        setEstimates(projectId ? ests.filter(e => e.projectId === projectId || !e.projectId) : ests);
+        setEstimates(ests);
       } catch {
         // silently fail
       } finally {
