@@ -12,6 +12,8 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import ClientsPage from "@/pages/ClientsPage";
 import RatesPage from "@/pages/RatesPage";
 import InvoicesPage from "@/pages/InvoicesPage";
+import ProposalsPage from "@/pages/ProposalsPage";
+import ProposalBuilder from "@/pages/ProposalBuilder";
 import AuthPage from "@/pages/AuthPage";
 import UsersPage from "@/pages/UsersPage";
 import NotFound from "@/pages/NotFound";
@@ -42,6 +44,9 @@ function ProtectedRoutes() {
         <Route path="/clients/:id" element={<ClientsPage />} />
         <Route path="/rates" element={<RatesPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
+        <Route path="/proposals" element={<ProposalsPage />} />
+        <Route path="/proposals/new" element={<ProposalBuilder />} />
+        <Route path="/proposals/:id" element={<ProposalBuilder />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

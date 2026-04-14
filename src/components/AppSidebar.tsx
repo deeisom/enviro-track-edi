@@ -6,6 +6,7 @@ import {
   Leaf,
   DollarSign,
   FileText,
+  FileSignature,
   Shield,
   LogOut,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const mainItems = [
   { title: "Clients", url: "/clients", icon: Users },
   { title: "Rate Table", url: "/rates", icon: DollarSign },
   { title: "Invoices", url: "/invoices", icon: FileText },
+  { title: "Proposals", url: "/proposals", icon: FileSignature },
 ];
 
 export function AppSidebar() {
