@@ -66,28 +66,37 @@ export type Database = {
           address: string
           company_name: string
           created_at: string
+          fax: string
           id: string
           industry_type: string
           notes: string
+          phone: string
           updated_at: string
+          website: string
         }
         Insert: {
           address?: string
           company_name: string
           created_at?: string
+          fax?: string
           id?: string
           industry_type?: string
           notes?: string
+          phone?: string
           updated_at?: string
+          website?: string
         }
         Update: {
           address?: string
           company_name?: string
           created_at?: string
+          fax?: string
           id?: string
           industry_type?: string
           notes?: string
+          phone?: string
           updated_at?: string
+          website?: string
         }
         Relationships: []
       }
@@ -97,8 +106,10 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          mobile_phone: string
           name: string
           phone: string
+          secondary_email: string
           title: string
         }
         Insert: {
@@ -106,8 +117,10 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          mobile_phone?: string
           name: string
           phone?: string
+          secondary_email?: string
           title?: string
         }
         Update: {
@@ -115,8 +128,10 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          mobile_phone?: string
           name?: string
           phone?: string
+          secondary_email?: string
           title?: string
         }
         Relationships: [

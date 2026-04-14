@@ -29,7 +29,7 @@ function ClientsList() {
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
+  const [form, setForm] = useState({ companyName: "", address: "", industryType: "", notes: "", phone: "", fax: "", website: "" });
 
   const load = () => { getAllClients().then(setClients); };
   useEffect(load, []);
@@ -43,7 +43,7 @@ function ClientsList() {
     try {
       await createClient(form);
       setDialogOpen(false);
-      setForm({ companyName: "", address: "", industryType: "", notes: "" });
+      setForm({ companyName: "", address: "", industryType: "", notes: "", phone: "", fax: "", website: "" });
       toast({ title: "Client created" });
       load();
     } catch (err: any) {
@@ -96,6 +96,9 @@ function ClientsList() {
             <div className="space-y-2"><Label>Company Name *</Label><Input value={form.companyName} onChange={e => setForm(f => ({ ...f, companyName: e.target.value }))} /></div>
             <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} /></div>
             <div className="space-y-2"><Label>Industry / Type</Label><Input value={form.industryType} onChange={e => setForm(f => ({ ...f, industryType: e.target.value }))} placeholder="e.g. Real Estate, Municipal, Industrial" /></div>
+            <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Business phone" /></div>
+            <div className="space-y-2"><Label>Fax</Label><Input value={form.fax} onChange={e => setForm(f => ({ ...f, fax: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Website</Label><Input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="e.g. https://example.com" /></div>
             <div className="space-y-2"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter>
@@ -115,10 +118,10 @@ function ClientDetail() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contactDialog, setContactDialog] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: "", title: "", email: "", phone: "" });
+  const [contactForm, setContactForm] = useState({ name: "", title: "", email: "", phone: "", mobilePhone: "", secondaryEmail: "" });
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editDialog, setEditDialog] = useState(false);
-  const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "" });
+  const [editForm, setEditForm] = useState({ companyName: "", address: "", industryType: "", notes: "", phone: "", fax: "", website: "" });
   const [deleteDialog, setDeleteDialog] = useState(false);
 
   const load = async () => {
@@ -136,7 +139,7 @@ function ClientDetail() {
   if (!client) return null;
 
   const handleEdit = () => {
-    setEditForm({ companyName: client.companyName, address: client.address || "", industryType: client.industryType || "", notes: client.notes || "" });
+    setEditForm({ companyName: client.companyName, address: client.address || "", industryType: client.industryType || "", notes: client.notes || "", phone: client.phone || "", fax: client.fax || "", website: client.website || "" });
     setEditDialog(true);
   };
 
@@ -168,7 +171,7 @@ function ClientDetail() {
       toast({ title: "Contact added" });
     }
     setContactDialog(false);
-    setContactForm({ name: "", title: "", email: "", phone: "" });
+    setContactForm({ name: "", title: "", email: "", phone: "", mobilePhone: "", secondaryEmail: "" });
     setEditingContact(null);
     load();
   };
@@ -181,13 +184,13 @@ function ClientDetail() {
 
   const handleEditContact = (contact: Contact) => {
     setEditingContact(contact);
-    setContactForm({ name: contact.name, title: contact.title || "", email: contact.email || "", phone: contact.phone || "" });
+    setContactForm({ name: contact.name, title: contact.title || "", email: contact.email || "", phone: contact.phone || "", mobilePhone: contact.mobilePhone || "", secondaryEmail: contact.secondaryEmail || "" });
     setContactDialog(true);
   };
 
   const openAddContact = () => {
     setEditingContact(null);
-    setContactForm({ name: "", title: "", email: "", phone: "" });
+    setContactForm({ name: "", title: "", email: "", phone: "", mobilePhone: "", secondaryEmail: "" });
     setContactDialog(true);
   };
 
@@ -208,6 +211,9 @@ function ClientDetail() {
           <CardHeader><CardTitle className="text-base">Client Info</CardTitle></CardHeader>
           <CardContent className="text-sm space-y-2">
             {client.address && <div><span className="text-muted-foreground">Address:</span> <p>{client.address}</p></div>}
+            {client.phone && <div><span className="text-muted-foreground">Phone:</span> <p>{client.phone}</p></div>}
+            {client.fax && <div><span className="text-muted-foreground">Fax:</span> <p>{client.fax}</p></div>}
+            {client.website && <div><span className="text-muted-foreground">Website:</span> <p><a href={client.website.startsWith("http") ? client.website : `https://${client.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{client.website}</a></p></div>}
             {client.notes && <div><span className="text-muted-foreground">Notes:</span> <p>{client.notes}</p></div>}
           </CardContent>
         </Card>
@@ -227,7 +233,9 @@ function ClientDetail() {
                       <p className="font-medium">{c.name}</p>
                       {c.title && <p className="text-muted-foreground">{c.title}</p>}
                       {c.email && <p>{c.email}</p>}
+                      {c.secondaryEmail && <p className="text-muted-foreground">{c.secondaryEmail}</p>}
                       {c.phone && <p>{c.phone}</p>}
+                      {c.mobilePhone && <p>Mobile: {c.mobilePhone}</p>}
                     </div>
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}><Pencil className="h-3 w-3 text-muted-foreground" /></Button>
@@ -279,7 +287,9 @@ function ClientDetail() {
             <div className="space-y-2"><Label>Name *</Label><Input value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} /></div>
             <div className="space-y-2"><Label>Title</Label><Input value={contactForm.title} onChange={e => setContactForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Project Manager" /></div>
             <div className="space-y-2"><Label>Email</Label><Input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Secondary Email</Label><Input type="email" value={contactForm.secondaryEmail} onChange={e => setContactForm(f => ({ ...f, secondaryEmail: e.target.value }))} /></div>
             <div className="space-y-2"><Label>Phone</Label><Input value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Mobile Phone</Label><Input value={contactForm.mobilePhone} onChange={e => setContactForm(f => ({ ...f, mobilePhone: e.target.value }))} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setContactDialog(false)}>Cancel</Button>
@@ -298,6 +308,9 @@ function ClientDetail() {
             <div className="space-y-2"><Label>Company Name *</Label><Input value={editForm.companyName} onChange={e => setEditForm(f => ({ ...f, companyName: e.target.value }))} /></div>
             <div className="space-y-2"><Label>Address</Label><Input value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} /></div>
             <div className="space-y-2"><Label>Industry / Type</Label><Input value={editForm.industryType} onChange={e => setEditForm(f => ({ ...f, industryType: e.target.value }))} placeholder="e.g. Real Estate, Municipal, Industrial" /></div>
+            <div className="space-y-2"><Label>Phone</Label><Input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Fax</Label><Input value={editForm.fax} onChange={e => setEditForm(f => ({ ...f, fax: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Website</Label><Input value={editForm.website} onChange={e => setEditForm(f => ({ ...f, website: e.target.value }))} placeholder="e.g. https://example.com" /></div>
             <div className="space-y-2"><Label>Notes</Label><Textarea value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter>

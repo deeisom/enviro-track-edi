@@ -55,6 +55,9 @@ export interface Client {
   address: string;
   industryType: string;
   notes: string;
+  phone: string;
+  fax: string;
+  website: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +69,8 @@ export interface Contact {
   title: string;
   email: string;
   phone: string;
+  mobilePhone: string;
+  secondaryEmail: string;
   createdAt: string;
 }
 
