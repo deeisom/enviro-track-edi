@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,29 +14,79 @@ import {
 import {
   getAllClients, createClient, updateClient, deleteClient,
   getContactsByClient, createContact, updateContact, deleteContact,
-  getAllProjects, getClient,
+  getAllProjects, getClient, getAllContacts,
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil, Leaf } from "lucide-react";
+import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil, Leaf, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const PAGE_SIZE = 50;
+
+type MatchInfo = { field: string; value: string } | null;
+
 function ClientsList() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ companyName: "", address: "", industryType: "", notes: "", phone: "", fax: "", website: "" });
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [page, setPage] = useState(1);
 
-  const load = () => { getAllClients().then(setClients); };
+  const load = () => {
+    getAllClients().then(setClients);
+    getAllContacts().then(setContacts);
+  };
   useEffect(load, []);
 
-  const filtered = clients.filter(c =>
-    c.companyName.toLowerCase().includes(search.toLowerCase())
-  );
+  const contactsByClient = useMemo(() => {
+    const map = new Map<string, Contact[]>();
+    for (const c of contacts) {
+      const arr = map.get(c.clientId) || [];
+      arr.push(c);
+      map.set(c.clientId, arr);
+    }
+    return map;
+  }, [contacts]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return clients.map(c => ({ client: c, match: null as MatchInfo }));
+
+    return clients
+      .map(c => {
+        // Check client fields
+        if (c.companyName.toLowerCase().includes(q)) return { client: c, match: null as MatchInfo };
+        if (c.address?.toLowerCase().includes(q)) return { client: c, match: { field: "Address", value: c.address } as MatchInfo };
+        if (c.industryType?.toLowerCase().includes(q)) return { client: c, match: { field: "Industry", value: c.industryType } as MatchInfo };
+        if (c.phone?.toLowerCase().includes(q)) return { client: c, match: { field: "Phone", value: c.phone } as MatchInfo };
+        if (c.website?.toLowerCase().includes(q)) return { client: c, match: { field: "Website", value: c.website } as MatchInfo };
+        if (c.notes?.toLowerCase().includes(q)) return { client: c, match: { field: "Notes", value: c.notes.substring(0, 60) } as MatchInfo };
+
+        // Check associated contacts
+        const clientContacts = contactsByClient.get(c.id) || [];
+        for (const ct of clientContacts) {
+          if (ct.name.toLowerCase().includes(q)) return { client: c, match: { field: "Contact", value: ct.name } as MatchInfo };
+          if (ct.email?.toLowerCase().includes(q)) return { client: c, match: { field: "Contact email", value: `${ct.name} (${ct.email})` } as MatchInfo };
+          if (ct.phone?.toLowerCase().includes(q)) return { client: c, match: { field: "Contact phone", value: `${ct.name} (${ct.phone})` } as MatchInfo };
+          if (ct.mobilePhone?.toLowerCase().includes(q)) return { client: c, match: { field: "Contact mobile", value: `${ct.name} (${ct.mobilePhone})` } as MatchInfo };
+          if (ct.secondaryEmail?.toLowerCase().includes(q)) return { client: c, match: { field: "Contact email", value: `${ct.name} (${ct.secondaryEmail})` } as MatchInfo };
+        }
+        return null;
+      })
+      .filter(Boolean) as { client: Client; match: MatchInfo }[];
+  }, [clients, contacts, contactsByClient, search]);
+
+  // Reset page when search changes
+  useEffect(() => { setPage(1); }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleCreate = async () => {
     if (!form.companyName.trim()) { toast({ title: "Company name is required", variant: "destructive" }); return; }
@@ -58,31 +108,92 @@ function ClientsList() {
         <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search clients, contacts, phone, email..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <span className="text-sm text-muted-foreground whitespace-nowrap">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
+        <div className="flex border rounded-md overflow-hidden">
+          <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-none h-9 w-9" onClick={() => setViewMode("grid")}><LayoutGrid className="h-4 w-4" /></Button>
+          <Button variant={viewMode === "table" ? "default" : "ghost"} size="icon" className="rounded-none h-9 w-9" onClick={() => setViewMode("table")}><List className="h-4 w-4" /></Button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             <Building2 className="h-10 w-10 mx-auto mb-2 opacity-40" />
-            <p>No clients yet. Add your first client to get started!</p>
+            <p>{search ? "No clients or contacts match your search." : "No clients yet. Add your first client to get started!"}</p>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(c => (
+          {paginated.map(({ client: c, match }) => (
             <Link key={c.id} to={`/clients/${c.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardHeader className="pb-2"><CardTitle className="text-base">{c.companyName}</CardTitle></CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{c.companyName}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-1">
                   {c.industryType && <p>{c.industryType}</p>}
                   {c.address && <p className="truncate">{c.address}</p>}
+                  {match && (
+                    <p className="text-xs text-primary truncate">
+                      Matched: {match.field} — {match.value}
+                    </p>
+                  )}
+                  {(contactsByClient.get(c.id)?.length ?? 0) > 0 && (
+                    <p className="text-xs flex items-center gap-1"><Users className="h-3 w-3" /> {contactsByClient.get(c.id)!.length} contact{contactsByClient.get(c.id)!.length !== 1 ? "s" : ""}</p>
+                  )}
                 </CardContent>
               </Card>
             </Link>
           ))}
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Company</TableHead>
+                <TableHead>Industry</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Contacts</TableHead>
+                {search && <TableHead>Matched On</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginated.map(({ client: c, match }) => (
+                <TableRow key={c.id} className="cursor-pointer" onClick={() => {}}>
+                  <TableCell>
+                    <Link to={`/clients/${c.id}`} className="font-medium text-primary hover:underline">{c.companyName}</Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{c.industryType || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
+                  <TableCell>{contactsByClient.get(c.id)?.length ?? 0}</TableCell>
+                  {search && (
+                    <TableCell className="text-xs text-primary truncate max-w-[200px]">
+                      {match ? `${match.field}: ${match.value}` : "Company name"}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+            Next <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
         </div>
       )}
 
@@ -110,7 +221,6 @@ function ClientsList() {
     </div>
   );
 }
-
 function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
