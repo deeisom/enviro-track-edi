@@ -2,11 +2,15 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+type AppRole = "admin" | "user" | "view_only";
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  role: AppRole;
+  canEdit: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -15,6 +19,8 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   isAdmin: false,
+  role: "view_only",
+  canEdit: false,
   signOut: async () => {},
 });
 
@@ -24,19 +30,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<AppRole>("view_only");
 
-  const checkAdmin = async (userId: string) => {
+  const checkRole = async (userId: string) => {
     try {
       const { data } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .eq("role", "admin")
         .maybeSingle();
-      setIsAdmin(!!data);
+      if (data?.role) {
+        setRole(data.role as AppRole);
+      } else {
+        setRole("view_only");
+      }
     } catch {
-      setIsAdmin(false);
+      setRole("view_only");
     }
   };
 
@@ -46,9 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          checkAdmin(session.user.id);
+          checkRole(session.user.id);
         } else {
-          setIsAdmin(false);
+          setRole("view_only");
         }
         setLoading(false);
       }
@@ -58,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        checkAdmin(session.user.id);
+        checkRole(session.user.id);
       }
       setLoading(false);
     });
@@ -70,8 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const isAdmin = role === "admin";
+  const canEdit = role === "admin" || role === "user";
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, role, canEdit, signOut }}>
       {children}
     </AuthContext.Provider>
   );
