@@ -179,11 +179,14 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
           <hr className="mb-6" />
           <h3 className="text-base font-bold mb-4">Terms and Conditions</h3>
           <div className="space-y-4 text-sm leading-relaxed">
-            {includedClauses.map(clause => {
+            {includedClauses.map((clause, idx) => {
               const sel = termsSelections.find(s => s.clauseId === clause.id);
               const body = sel?.editedBody || clause.body;
               return (
-                <p key={clause.id} className="whitespace-pre-wrap">{body}</p>
+                <div key={clause.id}>
+                  <p className="font-semibold mb-1">{idx + 1}. {clause.title}</p>
+                  <p className="whitespace-pre-wrap">{body}</p>
+                </div>
               );
             })}
           </div>
