@@ -162,7 +162,7 @@ function buildDetailsPage(data: ExportData): any {
   const p = data.proposal;
   const contact = data.contacts.find(c => c.id === p.proposalDetails?.contactId);
   const projectNumber = data.project?.projectNumber || "";
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
   children.push(para([text("Proposal", { bold: true, size: 28 })], { alignment: AlignmentType.CENTER, spacing: { after: 300 } }));
   children.push(para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 300 } }));
