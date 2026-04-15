@@ -11,16 +11,31 @@ interface Props {
   contacts: Contact[];
 }
 
+/** Replace [variableName] with values, unfilled → [___] */
+function substituteVariables(body: string, variables: Record<string, string> = {}): string {
+  return body.replace(/\[([a-zA-Z_][a-zA-Z0-9_]*)\]/g, (match, name) => {
+    return variables[name] || "[___]";
+  });
+}
+
+const categoryLabels: Record<string, string> = {
+  pricing_authorization: "Pricing & Authorization",
+  billing: "Billing & Fees",
+  testing_limitations: "Testing Limitations",
+  scope_liability: "Scope & Liability",
+  client_responsibilities: "Client Responsibilities",
+  disposal: "Disposal & Waste",
+  legal: "Legal",
+  foundation: "Foundation",
+  service_specific: "Service-Specific",
+};
+
 export function ProposalPreview({ proposal, clientName, clientAddress, project, clauses, contacts }: Props) {
   const background = (proposal.background as AIContentBlock) || { text: "" };
   const scope = (proposal.scope as AIContentBlock) || { text: "" };
   const feeItems = (proposal.feeItems || []) as ProposalFeeItem[];
   const termsSelections = (proposal.termsSelections || []) as ProposalClauseSelection[];
   const feeTotal = feeItems.reduce((sum, item) => sum + (item.displayAmount || 0), 0);
-
-  const includedClauses = clauses.filter(c =>
-    termsSelections.some(s => s.clauseId === c.id && s.included)
-  );
 
   const contact = contacts.find(c => c.id === proposal.proposalDetails?.contactId);
   const projectNumber = project?.projectNumber || "";
@@ -29,6 +44,37 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
     name: "Environmental Design Inc.",
     address: "5434 King Avenue, Suite 101\nPennsauken, New Jersey 08109",
   };
+
+  // Build terms items grouped by category
+  const includedClauses = clauses.filter(c =>
+    termsSelections.some(s => s.clauseId === c.id && s.included)
+  );
+  const customInline = termsSelections.filter(s => s.isCustom && s.included && s.customTitle);
+
+  // Group by category for rendering
+  const termsByCategory: Record<string, { title: string; body: string }[]> = {};
+  includedClauses.forEach(clause => {
+    const sel = termsSelections.find(s => s.clauseId === clause.id);
+    const body = sel?.editedBody || clause.body;
+    const substituted = substituteVariables(body, sel?.variables);
+    const cat = clause.category;
+    if (!termsByCategory[cat]) termsByCategory[cat] = [];
+    termsByCategory[cat].push({ title: clause.title, body: substituted });
+  });
+  customInline.forEach(s => {
+    const cat = s.customCategory || "foundation";
+    if (!termsByCategory[cat]) termsByCategory[cat] = [];
+    termsByCategory[cat].push({ title: s.customTitle!, body: s.customBody || "" });
+  });
+
+  const categoryOrder = Object.keys(categoryLabels);
+  const sortedCategories = Object.keys(termsByCategory).sort((a, b) => {
+    const ia = categoryOrder.indexOf(a);
+    const ib = categoryOrder.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+
+  let clauseCounter = 0;
 
   return (
     <div className="max-w-[816px] mx-auto space-y-0">
@@ -72,11 +118,8 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
           </div>
         </div>
         <hr className="mb-6" />
-
         <h2 className="text-xl font-bold text-center mb-8">Proposal</h2>
-
         <p className="mb-6">{proposal.proposalDate || "[DATE]"}</p>
-
         <div className="space-y-6 text-sm">
           <div>
             <p className="font-semibold">Between the Client:</p>
@@ -87,7 +130,6 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
               <p className="whitespace-pre-line">{clientAddress || "[Client Address]"}</p>
             </div>
           </div>
-
           <div>
             <p className="font-semibold">And the Consultant:</p>
             <div className="ml-4 mt-1">
@@ -95,7 +137,6 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
               <p className="whitespace-pre-line">{consultantInfo.address}</p>
             </div>
           </div>
-
           <div>
             <p className="font-semibold">For the Project:</p>
             <div className="ml-4 mt-1">
@@ -105,8 +146,6 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
             </div>
           </div>
         </div>
-
-        {/* Background & Scope */}
         <div className="mt-10">
           <h3 className="text-base font-bold mb-4">Background & Scope of Work</h3>
           {background.text ? (
@@ -128,14 +167,12 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
           <span className="font-bold text-lg tracking-widest">EDI</span>
         </div>
         <hr className="mb-6" />
-
         <h3 className="text-base font-bold mb-2">Fee Schedule</h3>
         <div className="text-sm mb-4">
           <p>{proposal.serviceType || "[Service Type]"}</p>
           <p>{proposal.siteName || "[Site Name]"}{proposal.buildingArea ? ` - ${proposal.buildingArea}` : ""}</p>
           <p className="italic">EDI Project # {projectNumber || "[PROJECT #]"}</p>
         </div>
-
         {feeItems.length > 0 ? (
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -148,7 +185,7 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
               </tr>
             </thead>
             <tbody>
-              {feeItems.map((item, idx) => (
+              {feeItems.map((item) => (
                 <tr key={item.id} className="border-b border-gray-300 align-top">
                   <td className="py-2 pr-2">{item.displayItem}</td>
                   <td className="py-2 pr-2 whitespace-pre-wrap">{item.displayDescription}</td>
@@ -171,34 +208,30 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
       </div>
 
       {/* Terms & Conditions Page */}
-      {(() => {
-        const customInline = termsSelections.filter(s => s.isCustom && s.included && s.customTitle);
-        const allTermsItems = [
-          ...includedClauses.map(clause => {
-            const sel = termsSelections.find(s => s.clauseId === clause.id);
-            return { title: clause.title, body: sel?.editedBody || clause.body };
-          }),
-          ...customInline.map(s => ({ title: s.customTitle!, body: s.customBody || "" })),
-        ];
-        if (allTermsItems.length === 0) return null;
-        return (
-          <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
-            <div className="flex items-center justify-between mb-6">
-              <span className="font-bold text-lg tracking-widest">EDI</span>
-            </div>
-            <hr className="mb-6" />
-            <h3 className="text-base font-bold mb-4">Terms and Conditions</h3>
-            <div className="space-y-4 text-sm leading-relaxed">
-              {allTermsItems.map((item, idx) => (
-                <div key={idx}>
-                  <p className="font-semibold mb-1">{idx + 1}. {item.title}</p>
-                  <p className="whitespace-pre-wrap">{item.body}</p>
-                </div>
-              ))}
-            </div>
+      {sortedCategories.length > 0 && (
+        <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
+          <div className="flex items-center justify-between mb-6">
+            <span className="font-bold text-lg tracking-widest">EDI</span>
           </div>
-        );
-      })()}
+          <hr className="mb-6" />
+          <h3 className="text-base font-bold mb-4">Terms and Conditions</h3>
+          <div className="space-y-4 text-sm leading-relaxed">
+            {sortedCategories.map(cat => (
+              <div key={cat}>
+                {termsByCategory[cat].map((item) => {
+                  clauseCounter++;
+                  return (
+                    <div key={clauseCounter} className="mb-3">
+                      <p className="font-semibold mb-1">{clauseCounter}. {item.title}</p>
+                      <p className="whitespace-pre-wrap">{item.body}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Acceptance Page */}
       <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
@@ -206,23 +239,19 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
           <span className="font-bold text-lg tracking-widest">EDI</span>
         </div>
         <hr className="mb-6" />
-
         <h3 className="text-base font-bold mb-2">Acceptance of the Proposal</h3>
         <div className="text-sm mb-4">
           <p>{proposal.serviceType || "[Service Type]"}</p>
           <p>{proposal.siteName || "[Site Name]"}{proposal.buildingArea ? ` - ${proposal.buildingArea}` : ""}</p>
           <p className="italic">EDI Project # {projectNumber || "[PROJECT #]"}</p>
         </div>
-
         <p className="text-sm leading-relaxed mb-8">
           Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.
         </p>
         <p className="text-sm leading-relaxed mb-12">
           Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.
         </p>
-
         <div className="space-y-12 mt-16">
-          {/* Company rep signature */}
           <div>
             <div className="border-b border-black w-80" />
             <p className="text-sm mt-1">{proposal.companyRepName || "[Company Representative]"}</p>
@@ -235,8 +264,6 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
               </div>
             </div>
           </div>
-
-          {/* Client rep signature */}
           <div>
             <div className="border-b border-black w-80" />
             <p className="text-sm mt-1">Client Authorized Representative</p>
