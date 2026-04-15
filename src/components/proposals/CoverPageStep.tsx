@@ -29,8 +29,9 @@ export function CoverPagePreview({
       style={{
         ...pageStyle,
         width: "612px",
-        minHeight: "792px",
+        height: "792px",
         padding: "48px 64px",
+        overflow: "hidden",
       }}
     >
       {/* Header - left aligned */}
@@ -121,7 +122,7 @@ export function CoverPagePreview({
       </div>
 
       {/* Bottom section */}
-      <div className="flex items-end justify-between mt-4">
+      <div className="flex items-end justify-between mt-2">
         <div>
           <p className="text-sm mb-3">{proposal.proposalDate || "[DATE]"}</p>
           <p className="text-sm italic" style={{ color: EDI_GREEN }}>

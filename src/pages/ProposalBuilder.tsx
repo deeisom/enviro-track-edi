@@ -25,7 +25,7 @@ export default function ProposalBuilder() {
   const [proposal, setProposal] = useState<Partial<Proposal>>({
     status: "draft",
     version: 1,
-    proposalDate: new Date().toLocaleDateString("en-US"),
+    proposalDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     expirationDate: "",
     serviceType: "",
     secondaryServiceType: "",
