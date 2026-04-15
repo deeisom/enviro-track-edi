@@ -161,6 +161,19 @@ export async function getAllClauses(): Promise<ProposalClause[]> {
   return (data || []).map(mapClause);
 }
 
+export async function createClause(input: { title: string; body: string; category: string }): Promise<ProposalClause> {
+  const { data, error } = await supabase.from("proposal_clauses").insert({
+    title: input.title,
+    body: input.body,
+    category: input.category,
+    is_default: false,
+    sort_order: 999,
+    service_types: [],
+  }).select().single();
+  if (error) throw error;
+  return mapClause(data);
+}
+
 function mapClause(row: any): ProposalClause {
   return {
     id: row.id,

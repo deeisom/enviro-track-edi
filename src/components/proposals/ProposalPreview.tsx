@@ -171,27 +171,34 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
       </div>
 
       {/* Terms & Conditions Page */}
-      {includedClauses.length > 0 && (
-        <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
-          <div className="flex items-center justify-between mb-6">
-            <span className="font-bold text-lg tracking-widest">EDI</span>
-          </div>
-          <hr className="mb-6" />
-          <h3 className="text-base font-bold mb-4">Terms and Conditions</h3>
-          <div className="space-y-4 text-sm leading-relaxed">
-            {includedClauses.map((clause, idx) => {
-              const sel = termsSelections.find(s => s.clauseId === clause.id);
-              const body = sel?.editedBody || clause.body;
-              return (
-                <div key={clause.id}>
-                  <p className="font-semibold mb-1">{idx + 1}. {clause.title}</p>
-                  <p className="whitespace-pre-wrap">{body}</p>
+      {(() => {
+        const customInline = termsSelections.filter(s => s.isCustom && s.included && s.customTitle);
+        const allTermsItems = [
+          ...includedClauses.map(clause => {
+            const sel = termsSelections.find(s => s.clauseId === clause.id);
+            return { title: clause.title, body: sel?.editedBody || clause.body };
+          }),
+          ...customInline.map(s => ({ title: s.customTitle!, body: s.customBody || "" })),
+        ];
+        if (allTermsItems.length === 0) return null;
+        return (
+          <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
+            <div className="flex items-center justify-between mb-6">
+              <span className="font-bold text-lg tracking-widest">EDI</span>
+            </div>
+            <hr className="mb-6" />
+            <h3 className="text-base font-bold mb-4">Terms and Conditions</h3>
+            <div className="space-y-4 text-sm leading-relaxed">
+              {allTermsItems.map((item, idx) => (
+                <div key={idx}>
+                  <p className="font-semibold mb-1">{idx + 1}. {item.title}</p>
+                  <p className="whitespace-pre-wrap">{item.body}</p>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Acceptance Page */}
       <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>

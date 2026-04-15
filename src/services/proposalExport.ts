@@ -283,18 +283,25 @@ function buildTermsSection(data: ExportData): Paragraph[] {
   const includedClauses = data.clauses.filter(c =>
     termsSelections.some(s => s.clauseId === c.id && s.included)
   );
+  const customInline = termsSelections.filter(s => s.isCustom && s.included && s.customTitle);
 
-  if (includedClauses.length === 0) return [];
+  const allItems = [
+    ...includedClauses.map(clause => {
+      const sel = termsSelections.find(s => s.clauseId === clause.id);
+      return { title: clause.title, body: sel?.editedBody || clause.body };
+    }),
+    ...customInline.map(s => ({ title: s.customTitle!, body: s.customBody || "" })),
+  ];
+
+  if (allItems.length === 0) return [];
 
   const children: Paragraph[] = [];
   children.push(new Paragraph({ children: [new PageBreak()] }));
   children.push(para([text("Terms and Conditions", { bold: true, size: 24 })], { spacing: { before: 200, after: 200 } }));
 
-  includedClauses.forEach((clause, idx) => {
-    const sel = termsSelections.find(s => s.clauseId === clause.id);
-    const body = sel?.editedBody || clause.body;
-    children.push(para([text(`${idx + 1}. ${clause.title}`, { bold: true, size: 22 })], { spacing: { before: 160, after: 60 } }));
-    body.split("\n").forEach(line => {
+  allItems.forEach((item, idx) => {
+    children.push(para([text(`${idx + 1}. ${item.title}`, { bold: true, size: 22 })], { spacing: { before: 160, after: 60 } }));
+    item.body.split("\n").forEach(line => {
       children.push(para([text(line, { size: 22 })], { spacing: { after: 80 } }));
     });
   });
