@@ -10,6 +10,7 @@ interface Props {
   clauses: ProposalClause[];
   onUpdate: (p: Partial<Proposal>) => void;
   onClauseCreated?: () => void;
+  serviceType?: string;
 }
 
 export function ProposalContentEditor({ proposal, clauses, onUpdate, onClauseCreated }: Props) {
