@@ -47,6 +47,12 @@ export interface ProposalClauseSelection {
   clauseId: string;
   included: boolean;
   editedBody?: string;
+  variables?: Record<string, string>;
+  // For inline custom clauses
+  isCustom?: boolean;
+  customTitle?: string;
+  customBody?: string;
+  customCategory?: string;
 }
 
 export interface Proposal {
