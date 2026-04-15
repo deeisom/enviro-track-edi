@@ -163,11 +163,18 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
     }));
   }
 
+  const pageBorder = { style: BorderStyle.SINGLE, size: 6, color: "000000" };
   return {
     properties: {
       page: {
         size: { width: PAGE_WIDTH, height: PAGE_HEIGHT },
         margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
+        borders: {
+          pageBorderTop: pageBorder,
+          pageBorderRight: pageBorder,
+          pageBorderBottom: pageBorder,
+          pageBorderLeft: pageBorder,
+        },
       },
     },
     children,
