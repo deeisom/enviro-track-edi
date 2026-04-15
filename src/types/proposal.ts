@@ -68,7 +68,9 @@ export interface Proposal {
   serviceType: string;
   siteName: string;
   siteAddress: string;
+  siteAddressLine2: string;
   buildingArea: string;
+  secondaryServiceType: string;
   companyRepName: string;
   companyRepTitle: string;
   clientSignerName: string;
