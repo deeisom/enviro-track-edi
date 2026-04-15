@@ -91,7 +91,7 @@ function buildEdiHeader(showContact = false): Header {
 function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
   const p = data.proposal;
   const projectNumber = data.project?.projectNumber || "";
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
   // Header: left-aligned title + green italic company name + rule
   children.push(para([text("Environmental Services Proposal", { bold: true, size: 28 })], { spacing: { after: 0 } }));
@@ -131,7 +131,16 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
   // Client info
   children.push(para([text("For the Client", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
   children.push(para([text(data.clientName || "[CLIENT NAME]", { bold: true, size: 24, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
-  children.push(para([text(data.clientAddress || "[CLIENT ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+  
+  // Split client address into multiple lines
+  const clientAddressLines = (data.clientAddress || "").split("\n").filter(Boolean);
+  if (clientAddressLines.length > 0) {
+    clientAddressLines.forEach(line => {
+      children.push(para([text(line, { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+    });
+  } else {
+    children.push(para([text("[CLIENT ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+  }
   children.push(emptyLine());
 
   // Project #
@@ -140,17 +149,22 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
   // Spacers before bottom
   for (let i = 0; i < 4; i++) children.push(emptyLine());
 
-  // Bottom: date on left, company on left, logo on right (use tab stops for positioning)
-  children.push(para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 200 } }));
+  // Bottom section: 2-column borderless table — left: date + company info, right: logo
+  const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+  const leftColWidth = Math.round(CONTENT_WIDTH * 0.65);
+  const rightColWidth = CONTENT_WIDTH - leftColWidth;
 
-  // Company info in green
-  children.push(para([text("Environmental Design Inc.", { italics: true, size: 22, color: EDI_GREEN })], { spacing: { after: 0 } }));
-  children.push(para([text("5434 King Avenue, Suite 101", { size: 18 })], { spacing: { after: 0 } }));
-  children.push(para([text("Pennsauken, New Jersey 08109", { size: 18 })]));
+  const leftCellChildren: Paragraph[] = [
+    para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 200 } }),
+    para([text("Environmental Design Inc.", { italics: true, size: 22, color: EDI_GREEN })], { spacing: { after: 0 } }),
+    para([text("5434 King Avenue, Suite 101", { size: 18 })], { spacing: { after: 0 } }),
+    para([text("Pennsauken, New Jersey 08109", { size: 18 })], { spacing: { after: 0 } }),
+  ];
 
-  // Logo (as separate right-aligned paragraph if available)
+  const rightCellChildren: Paragraph[] = [];
   if (logoData) {
-    children.push(new Paragraph({
+    rightCellChildren.push(new Paragraph({
       alignment: AlignmentType.RIGHT,
       children: [
         new ImageRun({
@@ -161,7 +175,31 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
         }),
       ],
     }));
+  } else {
+    rightCellChildren.push(para([text("")]));
   }
+
+  children.push(new Table({
+    width: { size: CONTENT_WIDTH, type: WidthType.DXA },
+    columnWidths: [leftColWidth, rightColWidth],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorders,
+            width: { size: leftColWidth, type: WidthType.DXA },
+            children: leftCellChildren,
+          }),
+          new TableCell({
+            borders: noBorders,
+            width: { size: rightColWidth, type: WidthType.DXA },
+            verticalAlign: "bottom" as any,
+            children: rightCellChildren,
+          }),
+        ],
+      }),
+    ],
+  }));
 
   const pageBorder = { style: BorderStyle.SINGLE, size: 6, color: "000000" };
   return {
