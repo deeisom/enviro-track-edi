@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_AI_URL = "https://api.lovable.dev/v1/chat/completions";
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,13 +65,13 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_completion_tokens: 2000,
       }),
     });
 
