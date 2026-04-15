@@ -1,74 +1,81 @@
 
 
-## Plan: Complete Terms & Conditions Engine (Remaining Work)
+## Plan: Proposal Formatting Overhaul
 
-The "Save Custom Clauses to Library" feature is already implemented. Here is everything else from our earlier planning that still needs to be built.
+### Two changes requested
 
-### 1. Database migration — Seed ~24 real clauses with variables
+**1. Remove numbering from Terms & Conditions** — clauses should render as plain paragraphs separated by spacing, no numbers or individual titles (matching the real proposal format).
 
-Delete the current generic clauses and insert the comprehensive library derived from the real EDI proposals. Each clause includes verbatim language with `[bracketed]` variable placeholders.
+**2. Match the formatting of the uploaded example proposal** — the current preview and DOCX export need significant layout changes to match the real document.
 
-**Categories and clauses:**
+### Key formatting differences observed from the example
 
-| Category | Clauses | Default? |
-|---|---|---|
-| `pricing_authorization` | Fee Validity Period (`[feeValidityPeriod]`), Signed Authorization, PO Requirement, Payment Terms (`[paymentTiming]`), Credit Card Surcharge, Regulatory-Change Pricing, Additional Services / Retesting | Fee Validity, Signed Auth, Payment Terms, Additional Services = default |
-| `billing` | Working Hours, Portal-to-Portal, Minimum Hours / Overtime / Weekend / Holiday Rates (`[minHours]`, `[overtimeRate]`, etc.), PM Out-of-Scope Rate (`[pmRate]`), Contractor Delay Charges | None default — service-specific |
-| `testing_limitations` | Point-in-Time Testing, Not Comprehensive Evaluation, Method-Specific Limitations (`[methodDetails]`), Sampling Damage Disclaimer | None default — testing jobs only |
-| `scope_liability` | Scope Limitation, No Environmental Certainty, Consultant Did Not Create Hazard, Third-Party Reporting Exclusion, Security Disclaimer | All 5 = default |
-| `client_responsibilities` | Hazardous Substance Notification, Drawings Requirement, Unauthorized Persons | None default — site work |
-| `disposal` | Disposal Assumptions (`[wasteClassification]`), Generator Report / Manifest, Generator's Agent Authorization, Indemnity | None default — disposal/hazmat |
-| `legal` | Legal Fees / Collections, Arbitration (AAA, Camden County NJ) | Arbitration = default |
+**Cover Page:**
+- "Environmental Services Proposal" is bold, LEFT-aligned at top (not centered), with "Environmental Design Inc." italic below it, followed by a horizontal rule
+- Service type is large, bold, underlined, centered, in SMALL CAPS style
+- Site name / building area / address are centered in small caps
+- "FOR THE CLIENT" / client info centered in small caps
+- Project # centered italic
+- Bottom layout: Date on the left, company name in GREEN italic on the left, address below; EDI globe logo positioned at bottom-right
+- The EDI company name on the cover is in GREEN text
 
-~10 clauses marked `is_default: true` (the foundation block), rest marked false with `service_types` tags for auto-suggestion.
+**Interior Pages Header:**
+- "EDI" in GREEN italic, RIGHT-aligned, large font
+- A horizontal rule underneath
+- Phone/website info on the LEFT below the line (page 2 only) or just the green "EDI" + rule on subsequent pages
 
-### 2. Variable fill-in UI in TermsClauseEngine
+**Proposal Details Page (Page 3):**
+- "Proposal" bold large LEFT-aligned (not centered)
+- "Between the Client:" / "And the Consultant:" / "For the Project:" use a two-column tabbed layout — label on the left, details indented to a consistent tab stop
+- "Background & Scope of Work" bold
+- Body text is JUSTIFIED
 
-When a clause body contains `[variableName]` placeholders:
-- Parse them and render inline inputs below the clause toggle
-- Known-option variables get dropdowns (e.g. fee validity: "30 days" / "60 days" / "per contract"; payment timing: "upon receipt of final invoice" / "upon receipt of final report" / "at time of on-site assessment" / "per contract")
-- Open variables get free-text inputs
-- The clause preview text shows variables substituted in real-time
-- Values stored in `termsSelections[].variables`
+**Fee Schedule (Page 4):**
+- Table header row has a LIGHT SAGE GREEN shading (not blue) — approximately `#C5E0B4`
+- Total row also has the green shading
+- Text throughout is justified
 
-### 3. Service-type "Recommended" badges
+**Terms and Conditions (Page 5):**
+- "Terms and Condition" bold header
+- NO numbering, NO clause titles — just flowing paragraphs separated by blank lines
+- Text is JUSTIFIED
 
-When the proposal has a `serviceType` set (e.g. "air_quality", "disposal", "inspection"):
-- Clauses whose `service_types` array includes the selected type show a "Recommended" badge
-- A button at the top: "Add recommended clauses for [service type]" — toggles them on with one click
-- Never auto-enables without user action
+**Acceptance Page (Page 6):**
+- Signature block has signature line + "Dated" on the same row using tab stops (not stacked vertically)
+- The date field is to the RIGHT of the signature line on the same horizontal level
 
-### 4. AI Clause Advisor — edge function + UI
+**Global:**
+- All body text appears JUSTIFIED
+- The green color used for "EDI" branding is approximately `#4A7C59` (dark forest green)
 
-**New edge function** `supabase/functions/recommend-proposal-clauses/index.ts`:
-- Receives: natural language job description + full clause library (titles + bodies)
-- Uses Lovable AI gateway to return JSON: recommended clause IDs, suggested variable values, and any new clause drafts for things not covered by the library
-- Returns structured response the UI can parse
+### Implementation
 
-**UI in TermsClauseEngine:**
-- Collapsible "AI Clause Advisor" panel with a textarea for describing the job
-- "Get Recommendations" button
-- Results appear as a checklist: existing clauses to enable (with suggested variable values), plus any new draft clauses
-- "Apply All" or individual accept/reject buttons
-- Completely optional — manual toggles work independently
+**Files to modify:**
 
-### 5. Preview and DOCX export — variable substitution
+1. **`src/components/proposals/ProposalPreview.tsx`** — Full reformatting:
+   - Cover page: left-aligned header block, small-caps styling, logo at bottom-right, green company name
+   - Interior pages: green italic "EDI" right-aligned in header
+   - Proposal details: left-aligned "Proposal" title, tabbed two-column layout for client/consultant/project
+   - Fee table: sage green header shading instead of plain black borders
+   - Terms: remove numbering and clause titles, render as plain paragraphs with spacing
+   - Acceptance: horizontal signature/date layout
+   - Add `text-justify` to body text sections
 
-Update both `ProposalPreview.tsx` and `proposalExport.ts`:
-- When rendering terms, replace `[variableName]` in clause body with the value from the selection's `variables` map
-- Unfilled variables render as `[___]` (visible placeholder) so the user knows they missed one
-- Group clauses by category with section headers
+2. **`src/services/proposalExport.ts`** — Mirror all the same formatting changes for the DOCX export:
+   - Cover page layout matching the example
+   - Green "EDI" in headers
+   - Justified text alignment
+   - Sage green table header shading
+   - Terms without numbering/titles
+   - Horizontal signature block layout
 
-### 6. ProposalBuilder — auto-suggest on serviceType change
+3. **Copy the EDI globe logo** from the parsed document to `public/images/` for use on the cover page (the current `edi-logo.jpg` may be different from the globe logo in the example)
 
-When `serviceType` changes, show a toast or inline prompt: "We found X recommended clauses for [service type]. Add them?" — links to the Terms tab.
+### Technical details
 
-### Files affected
-
-- **New migration** — delete old clauses, insert ~24 new ones with body text, categories, sort orders, service_types, `[variable]` placeholders
-- **New edge function** `supabase/functions/recommend-proposal-clauses/index.ts`
-- `src/components/proposals/TermsClauseEngine.tsx` — variable fill-in UI, service-type badges, AI advisor panel
-- `src/components/proposals/ProposalPreview.tsx` — variable substitution in terms rendering
-- `src/services/proposalExport.ts` — variable substitution in DOCX export
-- `src/pages/ProposalBuilder.tsx` — service-type clause suggestion logic
+- Green color for "EDI" branding: `#4A7C59`
+- Fee table header shading: `#C5E0B4` (sage green)
+- Terms rendering: iterate clause bodies as paragraphs only, skip `clauseCounter` and title rendering entirely
+- Small caps effect on cover page via CSS `font-variant: small-caps` and in DOCX via `smallCaps: true`
+- Justified text via `text-align: justify` in CSS and `AlignmentType.JUSTIFIED` in docx-js
 
