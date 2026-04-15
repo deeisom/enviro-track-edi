@@ -9,9 +9,10 @@ interface Props {
   proposal: Partial<Proposal>;
   clauses: ProposalClause[];
   onUpdate: (p: Partial<Proposal>) => void;
+  onClauseCreated?: () => void;
 }
 
-export function ProposalContentEditor({ proposal, clauses, onUpdate }: Props) {
+export function ProposalContentEditor({ proposal, clauses, onUpdate, onClauseCreated }: Props) {
   const background = proposal.background as AIContentBlock || { text: "", ai_generated: false, locked: false, prompt_inputs: {} };
   const scope = proposal.scope as AIContentBlock || { text: "", ai_generated: false, locked: false, prompt_inputs: {} };
   const feeItems = (proposal.feeItems || []) as ProposalFeeItem[];
@@ -46,6 +47,7 @@ export function ProposalContentEditor({ proposal, clauses, onUpdate }: Props) {
         clauses={clauses}
         termsSelections={termsSelections}
         onUpdate={selections => onUpdate({ termsSelections: selections })}
+        onClauseCreated={onClauseCreated}
       />
     </div>
   );
