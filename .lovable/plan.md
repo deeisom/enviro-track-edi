@@ -1,81 +1,97 @@
 
 
-## Plan: Proposal Formatting Overhaul
+## Plan: Step-Based Proposal Builder — Cover Page First
 
-### Two changes requested
+### What changes
 
-**1. Remove numbering from Terms & Conditions** — clauses should render as plain paragraphs separated by spacing, no numbers or individual titles (matching the real proposal format).
+Restructure the proposal builder from a flat 4-tab layout into a **step-based workflow** (Setup, Cover Page, Proposal, Fee Schedule, Terms, Acceptance, Full Preview). This plan implements the **Cover Page step** with a split-view editor (form on left, live preview on right) that exactly matches the uploaded example template.
 
-**2. Match the formatting of the uploaded example proposal** — the current preview and DOCX export need significant layout changes to match the real document.
+### Cover Page Layout (from example)
 
-### Key formatting differences observed from the example
+```text
+┌─────────── thin black border ───────────────┐
+│                                              │
+│  Environmental Services Proposal  (bold)     │
+│  Environmental Design Inc.  (green italic)   │
+│  ──────────────────────────────────────────  │
+│                                              │
+│        TARGETED MOLD EVALUATION              │  ← Large bold underlined small-caps
+│           SECONDARY TITLE                    │  ← Optional, smaller small-caps
+│               AT                             │
+│    WESLEY D. TISDALE ELEMENTARY SCHOOL       │  ← Bold small-caps
+│          ROOM 1A & ROOM 2                    │  ← Optional bold small-caps
+│          200 ISLAND AVENUE                   │  ← Small-caps
+│          RAMSEY, NJ 07446                    │  ← Small-caps
+│                                              │
+│          FOR THE CLIENT                      │
+│       RAMSEY SCHOOL DISTRICT                 │  ← Bold small-caps
+│      25 N. FRANKLIN TURNPIKE                 │  ← Small-caps
+│     RAMSEY, NEW JERSEY 07446                 │  ← Small-caps
+│                                              │
+│   EDI Project # PR-251120-1527  (italic)     │
+│                                              │
+│  November 20, 2025          [EDI GLOBE LOGO] │
+│                                              │
+│  Environmental Design Inc.  (green italic)   │
+│  5434 King Avenue, Suite 101                 │
+│  Pennsauken, New Jersey 08109                │
+└──────────────────────────────────────────────┘
+```
 
-**Cover Page:**
-- "Environmental Services Proposal" is bold, LEFT-aligned at top (not centered), with "Environmental Design Inc." italic below it, followed by a horizontal rule
-- Service type is large, bold, underlined, centered, in SMALL CAPS style
-- Site name / building area / address are centered in small caps
-- "FOR THE CLIENT" / client info centered in small caps
-- Project # centered italic
-- Bottom layout: Date on the left, company name in GREEN italic on the left, address below; EDI globe logo positioned at bottom-right
-- The EDI company name on the cover is in GREEN text
+### Cover Page Form Fields
 
-**Interior Pages Header:**
-- "EDI" in GREEN italic, RIGHT-aligned, large font
-- A horizontal rule underneath
-- Phone/website info on the LEFT below the line (page 2 only) or just the green "EDI" + rule on subsequent pages
+| Field | Maps to | Notes |
+|---|---|---|
+| Work Performed Title | `serviceType` | Required |
+| Secondary Work Performed Title | NEW: `secondaryServiceType` | Optional |
+| Location Name | `siteName` | Required |
+| Secondary Location | `buildingArea` | Optional (e.g. "Room 1A & Room 2") |
+| Work Performed Address (Street) | `siteAddress` | Street line |
+| Work Performed Address (City/State/Zip) | NEW: `siteAddressLine2` | e.g. "Ramsey, NJ 07446" |
+| Client Name | Auto from client selection | Read-only on cover step |
+| Client Address | Auto from client | Multi-line, read-only |
+| Project Number | Auto from project | Read-only |
+| Proposal Date | `proposalDate` | Editable |
 
-**Proposal Details Page (Page 3):**
-- "Proposal" bold large LEFT-aligned (not centered)
-- "Between the Client:" / "And the Consultant:" / "For the Project:" use a two-column tabbed layout — label on the left, details indented to a consistent tab stop
-- "Background & Scope of Work" bold
-- Body text is JUSTIFIED
-
-**Fee Schedule (Page 4):**
-- Table header row has a LIGHT SAGE GREEN shading (not blue) — approximately `#C5E0B4`
-- Total row also has the green shading
-- Text throughout is justified
-
-**Terms and Conditions (Page 5):**
-- "Terms and Condition" bold header
-- NO numbering, NO clause titles — just flowing paragraphs separated by blank lines
-- Text is JUSTIFIED
-
-**Acceptance Page (Page 6):**
-- Signature block has signature line + "Dated" on the same row using tab stops (not stacked vertically)
-- The date field is to the RIGHT of the signature line on the same horizontal level
-
-**Global:**
-- All body text appears JUSTIFIED
-- The green color used for "EDI" branding is approximately `#4A7C59` (dark forest green)
+Fixed (always present, not editable): "Environmental Services Proposal" header, "Environmental Design Inc." green italic, horizontal rule, "AT", "FOR THE CLIENT", company address block, EDI globe logo, black border.
 
 ### Implementation
 
-**Files to modify:**
+**1. `src/types/proposal.ts`** — Add `secondaryServiceType` and `siteAddressLine2` to `Proposal` interface.
 
-1. **`src/components/proposals/ProposalPreview.tsx`** — Full reformatting:
-   - Cover page: left-aligned header block, small-caps styling, logo at bottom-right, green company name
-   - Interior pages: green italic "EDI" right-aligned in header
-   - Proposal details: left-aligned "Proposal" title, tabbed two-column layout for client/consultant/project
-   - Fee table: sage green header shading instead of plain black borders
-   - Terms: remove numbering and clause titles, render as plain paragraphs with spacing
-   - Acceptance: horizontal signature/date layout
-   - Add `text-justify` to body text sections
+**2. `src/pages/ProposalBuilder.tsx`** — Change tabs from 4 to 7: Setup, Cover Page, Proposal Page, Fee Schedule, Terms & Conditions, Acceptance, Full Preview. Import new `CoverPageStep` component.
 
-2. **`src/services/proposalExport.ts`** — Mirror all the same formatting changes for the DOCX export:
-   - Cover page layout matching the example
-   - Green "EDI" in headers
-   - Justified text alignment
-   - Sage green table header shading
-   - Terms without numbering/titles
-   - Horizontal signature block layout
+**3. NEW `src/components/proposals/CoverPageStep.tsx`** — Split-view component:
+- **Left panel**: Form fields for all editable cover page data (work title, secondary title, location name, secondary location, street address, city/state/zip, date). Read-only display for client name, client address, project number.
+- **Right panel**: Live-updating cover page preview with exact template formatting:
+  - Thin black border around entire page
+  - Left-aligned header block with green italic company name + rule
+  - Centered content area with small-caps typography
+  - Bottom section: date left, company info left, globe logo bottom-right
+  - Font: Times New Roman throughout
 
-3. **Copy the EDI globe logo** from the parsed document to `public/images/` for use on the cover page (the current `edi-logo.jpg` may be different from the globe logo in the example)
+**4. `src/components/proposals/ProposalPreview.tsx`** — Update cover page section to use the new fields (`secondaryServiceType`, `siteAddressLine2`), add black border, and ensure exact match with the template. Also update to render multi-line client addresses properly.
+
+**5. `src/services/proposalExport.ts`** — Update `buildCoverPage` to include new fields, add page border to the cover section, and split address into two lines.
+
+**6. Copy the high-res globe logo** from the parsed document to `public/images/edi-globe-logo.jpg` (replace existing).
+
+**7. Update `ProposalBuilder.tsx` initial state** to include `secondaryServiceType: ""` and `siteAddressLine2: ""`.
 
 ### Technical details
 
-- Green color for "EDI" branding: `#4A7C59`
-- Fee table header shading: `#C5E0B4` (sage green)
-- Terms rendering: iterate clause bodies as paragraphs only, skip `clauseCounter` and title rendering entirely
-- Small caps effect on cover page via CSS `font-variant: small-caps` and in DOCX via `smallCaps: true`
-- Justified text via `text-align: justify` in CSS and `AlignmentType.JUSTIFIED` in docx-js
+- Green color: `#4A7C59`
+- Cover page border: CSS `border: 1px solid black` for preview; DOCX page border via `pageBorders` property
+- Small-caps: CSS `font-variant: small-caps`; DOCX `smallCaps: true`
+- The cover page preview component will be extracted as `CoverPagePreview` so it can be reused in both the step editor and the full preview
+- Font: Times New Roman, serif throughout the cover page
+
+### Files affected
+
+- `src/types/proposal.ts` — add 2 new fields
+- `src/pages/ProposalBuilder.tsx` — restructure to 7 tabs
+- `src/components/proposals/CoverPageStep.tsx` — NEW: form + live preview
+- `src/components/proposals/ProposalPreview.tsx` — update cover section
+- `src/services/proposalExport.ts` — update cover section + page border
+- `public/images/edi-globe-logo.jpg` — replace with high-res version
 
