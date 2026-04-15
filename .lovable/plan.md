@@ -1,107 +1,57 @@
 
 
-## Plan: Proposal Generation Feature — Phased Build
+## Plan: Save Custom Clauses to Library
 
-This is a large feature. I recommend building it in **3 phases** to get a working system quickly, then layering on advanced capabilities.
+### What changes
 
----
+When a user manually adds a custom clause to a proposal, add a checkbox option "Save to clause library for future proposals." If checked, the custom clause gets inserted into the `proposal_clauses` table so it appears in the clause list for all future proposals.
 
-### Phase 1 — Foundation (database, types, dashboard, basic builder)
+### Implementation
 
-**Database migration** — Create these tables:
+**1. Add `createClause` function to `src/services/proposalStorage.ts`**
 
-- `proposals` — core record linking to client/project/estimate, storing status, metadata, all section content as JSONB fields (cover_page, proposal_details, background, scope, fee_items, terms_selections, acceptance), version number, dates, template settings
-- `proposal_clauses` — reusable terms clause library (title, body text, category, is_default, sort_order)
-- `proposal_counter` — auto-incrementing proposal numbers (like existing project/invoice counters)
+New function that inserts a clause into `proposal_clauses`:
+```typescript
+export async function createClause(input: { title: string; body: string; category: string }): Promise<ProposalClause>
+```
+Sets `is_default: false`, `sort_order: 999`, `service_types: []`.
 
-RLS: authenticated can CRUD, admin can delete.
+**2. Update `src/components/proposals/TermsClauseEngine.tsx`**
 
-**Types** (`src/types/proposal.ts`) — Define `Proposal`, `ProposalFeeItem`, `ProposalClauseSelection`, `ProposalStatus` (Draft, Draft with AI, Internal Review, Finalized, Sent, Accepted, Rejected, Superseded), AI content block types.
+The current component has no "Add Custom Clause" feature yet. This plan adds:
 
-**Storage service** (`src/services/proposalStorage.ts`) — CRUD for proposals, clauses, counter RPC.
+- An "Add Custom Clause" button at the bottom of the terms section
+- A form with Title, Category (dropdown), and Body (textarea) fields
+- A **checkbox**: "Save to clause library for future proposals"
+- On submit:
+  - Always add the clause as an inline custom entry in `termsSelections` (with a generated ID and `isCustom: true` flag)
+  - If the checkbox is checked, also call `createClause()` to persist it to the database, and use the returned real ID instead
 
-**Proposal Dashboard** (`src/pages/ProposalsPage.tsx`) — List view with status badges, create/duplicate/open actions. Add "Proposals" to sidebar nav.
+**3. Update `src/types/proposal.ts`**
 
-**Proposal Builder** (`src/pages/ProposalBuilder.tsx`) — Multi-step guided builder:
+Extend `ProposalClauseSelection` to support inline custom clauses:
+```typescript
+export interface ProposalClauseSelection {
+  clauseId: string;
+  included: boolean;
+  editedBody?: string;
+  variables?: Record<string, string>;
+  // For inline custom clauses
+  isCustom?: boolean;
+  customTitle?: string;
+  customBody?: string;
+  customCategory?: string;
+}
+```
 
-1. **Setup step** — Select client (searchable combobox), project, linked estimate, auto-fill known fields
-2. **Details step** — Edit proposal number, date, expiration, service type, site/facility info, contact, company rep info
-3. **Content step** — Split-view layout:
-   - Left: structured input panels for Background inputs, Scope inputs, fee schedule editor, terms clause toggles
-   - Right: live document-style preview matching the template layout
-4. **Review & Export step** — Final preview, save draft, export DOCX/PDF
+**4. Update preview and export**
 
-**Route**: `/proposals` (dashboard), `/proposals/new` and `/proposals/:id` (builder)
+`ProposalPreview.tsx` and `proposalExport.ts` already render terms from selections + clauses. Custom inline clauses (where no matching library clause exists) will render using `customTitle`/`customBody` from the selection.
 
----
-
-### Phase 2 — Document preview, fee schedule, terms engine
-
-**Live document preview component** (`src/components/proposals/ProposalPreview.tsx`) — A styled div that visually mirrors the legacy template:
-- Cover page with logo, service title, site info, client info, project number, date
-- Proposal details page (Between the Client / And the Consultant / For the Project)
-- Background & Scope section with editable text areas
-- Fee schedule table (Item, Description, Qty, Rate, Amount) with auto-calculated totals
-- Terms & Conditions assembled from selected clauses
-- Acceptance page with signature blocks
-
-**Fee schedule editor** — Import line items from linked estimate, allow reorder/add/remove/edit display values, store both source and display values, optional/alternate row flag, live total calculation.
-
-**Terms clause engine** — Seed default clauses from the legacy template content. UI shows clause toggles grouped by category (foundation, billing, testing limitations, disposal, legal). Each clause is editable inline. Assemble final terms in document order.
-
-**DOCX export** (`src/services/proposalExport.ts`) — Using `docx` npm package to generate Word documents matching the template: correct fonts (likely Times New Roman/Calibri per the legacy doc), margins, logo placement, header/footer with "EDI", fee table styling, signature spacing, page breaks. Copy the logo image from the uploaded template into `public/images/`.
-
-**PDF export** — Convert via the same structured data, using a print-friendly layout or server-side conversion.
-
----
-
-### Phase 3 — AI assistance, versioning, duplication
-
-**AI content generation** — Edge function using Lovable AI gateway for Background and Scope sections only. Structured prompt inputs (service type, concern, affected areas, methods, deliverables, etc.) sent to AI. Response is editable text. Per-section controls: Generate, Regenerate, Edit, Lock/Unlock. Warning on regeneration about overwriting.
-
-**Duplication** — Deep copy all proposal content. AI sections become static saved text. No auto-regeneration. Locked by default.
-
-**Versioning** — Save version snapshots. Track version number. Allow viewing previous versions.
-
-**Status workflow** — Full status progression with validation (e.g., warn on missing fields before Finalized).
-
----
-
-### Technical Details
-
-**New files created:**
-- `src/types/proposal.ts`
-- `src/services/proposalStorage.ts`
-- `src/services/proposalExport.ts`
-- `src/pages/ProposalsPage.tsx`
-- `src/pages/ProposalBuilder.tsx`
-- `src/components/proposals/ProposalPreview.tsx`
-- `src/components/proposals/ProposalSetup.tsx`
-- `src/components/proposals/ProposalDetails.tsx`
-- `src/components/proposals/FeeScheduleEditor.tsx`
-- `src/components/proposals/TermsClauseEngine.tsx`
-- `src/components/proposals/AcceptanceSection.tsx`
-- `src/components/proposals/CoverPagePreview.tsx`
-- `src/components/proposals/AIContentControls.tsx`
-
-**Modified files:**
-- `src/App.tsx` — add proposal routes
-- `src/components/AppSidebar.tsx` — add Proposals nav item
-
-**Database migration:**
-- `proposals` table with JSONB content fields
-- `proposal_clauses` table with seed data from legacy template
-- `proposal_counter` table + RPC function
-- RLS policies for all new tables
-
-**Dependencies:**
-- `docx` (npm) — DOCX generation for export
-
-**Logo/branding:** Extract the EDI logo from the uploaded template and store in `public/images/` for use in both preview and export.
-
----
-
-### What ships first
-
-Phase 1 gives you a working proposal dashboard, guided setup, and basic builder with live preview. You can create, save, and manage proposals immediately. Phase 2 adds polished export and the terms engine. Phase 3 adds optional AI. I will build Phase 1 first, then continue with Phase 2 in the same pass if scope allows.
+### Files modified
+- `src/types/proposal.ts` — add custom clause fields to `ProposalClauseSelection`
+- `src/services/proposalStorage.ts` — add `createClause()` function
+- `src/components/proposals/TermsClauseEngine.tsx` — add custom clause form with "save to library" checkbox
+- `src/components/proposals/ProposalPreview.tsx` — render inline custom clauses
+- `src/services/proposalExport.ts` — render inline custom clauses in DOCX
 
