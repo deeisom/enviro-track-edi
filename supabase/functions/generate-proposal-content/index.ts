@@ -65,13 +65,13 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_completion_tokens: 2000,
       }),
     });
 
