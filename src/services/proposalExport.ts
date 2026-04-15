@@ -53,12 +53,11 @@ function emptyLine(): Paragraph {
   return new Paragraph({ children: [text("")], spacing: { after: 120 } });
 }
 
-async function loadImage(path: string): Promise<Buffer | null> {
+async function loadImage(path: string): Promise<Uint8Array | null> {
   try {
     const response = await fetch(path);
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const arrayBuffer = await response.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
   } catch {
     return null;
   }
@@ -88,7 +87,7 @@ function buildEdiHeader(showContact = false): Header {
   return new Header({ children });
 }
 
-function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
+function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   const p = data.proposal;
   const projectNumber = data.project?.projectNumber || "";
   const children: (Paragraph | Table)[] = [];
