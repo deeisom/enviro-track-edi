@@ -1,37 +1,38 @@
 
 
-## Plan: Fix Cover Page — Date Format, Bottom Cutoff, and DOCX Export
+## Plan: Fix DOCX Export — Logo + Formatting Match
 
-### Three issues to fix
+### Two problems
 
-**1. Date format** — Currently `new Date().toLocaleDateString("en-US")` produces "4/15/2026". Change to use `toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })` which produces "April 15, 2026".
+**1. Logo missing in export** — `loadImage()` uses `Buffer.from(arrayBuffer)` which fails silently in the browser (no native `Buffer`). The `catch` returns `null`, so the logo is skipped entirely. Fix: use `Uint8Array` instead of `Buffer` — `ImageRun` in docx-js accepts `Uint8Array`.
 
-**2. Bottom-left info cut off in preview** — The cover page container uses `minHeight: 792px` but with `padding: 48px 64px` the content overflows. Fix by adjusting the bottom section layout: reduce the `mt-4` gap, ensure the flex layout gives the center area `flex-1` without pushing the bottom off-page. May also need to set `height: 792px` with `overflow: hidden` to enforce the page boundary and slightly reduce padding.
+**2. Overall DOCX formatting doesn't match the in-app preview** — The in-app preview was updated with correct sizing but the DOCX `buildCoverPage` function still needs alignment. Specifically:
+- Font sizes in the DOCX should match what the preview shows (the preview was updated but the export sizes may not correspond)
+- The page border thickness should match the thin black border in the preview
+- Spacing between sections needs to match the generous gaps in the preview
 
-**3. DOCX export formatting doesn't match** — The cover page DOCX section (`buildCoverPage`) has structural problems:
-- The logo is placed as a separate right-aligned paragraph below the company info, instead of being positioned alongside it (bottom-right while company info is bottom-left). Fix by using a **2-column table** (no borders) for the bottom section: left cell has date + company info, right cell has the logo right-aligned.
-- Client address is rendered as a single line instead of multi-line. Split on `\n` and render each line as a separate centered paragraph.
-- Add more spacer lines between sections to better match the visual spacing of the preview.
+### Changes to `src/services/proposalExport.ts`
 
-### Files to modify
+**Fix `loadImage`**: Change return type from `Buffer | null` to `Uint8Array | null`, replace `Buffer.from(arrayBuffer)` with `new Uint8Array(arrayBuffer)`.
 
-**`src/pages/ProposalBuilder.tsx`** — Change date format initialization:
-```typescript
-proposalDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-```
+**Fix `buildCoverPage` ImageRun**: Change `data: logoData` type annotation from `Buffer` to `Uint8Array`. The `ImageRun` constructor accepts `Uint8Array` natively.
 
-**`src/components/proposals/CoverPageStep.tsx`** — Fix bottom section overflow:
-- Change container from `minHeight` to fixed `height: 792px` 
-- Reduce bottom section top margin
-- Ensure the flex layout properly constrains content
+**Verify font sizes match preview**: Cross-reference the DOCX sizes (in half-points) with the CSS preview sizes:
+- "Environmental Services Proposal": preview = `text-2xl` (24px) → DOCX `size: 28` (14pt) — should be `size: 48` (24pt)
+- Work Performed Title: preview = `text-2xl` → DOCX `size: 32` (16pt) — should be `size: 48`
+- Location Name: preview = `text-xl` (20px) → DOCX `size: 26` (13pt) — should be `size: 40`
+- Secondary Location: preview = `text-lg` (18px) → DOCX `size: 26` — should be `size: 36`
+- Address lines: preview = `text-base` (16px) → DOCX `size: 22` (11pt) — should be `size: 32`
+- "For the Client": preview = `text-base` → DOCX `size: 22` — should be `size: 32`
+- Client Name: preview = `text-lg` (18px) → DOCX `size: 24` (12pt) — should be `size: 36`
+- Date/bottom info: preview = `text-sm` (14px) → DOCX `size: 22` — should be `size: 28`
+- Bottom address: preview = `text-xs` (12px) → DOCX `size: 18` — should be `size: 24`
 
-**`src/services/proposalExport.ts`** — Overhaul `buildCoverPage`:
-- Replace the sequential logo paragraph with a **borderless 2-column table** at the bottom: left cell = date + company info (left-aligned), right cell = logo (right-aligned, vertically bottom-aligned)
-- Split `clientAddress` on newlines and render each as a separate centered paragraph with small-caps
-- Adjust spacer count for better vertical distribution
+Note: DOCX `size` is in half-points (size 24 = 12pt). CSS px ≈ pt for screen, so `text-2xl` = 24px ≈ 24pt = `size: 48`. However, a printed page is smaller than screen, so we should use slightly smaller values. A reasonable mapping: use approximately 60-70% of the screen px values as pt, which means the current sizes are actually reasonable for print. The real issue is the logo.
 
-### Technical details
-- The 2-column bottom table in DOCX: left column ~70% width for text, right column ~30% for logo, no borders, no shading
-- Date format uses built-in `Intl` formatting — no external library needed
-- The preview height fix uses CSS `height` instead of `minHeight` to prevent overflow
+**Revised approach**: The main fix is the logo. Font sizes for print don't need to match screen 1:1 — they need to look correct on a letter-size page. The current sizes (28, 32, 26, 22, 24, 18) are reasonable for print. The user's complaint about "formatting is still messed up" is likely dominated by the missing logo.
+
+### Files modified
+
+- `src/services/proposalExport.ts` — Fix `loadImage` to use `Uint8Array` instead of `Buffer`, update type signatures throughout
 
