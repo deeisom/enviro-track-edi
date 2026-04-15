@@ -205,6 +205,10 @@ export default function ProposalBuilder() {
             proposal={proposal}
             clauses={clauses}
             onUpdate={update}
+            onClauseCreated={async () => {
+              const refreshed = await getAllClauses();
+              setClauses(refreshed);
+            }}
           />
         </TabsContent>
 
