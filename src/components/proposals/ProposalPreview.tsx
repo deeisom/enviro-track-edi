@@ -1,6 +1,8 @@
 import type { Proposal, ProposalFeeItem, ProposalClauseSelection, AIContentBlock } from "@/types/proposal";
 import type { ProposalClause } from "@/types/proposal";
 import type { Project, Contact } from "@/types";
+import { CoverPagePreview } from "./CoverPageStep";
+import type { Project, Contact } from "@/types";
 
 interface Props {
   proposal: Partial<Proposal>;
