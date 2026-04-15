@@ -1,6 +1,7 @@
 import type { Proposal, ProposalFeeItem, ProposalClauseSelection, AIContentBlock } from "@/types/proposal";
 import type { ProposalClause } from "@/types/proposal";
 import type { Project, Contact } from "@/types";
+import { CoverPagePreview } from "./CoverPageStep";
 
 interface Props {
   proposal: Partial<Proposal>;
@@ -67,63 +68,12 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
   return (
     <div className="max-w-[816px] mx-auto space-y-0">
       {/* ===== Cover Page ===== */}
-      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] flex flex-col" style={pageStyle}>
-        {/* Header - left aligned */}
-        <div className="mb-2">
-          <h1 className="text-xl font-bold">Environmental Services Proposal</h1>
-          <p className="text-sm italic" style={{ color: EDI_GREEN }}>Environmental Design Inc.</p>
-        </div>
-        <hr className="border-t border-gray-400 mb-8" />
-
-        {/* Service type - centered, large, bold, underlined, small caps */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center -mt-16">
-          <h2
-            className="text-2xl font-bold underline mb-4"
-            style={{ fontVariant: "small-caps" }}
-          >
-            {proposal.serviceType || "[SERVICE TYPE]"}
-          </h2>
-          <p className="text-sm mb-1">AT</p>
-          <p className="text-lg font-bold" style={{ fontVariant: "small-caps" }}>
-            {proposal.siteName || "[SITE NAME]"}
-          </p>
-          {proposal.buildingArea && (
-            <p className="text-lg font-bold" style={{ fontVariant: "small-caps" }}>
-              {proposal.buildingArea}
-            </p>
-          )}
-          <p className="text-sm" style={{ fontVariant: "small-caps" }}>
-            {proposal.siteAddress || "[SITE ADDRESS]"}
-          </p>
-
-          <div className="mt-8">
-            <p className="text-sm" style={{ fontVariant: "small-caps" }}>For the Client</p>
-            <p className="text-base font-bold" style={{ fontVariant: "small-caps" }}>
-              {clientName || "[CLIENT NAME]"}
-            </p>
-            <p className="text-sm" style={{ fontVariant: "small-caps" }}>
-              {clientAddress || "[CLIENT ADDRESS]"}
-            </p>
-          </div>
-
-          <div className="mt-8">
-            <p className="text-sm italic">
-              <span className="italic">EDI</span> Project # {projectNumber || "[PROJECT #]"}
-            </p>
-          </div>
-        </div>
-
-        {/* Bottom section: date + company on left, logo on right */}
-        <div className="flex items-end justify-between mt-8">
-          <div>
-            <p className="text-sm mb-4">{proposal.proposalDate || "[DATE]"}</p>
-            <p className="text-sm italic" style={{ color: EDI_GREEN }}>Environmental Design Inc.</p>
-            <p className="text-xs">5434 King Avenue, Suite 101</p>
-            <p className="text-xs">Pennsauken, New Jersey 08109</p>
-          </div>
-          <img src="/images/edi-globe-logo.jpg" alt="EDI Globe Logo" className="h-28 object-contain" />
-        </div>
-      </div>
+      <CoverPagePreview
+        proposal={proposal}
+        clientName={clientName}
+        clientAddress={clientAddress}
+        projectNumber={projectNumber}
+      />
 
       {/* ===== Blank Page 2 (EDI header only) ===== */}
       <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={pageStyle}>

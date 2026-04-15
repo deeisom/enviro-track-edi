@@ -106,8 +106,14 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
   // Service type - centered, bold, underlined, small caps
   children.push(para([text(p.serviceType || "[SERVICE TYPE]", { bold: true, size: 32, smallCaps: true, underline: { type: "single" } })], {
     alignment: AlignmentType.CENTER,
-    spacing: { after: 200 },
+    spacing: { after: 100 },
   }));
+  if (p.secondaryServiceType) {
+    children.push(para([text(p.secondaryServiceType, { size: 24, smallCaps: true })], {
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
+    }));
+  }
 
   children.push(para([text("AT", { size: 22 })], { alignment: AlignmentType.CENTER }));
 
@@ -116,7 +122,10 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
   if (p.buildingArea) {
     children.push(para([text(p.buildingArea, { bold: true, size: 26, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   }
-  children.push(para([text(p.siteAddress || "[SITE ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+  children.push(para([text(p.siteAddress || "[SITE ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+  if (p.siteAddressLine2) {
+    children.push(para([text(p.siteAddressLine2, { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+  }
   children.push(emptyLine());
 
   // Client info
@@ -154,11 +163,18 @@ function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
     }));
   }
 
+  const pageBorder = { style: BorderStyle.SINGLE, size: 6, color: "000000" };
   return {
     properties: {
       page: {
         size: { width: PAGE_WIDTH, height: PAGE_HEIGHT },
         margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
+        borders: {
+          pageBorderTop: pageBorder,
+          pageBorderRight: pageBorder,
+          pageBorderBottom: pageBorder,
+          pageBorderLeft: pageBorder,
+        },
       },
     },
     children,

@@ -6,12 +6,13 @@ import { toast } from "@/hooks/use-toast";
 import { getProposal, createProposal, updateProposal, getNextProposalNumber, getAllClauses } from "@/services/proposalStorage";
 import { getAllClients, getAllProjects, getContactsByClient } from "@/services/storage";
 import { exportProposalDocx } from "@/services/proposalExport";
-import type { Proposal, ProposalFeeItem, ProposalClauseSelection } from "@/types/proposal";
+import type { Proposal, ProposalClauseSelection } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
 import { ProposalSetup } from "@/components/proposals/ProposalSetup";
 import { ProposalDetails } from "@/components/proposals/ProposalDetails";
 import { ProposalContentEditor } from "@/components/proposals/ProposalContentEditor";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
+import { CoverPageStep } from "@/components/proposals/CoverPageStep";
 import { ArrowLeft, Save, FileDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -27,8 +28,10 @@ export default function ProposalBuilder() {
     proposalDate: new Date().toLocaleDateString("en-US"),
     expirationDate: "",
     serviceType: "",
+    secondaryServiceType: "",
     siteName: "",
     siteAddress: "",
+    siteAddressLine2: "",
     buildingArea: "",
     companyRepName: "Tim Groman",
     companyRepTitle: "Director, Industrial Hygiene & Safety",
@@ -95,14 +98,7 @@ export default function ProposalBuilder() {
   }, []);
 
   const update = useCallback((partial: Partial<Proposal>) => {
-    setProposal(prev => {
-      const next = { ...prev, ...partial };
-      // If serviceType changed, check for recommended clauses
-      if (partial.serviceType && partial.serviceType !== prev.serviceType) {
-        // We'll show a suggestion via effect instead
-      }
-      return next;
-    });
+    setProposal(prev => ({ ...prev, ...partial }));
   }, []);
 
   const handleSave = async () => {
@@ -148,6 +144,7 @@ export default function ProposalBuilder() {
   const clientName = clients.find(c => c.id === proposal.clientId)?.companyName || "";
   const clientAddress = clients.find(c => c.id === proposal.clientId)?.address || "";
   const project = projects.find(p => p.id === proposal.projectId);
+  const projectNumber = project?.projectNumber || "";
 
   if (loading) {
     return (
@@ -185,11 +182,14 @@ export default function ProposalBuilder() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="setup">Setup</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="cover">Cover Page</TabsTrigger>
+          <TabsTrigger value="proposal">Proposal</TabsTrigger>
+          <TabsTrigger value="fees">Fee Schedule</TabsTrigger>
+          <TabsTrigger value="terms">Terms</TabsTrigger>
+          <TabsTrigger value="acceptance">Acceptance</TabsTrigger>
+          <TabsTrigger value="preview">Full Preview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="setup" className="mt-4">
@@ -203,11 +203,33 @@ export default function ProposalBuilder() {
           />
         </TabsContent>
 
-        <TabsContent value="details" className="mt-4">
-          <ProposalDetails proposal={proposal} contacts={contacts} onUpdate={update} />
+        <TabsContent value="cover" className="mt-4">
+          <CoverPageStep
+            proposal={proposal}
+            clientName={clientName}
+            clientAddress={clientAddress}
+            projectNumber={projectNumber}
+            onUpdate={update}
+          />
         </TabsContent>
 
-        <TabsContent value="content" className="mt-4">
+        <TabsContent value="proposal" className="mt-4">
+          <ProposalDetails proposal={proposal} contacts={contacts} onUpdate={update} />
+          <div className="mt-6">
+            <ProposalContentEditor
+              proposal={proposal}
+              clauses={clauses}
+              serviceType={proposal.serviceType}
+              onUpdate={update}
+              onClauseCreated={async () => {
+                const refreshed = await getAllClauses();
+                setClauses(refreshed);
+              }}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="fees" className="mt-4">
           <ProposalContentEditor
             proposal={proposal}
             clauses={clauses}
@@ -218,6 +240,23 @@ export default function ProposalBuilder() {
               setClauses(refreshed);
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="terms" className="mt-4">
+          <ProposalContentEditor
+            proposal={proposal}
+            clauses={clauses}
+            serviceType={proposal.serviceType}
+            onUpdate={update}
+            onClauseCreated={async () => {
+              const refreshed = await getAllClauses();
+              setClauses(refreshed);
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="acceptance" className="mt-4">
+          <ProposalDetails proposal={proposal} contacts={contacts} onUpdate={update} />
         </TabsContent>
 
         <TabsContent value="preview" className="mt-4">
