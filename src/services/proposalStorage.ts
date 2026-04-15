@@ -39,7 +39,7 @@ export async function createProposal(input: Partial<Proposal> & { proposalNumber
     company_rep_title: input.companyRepTitle || "",
     client_signer_name: input.clientSignerName || "",
     client_signer_title: input.clientSignerTitle || "",
-    cover_page: input.coverPage || {},
+    cover_page: { ...(input.coverPage || {}), secondaryServiceType: input.secondaryServiceType || "", siteAddressLine2: input.siteAddressLine2 || "" },
     proposal_details: input.proposalDetails || {},
     background: input.background || { text: "", ai_generated: false, locked: false, prompt_inputs: {} },
     scope: input.scope || { text: "", ai_generated: false, locked: false, prompt_inputs: {} },
@@ -68,7 +68,9 @@ export async function updateProposal(id: string, input: Partial<Proposal>): Prom
   if (input.companyRepTitle !== undefined) updateData.company_rep_title = input.companyRepTitle;
   if (input.clientSignerName !== undefined) updateData.client_signer_name = input.clientSignerName;
   if (input.clientSignerTitle !== undefined) updateData.client_signer_title = input.clientSignerTitle;
-  if (input.coverPage !== undefined) updateData.cover_page = input.coverPage;
+  if (input.coverPage !== undefined || input.secondaryServiceType !== undefined || input.siteAddressLine2 !== undefined) {
+    updateData.cover_page = { ...(input.coverPage || {}), secondaryServiceType: input.secondaryServiceType || "", siteAddressLine2: input.siteAddressLine2 || "" };
+  }
   if (input.proposalDetails !== undefined) updateData.proposal_details = input.proposalDetails;
   if (input.background !== undefined) updateData.background = input.background;
   if (input.scope !== undefined) updateData.scope = input.scope;
@@ -136,7 +138,9 @@ function mapProposal(row: any): Proposal {
     serviceType: row.service_type || "",
     siteName: row.site_name || "",
     siteAddress: row.site_address || "",
+    siteAddressLine2: (row.cover_page as any)?.siteAddressLine2 || "",
     buildingArea: row.building_area || "",
+    secondaryServiceType: (row.cover_page as any)?.secondaryServiceType || "",
     companyRepName: row.company_rep_name || "",
     companyRepTitle: row.company_rep_title || "",
     clientSignerName: row.client_signer_name || "",
