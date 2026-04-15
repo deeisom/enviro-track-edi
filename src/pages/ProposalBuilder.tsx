@@ -95,7 +95,14 @@ export default function ProposalBuilder() {
   }, []);
 
   const update = useCallback((partial: Partial<Proposal>) => {
-    setProposal(prev => ({ ...prev, ...partial }));
+    setProposal(prev => {
+      const next = { ...prev, ...partial };
+      // If serviceType changed, check for recommended clauses
+      if (partial.serviceType && partial.serviceType !== prev.serviceType) {
+        // We'll show a suggestion via effect instead
+      }
+      return next;
+    });
   }, []);
 
   const handleSave = async () => {
@@ -204,6 +211,7 @@ export default function ProposalBuilder() {
           <ProposalContentEditor
             proposal={proposal}
             clauses={clauses}
+            serviceType={proposal.serviceType}
             onUpdate={update}
             onClauseCreated={async () => {
               const refreshed = await getAllClauses();

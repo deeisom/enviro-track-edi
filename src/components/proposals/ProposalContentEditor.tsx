@@ -10,9 +10,10 @@ interface Props {
   clauses: ProposalClause[];
   onUpdate: (p: Partial<Proposal>) => void;
   onClauseCreated?: () => void;
+  serviceType?: string;
 }
 
-export function ProposalContentEditor({ proposal, clauses, onUpdate, onClauseCreated }: Props) {
+export function ProposalContentEditor({ proposal, clauses, onUpdate, onClauseCreated, serviceType }: Props) {
   const background = proposal.background as AIContentBlock || { text: "", ai_generated: false, locked: false, prompt_inputs: {} };
   const scope = proposal.scope as AIContentBlock || { text: "", ai_generated: false, locked: false, prompt_inputs: {} };
   const feeItems = (proposal.feeItems || []) as ProposalFeeItem[];
@@ -46,6 +47,7 @@ export function ProposalContentEditor({ proposal, clauses, onUpdate, onClauseCre
       <TermsClauseEngine
         clauses={clauses}
         termsSelections={termsSelections}
+        serviceType={serviceType}
         onUpdate={selections => onUpdate({ termsSelections: selections })}
         onClauseCreated={onClauseCreated}
       />

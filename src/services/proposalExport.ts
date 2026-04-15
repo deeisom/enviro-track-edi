@@ -278,6 +278,13 @@ function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
   return children;
 }
 
+/** Replace [variableName] with values, unfilled → [___] */
+function substituteVariables(body: string, variables: Record<string, string> = {}): string {
+  return body.replace(/\[([a-zA-Z_][a-zA-Z0-9_]*)\]/g, (match, name) => {
+    return variables[name] || "[___]";
+  });
+}
+
 function buildTermsSection(data: ExportData): Paragraph[] {
   const termsSelections = (data.proposal.termsSelections || []) as ProposalClauseSelection[];
   const includedClauses = data.clauses.filter(c =>
@@ -288,7 +295,8 @@ function buildTermsSection(data: ExportData): Paragraph[] {
   const allItems = [
     ...includedClauses.map(clause => {
       const sel = termsSelections.find(s => s.clauseId === clause.id);
-      return { title: clause.title, body: sel?.editedBody || clause.body };
+      const body = sel?.editedBody || clause.body;
+      return { title: clause.title, body: substituteVariables(body, sel?.variables) };
     }),
     ...customInline.map(s => ({ title: s.customTitle!, body: s.customBody || "" })),
   ];
