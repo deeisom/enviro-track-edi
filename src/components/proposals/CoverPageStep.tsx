@@ -30,13 +30,13 @@ export function CoverPagePreview({
         ...pageStyle,
         width: "612px",
         minHeight: "792px",
-        padding: "54px 72px",
+        padding: "48px 64px",
       }}
     >
       {/* Header - left aligned */}
       <div className="mb-1">
-        <p className="text-base font-bold leading-tight">Environmental Services Proposal</p>
-        <p className="text-xs italic leading-tight" style={{ color: EDI_GREEN }}>
+        <p className="text-2xl font-bold leading-tight">Environmental Services Proposal</p>
+        <p className="text-sm italic leading-tight" style={{ color: EDI_GREEN }}>
           Environmental Design Inc.
         </p>
       </div>
@@ -46,7 +46,7 @@ export function CoverPagePreview({
       <div className="flex-1 flex flex-col items-center justify-center text-center -mt-8">
         {/* Work Performed Title */}
         <h2
-          className="text-lg font-bold underline mb-1 tracking-wide"
+          className="text-2xl font-bold underline mb-2 tracking-wide"
           style={{ fontVariant: "small-caps" }}
         >
           {proposal.serviceType || "[WORK PERFORMED TITLE]"}
@@ -54,18 +54,18 @@ export function CoverPagePreview({
         {/* Optional Secondary Title */}
         {proposal.secondaryServiceType && (
           <p
-            className="text-sm mb-1"
+            className="text-base mb-2"
             style={{ fontVariant: "small-caps" }}
           >
             {proposal.secondaryServiceType}
           </p>
         )}
 
-        <p className="text-xs my-2">AT</p>
+        <p className="text-sm my-3">AT</p>
 
         {/* Location Name */}
         <p
-          className="text-sm font-bold"
+          className="text-xl font-bold"
           style={{ fontVariant: "small-caps" }}
         >
           {proposal.siteName || "[LOCATION NAME]"}
@@ -73,48 +73,48 @@ export function CoverPagePreview({
         {/* Optional Secondary Location */}
         {proposal.buildingArea && (
           <p
-            className="text-sm font-bold"
+            className="text-lg font-bold"
             style={{ fontVariant: "small-caps" }}
           >
             {proposal.buildingArea}
           </p>
         )}
         {/* Address */}
-        <p className="text-xs" style={{ fontVariant: "small-caps" }}>
+        <p className="text-base" style={{ fontVariant: "small-caps" }}>
           {proposal.siteAddress || "[STREET ADDRESS]"}
         </p>
         {proposal.siteAddressLine2 && (
-          <p className="text-xs" style={{ fontVariant: "small-caps" }}>
+          <p className="text-base" style={{ fontVariant: "small-caps" }}>
             {proposal.siteAddressLine2}
           </p>
         )}
 
         {/* Client section */}
-        <div className="mt-6">
-          <p className="text-xs" style={{ fontVariant: "small-caps" }}>
+        <div className="mt-8">
+          <p className="text-base" style={{ fontVariant: "small-caps" }}>
             For the Client
           </p>
           <p
-            className="text-sm font-bold"
+            className="text-lg font-bold"
             style={{ fontVariant: "small-caps" }}
           >
             {clientName || "[CLIENT NAME]"}
           </p>
           {clientAddressLines.map((line, i) => (
-            <p key={i} className="text-xs" style={{ fontVariant: "small-caps" }}>
+            <p key={i} className="text-base" style={{ fontVariant: "small-caps" }}>
               {line}
             </p>
           ))}
           {!clientAddress && (
-            <p className="text-xs" style={{ fontVariant: "small-caps" }}>
+            <p className="text-base" style={{ fontVariant: "small-caps" }}>
               [CLIENT ADDRESS]
             </p>
           )}
         </div>
 
         {/* Project # */}
-        <div className="mt-6">
-          <p className="text-xs italic">
+        <div className="mt-8">
+          <p className="text-sm italic">
             <span className="italic">EDI</span> Project # {projectNumber || "[PROJECT #]"}
           </p>
         </div>
@@ -123,18 +123,18 @@ export function CoverPagePreview({
       {/* Bottom section */}
       <div className="flex items-end justify-between mt-4">
         <div>
-          <p className="text-xs mb-3">{proposal.proposalDate || "[DATE]"}</p>
-          <p className="text-xs italic" style={{ color: EDI_GREEN }}>
+          <p className="text-sm mb-3">{proposal.proposalDate || "[DATE]"}</p>
+          <p className="text-sm italic" style={{ color: EDI_GREEN }}>
             Environmental Design Inc.
           </p>
-          <p style={{ fontSize: "9px" }}>5434 King Avenue, Suite 101</p>
-          <p style={{ fontSize: "9px" }}>Pennsauken, New Jersey 08109</p>
+          <p className="text-xs">5434 King Avenue, Suite 101</p>
+          <p className="text-xs">Pennsauken, New Jersey 08109</p>
         </div>
         <img
           src="/images/edi-globe-logo.jpg"
           alt="EDI Globe Logo"
           className="object-contain"
-          style={{ height: "100px" }}
+          style={{ height: "140px" }}
         />
       </div>
     </div>
@@ -239,7 +239,7 @@ export function CoverPageStep({ proposal, clientName, clientAddress, projectNumb
       {/* Right: Live Preview */}
       <div className="overflow-auto">
         <h3 className="text-lg font-semibold mb-3">Cover Page Preview</h3>
-        <div className="transform origin-top-left scale-[0.85]">
+        <div className="transform origin-top-left scale-[0.75]">
           <CoverPagePreview
             proposal={proposal}
             clientName={clientName}
