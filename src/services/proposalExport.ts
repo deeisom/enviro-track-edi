@@ -8,13 +8,11 @@ import {
   TableCell,
   ImageRun,
   Header,
-  Footer,
   AlignmentType,
   BorderStyle,
   WidthType,
   ShadingType,
   PageBreak,
-  PageNumber,
   TabStopType,
   TabStopPosition,
 } from "docx";
@@ -33,14 +31,14 @@ interface ExportData {
 }
 
 const FONT = "Times New Roman";
-const PAGE_WIDTH = 12240; // US Letter
+const PAGE_WIDTH = 12240;
 const PAGE_HEIGHT = 15840;
-const MARGIN = 1440; // 1 inch
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2; // 9360
+const MARGIN = 1440;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+const EDI_GREEN = "4A7C59";
+const TABLE_GREEN = "C5E0B4";
 
-const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
-const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "000000" };
+const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "999999" };
 const cellBorders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
 
 function text(t: string, opts: any = {}): TextRun {
@@ -55,9 +53,9 @@ function emptyLine(): Paragraph {
   return new Paragraph({ children: [text("")], spacing: { after: 120 } });
 }
 
-async function loadLogo(): Promise<Buffer | null> {
+async function loadImage(path: string): Promise<Buffer | null> {
   try {
-    const response = await fetch("/images/edi-logo.jpg");
+    const response = await fetch(path);
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
     return Buffer.from(arrayBuffer);
@@ -66,86 +64,95 @@ async function loadLogo(): Promise<Buffer | null> {
   }
 }
 
-function buildHeader(): Header {
-  return new Header({
-    children: [
+function buildEdiHeader(showContact = false): Header {
+  const children: Paragraph[] = [
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [text("EDI", { bold: true, italics: true, size: 36, color: EDI_GREEN })],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 1 } },
+      spacing: { after: 100 },
+    }),
+  ];
+  if (showContact) {
+    children.push(
       new Paragraph({
-        children: [
-          text("EDI", { bold: true, size: 28 }),
-          text("\tPhone: 1-888-306-4545 | www.editesting.com", { size: 16 }),
-        ],
-        tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 1 } },
+        children: [text("Phone: 1-888-306-4545", { size: 18 })],
+        spacing: { after: 0 },
+      }),
+      new Paragraph({
+        children: [text("www.editesting.com", { size: 18 })],
         spacing: { after: 200 },
-      }),
-    ],
-  });
-}
-
-function buildFooter(): Footer {
-  return new Footer({
-    children: [
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [
-          text("Environmental Design Inc. | 5434 King Avenue, Suite 101 | Pennsauken, NJ 08109", { size: 16, italics: true }),
-        ],
-      }),
-    ],
-  });
+      })
+    );
+  }
+  return new Header({ children });
 }
 
 function buildCoverPage(data: ExportData, logoData: Buffer | null): any {
   const p = data.proposal;
+  const projectNumber = data.project?.projectNumber || "";
   const children: Paragraph[] = [];
 
+  // Header: left-aligned title + green italic company name + rule
+  children.push(para([text("Environmental Services Proposal", { bold: true, size: 28 })], { spacing: { after: 0 } }));
+  children.push(para([text("Environmental Design Inc.", { italics: true, size: 22, color: EDI_GREEN })], {
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 4 } },
+    spacing: { after: 400 },
+  }));
+
   // Spacer
-  for (let i = 0; i < 6; i++) children.push(emptyLine());
+  for (let i = 0; i < 3; i++) children.push(emptyLine());
 
-  if (logoData) {
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [
-          new ImageRun({
-            type: "jpg",
-            data: logoData,
-            transformation: { width: 200, height: 100 },
-            altText: { title: "EDI Logo", description: "Environmental Design Inc. Logo", name: "EDI Logo" },
-          }),
-        ],
-      })
-    );
-    children.push(emptyLine());
-  }
+  // Service type - centered, bold, underlined, small caps
+  children.push(para([text(p.serviceType || "[SERVICE TYPE]", { bold: true, size: 32, smallCaps: true, underline: { type: "single" } })], {
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 200 },
+  }));
 
-  children.push(para([text("Environmental Services Proposal", { bold: true, size: 28 })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text("Environmental Design Inc.", { italics: true, size: 22 })], { alignment: AlignmentType.CENTER }));
-  children.push(emptyLine());
-
-  children.push(para([text(p.serviceType || "[SERVICE TYPE]", { bold: true, size: 24, allCaps: true })], { alignment: AlignmentType.CENTER }));
   children.push(para([text("AT", { size: 22 })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text(p.siteName || "[SITE NAME]", { bold: true, size: 24, allCaps: true })], { alignment: AlignmentType.CENTER }));
+
+  // Site info - centered, bold, small caps
+  children.push(para([text(p.siteName || "[SITE NAME]", { bold: true, size: 26, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   if (p.buildingArea) {
-    children.push(para([text(p.buildingArea, { bold: true, size: 22, allCaps: true })], { alignment: AlignmentType.CENTER }));
+    children.push(para([text(p.buildingArea, { bold: true, size: 26, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   }
-  children.push(para([text(p.siteAddress || "[SITE ADDRESS]", { size: 22 })], { alignment: AlignmentType.CENTER }));
+  children.push(para([text(p.siteAddress || "[SITE ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
   children.push(emptyLine());
 
-  children.push(para([text("FOR THE CLIENT", { size: 20 })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text(data.clientName || "[CLIENT NAME]", { bold: true, size: 24, allCaps: true })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text(data.clientAddress || "[CLIENT ADDRESS]", { size: 22 })], { alignment: AlignmentType.CENTER }));
+  // Client info
+  children.push(para([text("For the Client", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+  children.push(para([text(data.clientName || "[CLIENT NAME]", { bold: true, size: 24, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+  children.push(para([text(data.clientAddress || "[CLIENT ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
   children.push(emptyLine());
 
-  const projectNumber = data.project?.projectNumber || "";
-  children.push(para([text(`EDI Project # ${projectNumber || "[PROJECT #]"}`, { italics: true, size: 22 })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text(p.proposalDate || "[DATE]", { size: 22 })], { alignment: AlignmentType.CENTER }));
+  // Project #
+  children.push(para([text("EDI", { italics: true, size: 22 }), text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 })], { alignment: AlignmentType.CENTER }));
 
-  // Footer on cover
+  // Spacers before bottom
   for (let i = 0; i < 4; i++) children.push(emptyLine());
-  children.push(para([text("Environmental Design Inc.", { italics: true, size: 18 })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text("5434 King Avenue, Suite 101", { size: 18 })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text("Pennsauken, New Jersey 08109", { size: 18 })], { alignment: AlignmentType.CENTER }));
+
+  // Bottom: date on left, company on left, logo on right (use tab stops for positioning)
+  children.push(para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 200 } }));
+
+  // Company info in green
+  children.push(para([text("Environmental Design Inc.", { italics: true, size: 22, color: EDI_GREEN })], { spacing: { after: 0 } }));
+  children.push(para([text("5434 King Avenue, Suite 101", { size: 18 })], { spacing: { after: 0 } }));
+  children.push(para([text("Pennsauken, New Jersey 08109", { size: 18 })]));
+
+  // Logo (as separate right-aligned paragraph if available)
+  if (logoData) {
+    children.push(new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [
+        new ImageRun({
+          type: "jpg",
+          data: logoData,
+          transformation: { width: 150, height: 160 },
+          altText: { title: "EDI Logo", description: "Environmental Design Inc. Globe Logo", name: "EDI Logo" },
+        }),
+      ],
+    }));
+  }
 
   return {
     properties: {
@@ -164,29 +171,73 @@ function buildDetailsPage(data: ExportData): any {
   const projectNumber = data.project?.projectNumber || "";
   const children: (Paragraph | Table)[] = [];
 
-  children.push(para([text("Proposal", { bold: true, size: 28 })], { alignment: AlignmentType.CENTER, spacing: { after: 300 } }));
+  children.push(para([text("Proposal", { bold: true, size: 28 })], { spacing: { after: 200 } }));
   children.push(para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 300 } }));
 
+  // Two-column layout using tab stops
+  const tabIndent = 2880; // ~2 inches
+
   // Between the Client
-  children.push(para([text("Between the Client:", { bold: true, size: 22 })], { spacing: { after: 60 } }));
+  const clientLines: string[] = [];
   if (contact) {
-    children.push(para([text(contact.name, { size: 22 })], { indent: { left: 720 } }));
-    if (contact.title) children.push(para([text(contact.title, { size: 22 })], { indent: { left: 720 } }));
+    clientLines.push(contact.name);
+    if (contact.title) clientLines.push(contact.title);
   }
-  children.push(para([text(data.clientName || "[Client Name]", { size: 22 })], { indent: { left: 720 } }));
-  children.push(para([text(data.clientAddress || "[Client Address]", { size: 22 })], { indent: { left: 720 }, spacing: { after: 300 } }));
+  clientLines.push(data.clientName || "[Client Name]");
+  if (data.clientAddress) clientLines.push(...data.clientAddress.split("\n"));
+
+  children.push(para([
+    text("Between the Client:", { size: 22 }),
+    text(`\t${clientLines[0] || ""}`, { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+    spacing: { after: 0 },
+  }));
+  for (let i = 1; i < clientLines.length; i++) {
+    children.push(para([text(`\t${clientLines[i]}`, { size: 22 })], {
+      tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+      spacing: { after: 0 },
+    }));
+  }
+  children.push(emptyLine());
 
   // And the Consultant
-  children.push(para([text("And the Consultant:", { bold: true, size: 22 })], { spacing: { after: 60 } }));
-  children.push(para([text("Environmental Design Inc.", { italics: true, size: 22 })], { indent: { left: 720 } }));
-  children.push(para([text("5434 King Avenue, Suite 101", { size: 22 })], { indent: { left: 720 } }));
-  children.push(para([text("Pennsauken, New Jersey 08109", { size: 22 })], { indent: { left: 720 }, spacing: { after: 300 } }));
+  children.push(para([
+    text("And the Consultant:", { size: 22 }),
+    text("\tEnvironmental Design Inc.", { size: 22, italics: true }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+    spacing: { after: 0 },
+  }));
+  children.push(para([text("\t5434 King Avenue, Suite 101", { size: 22 })], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+    spacing: { after: 0 },
+  }));
+  children.push(para([text("\tPennsauken, New Jersey 08109", { size: 22 })], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+  }));
+  children.push(emptyLine());
 
   // For the Project
-  children.push(para([text("For the Project:", { bold: true, size: 22 })], { spacing: { after: 60 } }));
-  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })], { indent: { left: 720 } }));
-  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], { indent: { left: 720 } }));
-  children.push(para([text(`EDI Project # ${projectNumber || "[PROJECT #]"}`, { italics: true, size: 22 })], { indent: { left: 720 }, spacing: { after: 400 } }));
+  children.push(para([
+    text("For the Project:", { size: 22 }),
+    text(`\t${p.serviceType || "[Service Type]"}`, { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+    spacing: { after: 0 },
+  }));
+  children.push(para([text(`\t${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+    spacing: { after: 0 },
+  }));
+  children.push(para([
+    text("\t", { size: 22 }),
+    text("EDI", { size: 22, italics: true }),
+    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
+    spacing: { after: 400 },
+  }));
 
   // Background & Scope
   const background = (p.background as AIContentBlock) || { text: "" };
@@ -196,14 +247,14 @@ function buildDetailsPage(data: ExportData): any {
 
   if (background.text) {
     background.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { spacing: { after: 100 } }));
+      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
   if (scope.text) {
     children.push(emptyLine());
     scope.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { spacing: { after: 100 } }));
+      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
@@ -214,8 +265,7 @@ function buildDetailsPage(data: ExportData): any {
         margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
       },
     },
-    headers: { default: buildHeader() },
-    footers: { default: buildFooter() },
+    headers: { default: buildEdiHeader() },
     children,
   };
 }
@@ -229,40 +279,45 @@ function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
   children.push(para([text("Fee Schedule", { bold: true, size: 24 })], { spacing: { after: 100 } }));
-  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })]));
-  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })]));
-  children.push(para([text(`EDI Project # ${projectNumber || "[PROJECT #]"}`, { italics: true, size: 22 })], { spacing: { after: 200 } }));
+  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })], { spacing: { after: 0 } }));
+  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], { spacing: { after: 0 } }));
+  children.push(para([
+    text("EDI", { size: 22, italics: true }),
+    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
+  ], { spacing: { after: 300 } }));
 
   if (feeItems.length > 0) {
     const colWidths = [1400, 4160, 800, 1200, 1800];
-    const headerShading = { fill: "D5E8F0", type: ShadingType.CLEAR, color: "auto" };
+    const greenShading = { fill: TABLE_GREEN, type: ShadingType.CLEAR, color: "auto" };
+    const cellMargins = { top: 60, bottom: 60, left: 80, right: 80 };
 
     const headerRow = new TableRow({
       children: [
-        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: headerShading, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text("Item", { bold: true, size: 20 })])] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, shading: headerShading, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text("Description", { bold: true, size: 20 })])] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, shading: headerShading, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text("Qty", { bold: true, size: 20 })], { alignment: AlignmentType.CENTER })] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: headerShading, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text("Rate", { bold: true, size: 20 })], { alignment: AlignmentType.RIGHT })] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: headerShading, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text("Amount", { bold: true, size: 20 })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Item", { bold: true, size: 20 })])] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Description", { bold: true, size: 20 })])] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Qty", { bold: true, size: 20 })], { alignment: AlignmentType.CENTER })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Rate", { bold: true, size: 20 })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Amount", { bold: true, size: 20 })], { alignment: AlignmentType.RIGHT })] }),
       ],
     });
 
     const dataRows = feeItems.map(item =>
       new TableRow({
         children: [
-          new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 80, right: 80 }, verticalAlign: "top" as any, children: [para([text(item.displayItem, { size: 20 })])] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 80, right: 80 }, verticalAlign: "top" as any, children: [para([text(item.displayDescription, { size: 20 })])] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [para([text(String(item.displayQty), { size: 20 })], { alignment: AlignmentType.CENTER })] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [para([text(`$${item.displayRate.toLocaleString("en-US", { minimumFractionDigits: 2 })}`, { size: 20 })], { alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [para([text(`$${item.displayAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`, { size: 20 })], { alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, margins: cellMargins, verticalAlign: "top" as any, children: [para([text(item.displayItem, { size: 20 })])] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, margins: cellMargins, verticalAlign: "top" as any, children: [para([text(item.displayDescription, { size: 20 })], { alignment: AlignmentType.JUSTIFIED })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, margins: cellMargins, children: [para([text(String(item.displayQty), { size: 20 })], { alignment: AlignmentType.CENTER })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, margins: cellMargins, children: [para([text(`$${item.displayRate.toLocaleString()}`, { size: 20 })], { alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, margins: cellMargins, children: [para([text(`$${item.displayAmount.toLocaleString()}`, { size: 20 })], { alignment: AlignmentType.RIGHT })] }),
         ],
       })
     );
 
     const totalRow = new TableRow({
       children: [
-        new TableCell({ borders: cellBorders, width: { size: colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], type: WidthType.DXA }, columnSpan: 4, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text("Total", { bold: true, size: 22 })], { alignment: AlignmentType.RIGHT })] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, margins: { top: 60, bottom: 60, left: 80, right: 80 }, children: [para([text(`$${feeTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}`, { bold: true, size: 22 })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, columnSpan: 3, children: [para([text("", { size: 20 })])] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Total", { bold: true, size: 22 })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text(`$${feeTotal.toLocaleString()}`, { bold: true, size: 22 })], { alignment: AlignmentType.RIGHT })] }),
       ],
     });
 
@@ -292,26 +347,25 @@ function buildTermsSection(data: ExportData): Paragraph[] {
   );
   const customInline = termsSelections.filter(s => s.isCustom && s.included && s.customTitle);
 
-  const allItems = [
-    ...includedClauses.map(clause => {
-      const sel = termsSelections.find(s => s.clauseId === clause.id);
-      const body = sel?.editedBody || clause.body;
-      return { title: clause.title, body: substituteVariables(body, sel?.variables) };
-    }),
-    ...customInline.map(s => ({ title: s.customTitle!, body: s.customBody || "" })),
-  ];
+  const allBodies: string[] = [];
+  includedClauses.forEach(clause => {
+    const sel = termsSelections.find(s => s.clauseId === clause.id);
+    const body = sel?.editedBody || clause.body;
+    allBodies.push(substituteVariables(body, sel?.variables));
+  });
+  customInline.forEach(s => allBodies.push(s.customBody || ""));
 
-  if (allItems.length === 0) return [];
+  if (allBodies.length === 0) return [];
 
   const children: Paragraph[] = [];
   children.push(new Paragraph({ children: [new PageBreak()] }));
-  children.push(para([text("Terms and Conditions", { bold: true, size: 24 })], { spacing: { before: 200, after: 200 } }));
+  children.push(para([text("Terms and Condition", { bold: true, size: 24 })], { spacing: { before: 200, after: 200 } }));
 
-  allItems.forEach((item, idx) => {
-    children.push(para([text(`${idx + 1}. ${item.title}`, { bold: true, size: 22 })], { spacing: { before: 160, after: 60 } }));
-    item.body.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { spacing: { after: 80 } }));
+  allBodies.forEach(body => {
+    body.split("\n").forEach(line => {
+      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
     });
+    children.push(emptyLine());
   });
 
   return children;
@@ -324,42 +378,60 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
   children.push(para([text("Acceptance of the Proposal", { bold: true, size: 24 })], { spacing: { after: 100 } }));
-  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })]));
-  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })]));
-  children.push(para([text(`EDI Project # ${projectNumber || "[PROJECT #]"}`, { italics: true, size: 22 })], { spacing: { after: 300 } }));
+  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })], { spacing: { after: 0 } }));
+  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], { spacing: { after: 0 } }));
+  children.push(para([
+    text("EDI", { size: 22, italics: true }),
+    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
+  ], { spacing: { after: 300 } }));
 
-  children.push(para([text("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 })], { spacing: { after: 200 } }));
-  children.push(para([text("Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.", { size: 22 })], { spacing: { after: 600 } }));
+  children.push(para([text("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
+  children.push(para([text("Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 600 } }));
 
-  // Company rep signature
-  children.push(para([text("_".repeat(50), { size: 22 })]));
-  children.push(para([text(p.companyRepName || "[Company Representative]", { size: 22 })]));
-  children.push(para([text(p.companyRepTitle || "[Title]", { size: 20, italics: true })], { spacing: { after: 60 } }));
-  children.push(para([text("", { size: 22 }), text("\tDated: _________________", { size: 22 })], {
-    tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-    spacing: { after: 600 },
+  // Company rep signature - horizontal layout with tab stops
+  children.push(para([
+    text("_".repeat(40), { size: 22 }),
+    text("\t_".repeat(1) + "_".repeat(20), { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
+    spacing: { after: 0 },
   }));
+  children.push(para([
+    text(p.companyRepName || "[Company Representative]", { size: 22 }),
+    text("\tDated", { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
+    spacing: { after: 0 },
+  }));
+  children.push(para([text(p.companyRepTitle || "[Title]", { size: 20, italics: true })], { spacing: { after: 600 } }));
 
   // Client rep signature
-  children.push(para([text("_".repeat(50), { size: 22 })]));
-  children.push(para([text("Client Authorized Representative", { size: 22 })]));
+  children.push(para([
+    text("_".repeat(40), { size: 22 }),
+    text("\t_".repeat(1) + "_".repeat(20), { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
+    spacing: { after: 0 },
+  }));
+  children.push(para([
+    text("Client Authorized Representative", { size: 22 }),
+    text("\tDated", { size: 22 }),
+  ], {
+    tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
+  }));
   if (p.clientSignerName) {
     children.push(para([text(`${p.clientSignerName}${p.clientSignerTitle ? `, ${p.clientSignerTitle}` : ""}`, { size: 20, italics: true })]));
   }
-  children.push(para([text("", { size: 22 }), text("\tDated: _________________", { size: 22 })], {
-    tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-  }));
 
   return children;
 }
 
 export async function exportProposalDocx(data: ExportData): Promise<void> {
-  const logoData = await loadLogo();
+  const logoData = await loadImage("/images/edi-globe-logo.jpg");
 
   const coverSection = buildCoverPage(data, logoData);
   const detailsSection = buildDetailsPage(data);
 
-  // Fee schedule, terms, and acceptance go in the details section (with page breaks)
   const feeChildren = buildFeeSchedulePage(data);
   const termsChildren = buildTermsSection(data);
   const acceptanceChildren = buildAcceptancePage(data);

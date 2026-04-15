@@ -18,17 +18,23 @@ function substituteVariables(body: string, variables: Record<string, string> = {
   });
 }
 
-const categoryLabels: Record<string, string> = {
-  pricing_authorization: "Pricing & Authorization",
-  billing: "Billing & Fees",
-  testing_limitations: "Testing Limitations",
-  scope_liability: "Scope & Liability",
-  client_responsibilities: "Client Responsibilities",
-  disposal: "Disposal & Waste",
-  legal: "Legal",
-  foundation: "Foundation",
-  service_specific: "Service-Specific",
-};
+const EDI_GREEN = "#4A7C59";
+const TABLE_GREEN = "#C5E0B4";
+
+function EdiHeader({ showContact = false }: { showContact?: boolean }) {
+  return (
+    <div className="mb-6">
+      <p className="text-right text-2xl italic font-bold" style={{ color: EDI_GREEN }}>EDI</p>
+      <hr className="border-t border-gray-400 mt-1 mb-2" />
+      {showContact && (
+        <div className="text-xs">
+          <p>Phone: 1-888-306-4545</p>
+          <p>www.editesting.com</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ProposalPreview({ proposal, clientName, clientAddress, project, clauses, contacts }: Props) {
   const background = (proposal.background as AIContentBlock) || { text: "" };
@@ -40,113 +46,126 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
   const contact = contacts.find(c => c.id === proposal.proposalDetails?.contactId);
   const projectNumber = project?.projectNumber || "";
 
-  const consultantInfo = {
-    name: "Environmental Design Inc.",
-    address: "5434 King Avenue, Suite 101\nPennsauken, New Jersey 08109",
-  };
-
-  // Build terms items grouped by category
+  // Build terms items (no grouping by category needed — just flat list)
   const includedClauses = clauses.filter(c =>
     termsSelections.some(s => s.clauseId === c.id && s.included)
   );
   const customInline = termsSelections.filter(s => s.isCustom && s.included && s.customTitle);
 
-  // Group by category for rendering
-  const termsByCategory: Record<string, { title: string; body: string }[]> = {};
+  const allTermsBodies: string[] = [];
   includedClauses.forEach(clause => {
     const sel = termsSelections.find(s => s.clauseId === clause.id);
     const body = sel?.editedBody || clause.body;
-    const substituted = substituteVariables(body, sel?.variables);
-    const cat = clause.category;
-    if (!termsByCategory[cat]) termsByCategory[cat] = [];
-    termsByCategory[cat].push({ title: clause.title, body: substituted });
+    allTermsBodies.push(substituteVariables(body, sel?.variables));
   });
   customInline.forEach(s => {
-    const cat = s.customCategory || "foundation";
-    if (!termsByCategory[cat]) termsByCategory[cat] = [];
-    termsByCategory[cat].push({ title: s.customTitle!, body: s.customBody || "" });
+    allTermsBodies.push(s.customBody || "");
   });
 
-  const categoryOrder = Object.keys(categoryLabels);
-  const sortedCategories = Object.keys(termsByCategory).sort((a, b) => {
-    const ia = categoryOrder.indexOf(a);
-    const ib = categoryOrder.indexOf(b);
-    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-  });
-
-  let clauseCounter = 0;
+  const pageStyle = { fontFamily: "Times New Roman, serif" };
 
   return (
     <div className="max-w-[816px] mx-auto space-y-0">
-      {/* Cover Page */}
-      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] flex flex-col justify-between" style={{ fontFamily: "Times New Roman, serif" }}>
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <img src="/images/edi-logo.jpg" alt="EDI Logo" className="h-24 object-contain" />
-          <h1 className="text-xl font-bold tracking-wide">Environmental Services Proposal</h1>
-          <p className="text-sm italic">Environmental Design Inc.</p>
-          <div className="pt-4">
-            <h2 className="text-lg font-bold uppercase">{proposal.serviceType || "[SERVICE TYPE]"}</h2>
-            <p className="mt-2">AT</p>
-            <p className="font-bold uppercase">{proposal.siteName || "[SITE NAME]"}</p>
-            {proposal.buildingArea && <p className="font-bold uppercase">{proposal.buildingArea}</p>}
-            <p>{proposal.siteAddress || "[SITE ADDRESS]"}</p>
+      {/* ===== Cover Page ===== */}
+      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] flex flex-col" style={pageStyle}>
+        {/* Header - left aligned */}
+        <div className="mb-2">
+          <h1 className="text-xl font-bold">Environmental Services Proposal</h1>
+          <p className="text-sm italic" style={{ color: EDI_GREEN }}>Environmental Design Inc.</p>
+        </div>
+        <hr className="border-t border-gray-400 mb-8" />
+
+        {/* Service type - centered, large, bold, underlined, small caps */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center -mt-16">
+          <h2
+            className="text-2xl font-bold underline mb-4"
+            style={{ fontVariant: "small-caps" }}
+          >
+            {proposal.serviceType || "[SERVICE TYPE]"}
+          </h2>
+          <p className="text-sm mb-1">AT</p>
+          <p className="text-lg font-bold" style={{ fontVariant: "small-caps" }}>
+            {proposal.siteName || "[SITE NAME]"}
+          </p>
+          {proposal.buildingArea && (
+            <p className="text-lg font-bold" style={{ fontVariant: "small-caps" }}>
+              {proposal.buildingArea}
+            </p>
+          )}
+          <p className="text-sm" style={{ fontVariant: "small-caps" }}>
+            {proposal.siteAddress || "[SITE ADDRESS]"}
+          </p>
+
+          <div className="mt-8">
+            <p className="text-sm" style={{ fontVariant: "small-caps" }}>For the Client</p>
+            <p className="text-base font-bold" style={{ fontVariant: "small-caps" }}>
+              {clientName || "[CLIENT NAME]"}
+            </p>
+            <p className="text-sm" style={{ fontVariant: "small-caps" }}>
+              {clientAddress || "[CLIENT ADDRESS]"}
+            </p>
           </div>
-          <div className="pt-4">
-            <p>FOR THE CLIENT</p>
-            <p className="font-bold uppercase">{clientName || "[CLIENT NAME]"}</p>
-            <p>{clientAddress || "[CLIENT ADDRESS]"}</p>
-          </div>
-          <div className="pt-4">
-            <p className="italic">EDI Project # {projectNumber || "[PROJECT #]"}</p>
-            <p className="mt-2">{proposal.proposalDate || "[DATE]"}</p>
+
+          <div className="mt-8">
+            <p className="text-sm italic">
+              <span className="italic">EDI</span> Project # {projectNumber || "[PROJECT #]"}
+            </p>
           </div>
         </div>
-        <div className="text-center text-xs mt-8">
-          <p className="italic">Environmental Design Inc.</p>
-          <p>5434 King Avenue, Suite 101</p>
-          <p>Pennsauken, New Jersey 08109</p>
+
+        {/* Bottom section: date + company on left, logo on right */}
+        <div className="flex items-end justify-between mt-8">
+          <div>
+            <p className="text-sm mb-4">{proposal.proposalDate || "[DATE]"}</p>
+            <p className="text-sm italic" style={{ color: EDI_GREEN }}>Environmental Design Inc.</p>
+            <p className="text-xs">5434 King Avenue, Suite 101</p>
+            <p className="text-xs">Pennsauken, New Jersey 08109</p>
+          </div>
+          <img src="/images/edi-globe-logo.jpg" alt="EDI Globe Logo" className="h-28 object-contain" />
         </div>
       </div>
 
-      {/* Proposal Details Page */}
-      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
-        <div className="flex items-center justify-between mb-6">
-          <span className="font-bold text-lg tracking-widest">EDI</span>
-          <div className="text-right text-xs">
-            <p>Phone: 1-888-306-4545</p>
-            <p>www.editesting.com</p>
-          </div>
-        </div>
-        <hr className="mb-6" />
-        <h2 className="text-xl font-bold text-center mb-8">Proposal</h2>
-        <p className="mb-6">{proposal.proposalDate || "[DATE]"}</p>
-        <div className="space-y-6 text-sm">
-          <div>
-            <p className="font-semibold">Between the Client:</p>
-            <div className="ml-4 mt-1">
+      {/* ===== Blank Page 2 (EDI header only) ===== */}
+      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={pageStyle}>
+        <EdiHeader showContact />
+      </div>
+
+      {/* ===== Proposal Details Page ===== */}
+      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={pageStyle}>
+        <EdiHeader />
+        <h2 className="text-xl font-bold mb-4">Proposal</h2>
+        <p className="text-sm mb-6">{proposal.proposalDate || "[DATE]"}</p>
+
+        {/* Two-column tabbed layout */}
+        <div className="text-sm space-y-6" style={{ textAlign: "justify" }}>
+          <div className="flex">
+            <span className="w-40 flex-shrink-0">Between the Client:</span>
+            <div>
               {contact && <p>{contact.name}</p>}
               {contact?.title && <p>{contact.title}</p>}
               <p>{clientName || "[Client Name]"}</p>
               <p className="whitespace-pre-line">{clientAddress || "[Client Address]"}</p>
             </div>
           </div>
-          <div>
-            <p className="font-semibold">And the Consultant:</p>
-            <div className="ml-4 mt-1">
-              <p className="italic">{consultantInfo.name}</p>
-              <p className="whitespace-pre-line">{consultantInfo.address}</p>
+          <div className="flex">
+            <span className="w-40 flex-shrink-0">And the Consultant:</span>
+            <div>
+              <p className="italic">Environmental Design Inc.</p>
+              <p>5434 King Avenue, Suite 101</p>
+              <p>Pennsauken, New Jersey 08109</p>
             </div>
           </div>
-          <div>
-            <p className="font-semibold">For the Project:</p>
-            <div className="ml-4 mt-1">
+          <div className="flex">
+            <span className="w-40 flex-shrink-0">For the Project:</span>
+            <div>
               <p>{proposal.serviceType || "[Service Type]"}</p>
               <p>{proposal.siteName || "[Site Name]"}{proposal.buildingArea ? ` - ${proposal.buildingArea}` : ""}</p>
               <p className="italic">EDI Project # {projectNumber || "[PROJECT #]"}</p>
             </div>
           </div>
         </div>
-        <div className="mt-10">
+
+        <div className="mt-10" style={{ textAlign: "justify" }}>
           <h3 className="text-base font-bold mb-4">Background & Scope of Work</h3>
           {background.text ? (
             <p className="text-sm whitespace-pre-wrap leading-relaxed">{background.text}</p>
@@ -161,12 +180,9 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
         </div>
       </div>
 
-      {/* Fee Schedule Page */}
-      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
-        <div className="flex items-center justify-between mb-6">
-          <span className="font-bold text-lg tracking-widest">EDI</span>
-        </div>
-        <hr className="mb-6" />
+      {/* ===== Fee Schedule Page ===== */}
+      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={pageStyle}>
+        <EdiHeader />
         <h3 className="text-base font-bold mb-2">Fee Schedule</h3>
         <div className="text-sm mb-4">
           <p>{proposal.serviceType || "[Service Type]"}</p>
@@ -174,31 +190,32 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
           <p className="italic">EDI Project # {projectNumber || "[PROJECT #]"}</p>
         </div>
         {feeItems.length > 0 ? (
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full text-sm border-collapse" style={{ textAlign: "justify" }}>
             <thead>
-              <tr className="border-b-2 border-black">
-                <th className="text-left py-2 font-bold">Item</th>
-                <th className="text-left py-2 font-bold">Description</th>
-                <th className="text-center py-2 font-bold">Qty</th>
-                <th className="text-right py-2 font-bold">Rate</th>
-                <th className="text-right py-2 font-bold">Amount</th>
+              <tr>
+                <th className="text-left py-2 px-2 font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>Item</th>
+                <th className="text-left py-2 px-2 font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>Description</th>
+                <th className="text-center py-2 px-2 font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>Qty</th>
+                <th className="text-right py-2 px-2 font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>Rate</th>
+                <th className="text-right py-2 px-2 font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>Amount</th>
               </tr>
             </thead>
             <tbody>
               {feeItems.map((item) => (
-                <tr key={item.id} className="border-b border-gray-300 align-top">
-                  <td className="py-2 pr-2">{item.displayItem}</td>
-                  <td className="py-2 pr-2 whitespace-pre-wrap">{item.displayDescription}</td>
-                  <td className="py-2 text-center">{item.displayQty}</td>
-                  <td className="py-2 text-right">${item.displayRate.toLocaleString()}</td>
-                  <td className="py-2 text-right">${item.displayAmount.toLocaleString()}</td>
+                <tr key={item.id} className="align-top">
+                  <td className="py-2 px-2 border border-gray-300">{item.displayItem}</td>
+                  <td className="py-2 px-2 border border-gray-300 whitespace-pre-wrap">{item.displayDescription}</td>
+                  <td className="py-2 px-2 text-center border border-gray-300">{item.displayQty}</td>
+                  <td className="py-2 px-2 text-right border border-gray-300">${item.displayRate.toLocaleString()}</td>
+                  <td className="py-2 px-2 text-right border border-gray-300">${item.displayAmount.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-black">
-                <td colSpan={4} className="py-2 text-right font-bold">Total</td>
-                <td className="py-2 text-right font-bold">${feeTotal.toLocaleString()}</td>
+              <tr>
+                <td colSpan={3} className="border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}></td>
+                <td className="py-2 px-2 text-right font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>Total</td>
+                <td className="py-2 px-2 text-right font-bold border border-gray-300" style={{ backgroundColor: TABLE_GREEN }}>${feeTotal.toLocaleString()}</td>
               </tr>
             </tfoot>
           </table>
@@ -207,73 +224,76 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
         )}
       </div>
 
-      {/* Terms & Conditions Page */}
-      {sortedCategories.length > 0 && (
-        <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
-          <div className="flex items-center justify-between mb-6">
-            <span className="font-bold text-lg tracking-widest">EDI</span>
-          </div>
-          <hr className="mb-6" />
-          <h3 className="text-base font-bold mb-4">Terms and Conditions</h3>
-          <div className="space-y-4 text-sm leading-relaxed">
-            {sortedCategories.map(cat => (
-              <div key={cat}>
-                {termsByCategory[cat].map((item) => {
-                  clauseCounter++;
-                  return (
-                    <div key={clauseCounter} className="mb-3">
-                      <p className="font-semibold mb-1">{clauseCounter}. {item.title}</p>
-                      <p className="whitespace-pre-wrap">{item.body}</p>
-                    </div>
-                  );
-                })}
-              </div>
+      {/* ===== Terms & Conditions Page ===== */}
+      {allTermsBodies.length > 0 && (
+        <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={pageStyle}>
+          <EdiHeader />
+          <h3 className="text-base font-bold mb-4">Terms and Condition</h3>
+          <div className="text-sm leading-relaxed space-y-4" style={{ textAlign: "justify" }}>
+            {allTermsBodies.map((body, idx) => (
+              <p key={idx} className="whitespace-pre-wrap">{body}</p>
             ))}
           </div>
         </div>
       )}
 
-      {/* Acceptance Page */}
-      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={{ fontFamily: "Times New Roman, serif" }}>
-        <div className="flex items-center justify-between mb-6">
-          <span className="font-bold text-lg tracking-widest">EDI</span>
-        </div>
-        <hr className="mb-6" />
+      {/* ===== Acceptance Page ===== */}
+      <div className="bg-white text-black border rounded-lg shadow-sm p-12 min-h-[1056px] mt-4" style={pageStyle}>
+        <EdiHeader />
         <h3 className="text-base font-bold mb-2">Acceptance of the Proposal</h3>
         <div className="text-sm mb-4">
           <p>{proposal.serviceType || "[Service Type]"}</p>
           <p>{proposal.siteName || "[Site Name]"}{proposal.buildingArea ? ` - ${proposal.buildingArea}` : ""}</p>
           <p className="italic">EDI Project # {projectNumber || "[PROJECT #]"}</p>
         </div>
-        <p className="text-sm leading-relaxed mb-8">
+        <p className="text-sm leading-relaxed mb-4" style={{ textAlign: "justify" }}>
           Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.
         </p>
-        <p className="text-sm leading-relaxed mb-12">
+        <p className="text-sm leading-relaxed mb-12" style={{ textAlign: "justify" }}>
           Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.
         </p>
-        <div className="space-y-12 mt-16">
+
+        {/* Signature blocks - horizontal layout */}
+        <div className="space-y-10 mt-8">
+          {/* Company rep */}
           <div>
-            <div className="border-b border-black w-80" />
-            <p className="text-sm mt-1">{proposal.companyRepName || "[Company Representative]"}</p>
-            <p className="text-xs text-gray-600">{proposal.companyRepTitle || "[Title]"}</p>
-            <div className="flex justify-between w-80 mt-4">
-              <span />
-              <div>
-                <div className="border-b border-black w-40" />
+            <div className="flex items-end gap-16">
+              <div className="flex-1">
+                <div className="border-b border-black" />
+              </div>
+              <div className="w-40">
+                <div className="border-b border-black" />
+              </div>
+            </div>
+            <div className="flex gap-16">
+              <div className="flex-1">
+                <p className="text-sm mt-1">{proposal.companyRepName || "[Company Representative]"}</p>
+                <p className="text-xs text-gray-600">{proposal.companyRepTitle || "[Title]"}</p>
+              </div>
+              <div className="w-40">
                 <p className="text-xs mt-1">Dated</p>
               </div>
             </div>
           </div>
+
+          {/* Client rep */}
           <div>
-            <div className="border-b border-black w-80" />
-            <p className="text-sm mt-1">Client Authorized Representative</p>
-            {proposal.clientSignerName && (
-              <p className="text-xs text-gray-600">{proposal.clientSignerName}{proposal.clientSignerTitle ? `, ${proposal.clientSignerTitle}` : ""}</p>
-            )}
-            <div className="flex justify-between w-80 mt-4">
-              <span />
-              <div>
-                <div className="border-b border-black w-40" />
+            <div className="flex items-end gap-16">
+              <div className="flex-1">
+                <div className="border-b border-black" />
+              </div>
+              <div className="w-40">
+                <div className="border-b border-black" />
+              </div>
+            </div>
+            <div className="flex gap-16">
+              <div className="flex-1">
+                <p className="text-sm mt-1">Client Authorized Representative</p>
+                {proposal.clientSignerName && (
+                  <p className="text-xs text-gray-600">{proposal.clientSignerName}{proposal.clientSignerTitle ? `, ${proposal.clientSignerTitle}` : ""}</p>
+                )}
+              </div>
+              <div className="w-40">
                 <p className="text-xs mt-1">Dated</p>
               </div>
             </div>
