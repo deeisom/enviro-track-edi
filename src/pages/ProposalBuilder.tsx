@@ -9,10 +9,13 @@ import { exportProposalDocx } from "@/services/proposalExport";
 import type { Proposal, ProposalClauseSelection } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
 import { ProposalSetup } from "@/components/proposals/ProposalSetup";
-import { ProposalDetails } from "@/components/proposals/ProposalDetails";
-import { ProposalContentEditor } from "@/components/proposals/ProposalContentEditor";
+import { ProposalInfoSection, SignersSection } from "@/components/proposals/ProposalDetails";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
 import { CoverPageStep } from "@/components/proposals/CoverPageStep";
+import { AIContentControls } from "@/components/proposals/AIContentControls";
+import { FeeScheduleEditor } from "@/components/proposals/FeeScheduleEditor";
+import { TermsClauseEngine } from "@/components/proposals/TermsClauseEngine";
+import type { AIContentBlock, ProposalFeeItem, ProposalClauseSelection } from "@/types/proposal";
 import { ArrowLeft, Save, FileDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
