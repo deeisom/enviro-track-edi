@@ -185,17 +185,16 @@ export default function ProposalBuilder() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="setup">Setup</TabsTrigger>
           <TabsTrigger value="cover">Cover Page</TabsTrigger>
           <TabsTrigger value="proposal">Proposal</TabsTrigger>
           <TabsTrigger value="fees">Fee Schedule</TabsTrigger>
           <TabsTrigger value="terms">Terms</TabsTrigger>
-          <TabsTrigger value="acceptance">Acceptance</TabsTrigger>
           <TabsTrigger value="preview">Full Preview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="setup" className="mt-4">
+        <TabsContent value="setup" className="mt-4 space-y-6">
           <ProposalSetup
             proposal={proposal}
             clients={clients}
@@ -204,6 +203,7 @@ export default function ProposalBuilder() {
             onUpdate={update}
             onClientChange={handleClientChange}
           />
+          <SignersSection proposal={proposal} onUpdate={update} />
         </TabsContent>
 
         <TabsContent value="cover" className="mt-4">
@@ -216,50 +216,44 @@ export default function ProposalBuilder() {
           />
         </TabsContent>
 
-        <TabsContent value="proposal" className="mt-4">
-          <ProposalDetails proposal={proposal} contacts={contacts} onUpdate={update} />
-          <div className="mt-6">
-            <ProposalContentEditor
-              proposal={proposal}
-              clauses={clauses}
-              serviceType={proposal.serviceType}
-              onUpdate={update}
-              onClauseCreated={async () => {
-                const refreshed = await getAllClauses();
-                setClauses(refreshed);
-              }}
-            />
-          </div>
+        <TabsContent value="proposal" className="mt-4 space-y-6">
+          <ProposalInfoSection proposal={proposal} onUpdate={update} />
+          <AIContentControls
+            section="background"
+            title="Background"
+            description="Explain why the client requested the work, what condition/concern led to the proposal."
+            contentBlock={(proposal.background as AIContentBlock) || { text: "", ai_generated: false, locked: false, prompt_inputs: {} }}
+            proposal={proposal}
+            onUpdate={block => update({ background: block })}
+          />
+          <AIContentControls
+            section="scope"
+            title="Scope of Work"
+            description="Describe what services will be performed, methods, deliverables."
+            contentBlock={(proposal.scope as AIContentBlock) || { text: "", ai_generated: false, locked: false, prompt_inputs: {} }}
+            proposal={proposal}
+            onUpdate={block => update({ scope: block })}
+          />
         </TabsContent>
 
         <TabsContent value="fees" className="mt-4">
-          <ProposalContentEditor
-            proposal={proposal}
-            clauses={clauses}
-            serviceType={proposal.serviceType}
-            onUpdate={update}
-            onClauseCreated={async () => {
-              const refreshed = await getAllClauses();
-              setClauses(refreshed);
-            }}
+          <FeeScheduleEditor
+            feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
+            onUpdate={items => update({ feeItems: items })}
           />
         </TabsContent>
 
         <TabsContent value="terms" className="mt-4">
-          <ProposalContentEditor
-            proposal={proposal}
+          <TermsClauseEngine
             clauses={clauses}
+            termsSelections={(proposal.termsSelections || []) as ProposalClauseSelection[]}
             serviceType={proposal.serviceType}
-            onUpdate={update}
+            onUpdate={selections => update({ termsSelections: selections })}
             onClauseCreated={async () => {
               const refreshed = await getAllClauses();
               setClauses(refreshed);
             }}
           />
-        </TabsContent>
-
-        <TabsContent value="acceptance" className="mt-4">
-          <ProposalDetails proposal={proposal} contacts={contacts} onUpdate={update} />
         </TabsContent>
 
         <TabsContent value="preview" className="mt-4">
