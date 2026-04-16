@@ -46,7 +46,6 @@ export function CoverPagePreview({
           Environmental Design Inc.
         </p>
       </div>
-      <hr className="border-t border-black mb-6" />
 
       {/* Center content area */}
       <div className="flex-1 flex flex-col items-center justify-center text-center -mt-8">

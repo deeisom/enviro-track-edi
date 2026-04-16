@@ -96,7 +96,6 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   // Header: left-aligned title + green italic company name + rule
   children.push(para([text("Environmental Services Proposal", { bold: true, size: 44 })], { spacing: { after: 0 } }));
   children.push(para([new TextRun({ text: "Environmental Design Inc.", font: BRAND_FONT, italics: true, size: 28, color: EDI_GREEN })], {
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 4 } },
     spacing: { after: 400 },
   }));
 
