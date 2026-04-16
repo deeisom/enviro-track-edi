@@ -12,8 +12,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Leaf } from "lucide-react";
+import { Plus, Search, Leaf, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { exportToCsv, timestampedFilename } from "@/services/csvExport";
+import { toast } from "@/hooks/use-toast";
 
 export default function ProjectsList() {
   const { canEdit } = useAuth();
@@ -86,7 +88,29 @@ export default function ProjectsList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Projects <Leaf className="h-5 w-5 text-primary" /></h1>
-        {canEdit && <Button asChild><Link to="/projects/new"><Plus className="h-4 w-4 mr-1" /> New Project</Link></Button>}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => {
+            const rows = projects.map(p => ({
+              "Project Number": p.projectNumber,
+              "Name": p.name,
+              "Description": p.description,
+              "Client": getClientName(p.clientId),
+              "Location": p.location,
+              "Status Code": p.status,
+              "Status Label": getStatusDef(p.status).label,
+              "Phase": getStatusDef(p.status).phase,
+              "Assigned To": (p.assignedTo || []).join("; "),
+              "Notes": p.notes,
+              "Created": p.createdAt,
+              "Updated": p.updatedAt,
+            }));
+            exportToCsv(timestampedFilename("projects"), rows);
+            toast({ title: "Exported projects", description: `${projects.length} projects` });
+          }}>
+            <Download className="h-4 w-4 mr-1" /> Export CSV
+          </Button>
+          {canEdit && <Button asChild><Link to="/projects/new"><Plus className="h-4 w-4 mr-1" /> New Project</Link></Button>}
+        </div>
       </div>
 
       <div className="flex gap-3">
