@@ -92,6 +92,26 @@ function ediRun(size = 24): TextRun {
   return new TextRun({ text: "EDI", font: BRAND_FONT, italics: true, size });
 }
 
+/**
+ * Split a string containing "EDI" into multiple runs so every "EDI"
+ * is rendered in Final Frontier italic at the given size, and the
+ * surrounding text uses the normal TNR style.
+ */
+function ediText(input: string, opts: any = {}): TextRun[] {
+  const size = opts.size || 24;
+  const parts = input.split(/(EDI)/g);
+  const runs: TextRun[] = [];
+  for (const part of parts) {
+    if (!part) continue;
+    if (part === "EDI") {
+      runs.push(new TextRun({ text: "EDI", font: BRAND_FONT, italics: true, size, color: opts.color }));
+    } else {
+      runs.push(new TextRun({ text: part, font: FONT, size, ...opts }));
+    }
+  }
+  return runs;
+}
+
 function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   const p = data.proposal;
   const projectNumber = data.project?.projectNumber || "";
@@ -310,14 +330,14 @@ function buildDetailsPage(data: ExportData): any {
 
   if (background.text) {
     background.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
+      children.push(para(ediText(line, { size: 24 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
   if (scope.text) {
     children.push(emptyLine());
     scope.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
+      children.push(para(ediText(line, { size: 24 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
@@ -434,7 +454,7 @@ function buildTermsSection(data: ExportData): Paragraph[] {
 
   allBodies.forEach(body => {
     body.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
+      children.push(para(ediText(line, { size: 22 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
     });
     children.push(emptyLine());
   });
@@ -456,7 +476,7 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
     text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
   ], { spacing: { after: 300 } }));
 
-  children.push(para([text("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
+  children.push(para(ediText("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
   children.push(para([text("Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 600 } }));
 
   // Company rep signature - horizontal layout with tab stops
