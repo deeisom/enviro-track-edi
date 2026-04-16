@@ -129,7 +129,7 @@ export function CoverPagePreview({
       {/* Bottom section */}
       <div className="flex items-end justify-between mt-2">
         <div>
-          <p className="mb-3" style={{ fontSize: "16px" }}>
+          <p className="mb-12" style={{ fontSize: "16px" }}>
             {proposal.proposalDate || "[DATE]"}
           </p>
           <p style={{ ...brandFont, color: EDI_GREEN, fontSize: "16px" }}>
@@ -144,7 +144,7 @@ export function CoverPagePreview({
           src="/images/edi-globe-logo.png"
           alt="EDI Globe Logo"
           className="object-contain"
-          style={{ height: "140px" }}
+          style={{ width: "100px", height: "116px" }}
         />
       </div>
     </div>
