@@ -71,7 +71,7 @@ function buildEdiHeader(_showContact = false): Header {
   return new Header({
     children: [
       new Paragraph({
-        alignment: AlignmentType.LEFT,
+        alignment: AlignmentType.RIGHT,
         children: [
           new TextRun({
             text: "EDI",
