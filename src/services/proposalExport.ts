@@ -234,8 +234,8 @@ function buildDetailsPage(data: ExportData): any {
   const projectNumber = data.project?.projectNumber || "";
   const children: (Paragraph | Table)[] = [];
 
-  children.push(para([text("Proposal", { bold: true, size: 28 })], { spacing: { after: 200 } }));
-  children.push(para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 300 } }));
+  children.push(para([text("Proposal", { bold: true, size: 40 })], { alignment: AlignmentType.LEFT, spacing: { after: 200 } }));
+  children.push(para([text(p.proposalDate || "[DATE]", { size: 24 })], { spacing: { after: 300 } }));
 
   // Two-column layout using tab stops
   const tabIndent = 2880; // ~2 inches
@@ -250,53 +250,53 @@ function buildDetailsPage(data: ExportData): any {
   if (data.clientAddress) clientLines.push(...data.clientAddress.split("\n"));
 
   children.push(para([
-    text("Between the Client:", { size: 22 }),
-    text(`\t${clientLines[0] || ""}`, { size: 22 }),
+    text("Between the Client:", { size: 24 }),
+    text(`\t${clientLines[0] || ""}`, { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
     spacing: { after: 0 },
   }));
   for (let i = 1; i < clientLines.length; i++) {
-    children.push(para([text(`\t${clientLines[i]}`, { size: 22 })], {
+    children.push(para([text(`\t${clientLines[i]}`, { size: 24 })], {
       tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
       spacing: { after: 0 },
     }));
   }
   children.push(emptyLine());
 
-  // And the Consultant
+  // And the Consultant — "Environmental Design Inc." in Final Frontier italic green
   children.push(para([
-    text("And the Consultant:", { size: 22 }),
-    text("\tEnvironmental Design Inc.", { size: 22, italics: true }),
+    text("And the Consultant:", { size: 24 }),
+    new TextRun({ text: "\tEnvironmental Design Inc.", font: BRAND_FONT, italics: true, size: 24, color: CONSULTANT_GREEN }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
     spacing: { after: 0 },
   }));
-  children.push(para([text("\t5434 King Avenue, Suite 101", { size: 22 })], {
+  children.push(para([text("\t5434 King Avenue, Suite 101", { size: 24 })], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
     spacing: { after: 0 },
   }));
-  children.push(para([text("\tPennsauken, New Jersey 08109", { size: 22 })], {
+  children.push(para([text("\tPennsauken, New Jersey 08109", { size: 24 })], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
   }));
   children.push(emptyLine());
 
   // For the Project
   children.push(para([
-    text("For the Project:", { size: 22 }),
-    text(`\t${p.serviceType || "[Service Type]"}`, { size: 22 }),
+    text("For the Project:", { size: 24 }),
+    text(`\t${p.serviceType || "[Service Type]"}`, { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
     spacing: { after: 0 },
   }));
-  children.push(para([text(`\t${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], {
+  children.push(para([text(`\t${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 24 })], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
     spacing: { after: 0 },
   }));
   children.push(para([
-    text("\t", { size: 22 }),
-    text("EDI", { size: 22, italics: true }),
-    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
+    text("\t", { size: 24 }),
+    ediRun(24),
+    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: tabIndent }],
     spacing: { after: 400 },
@@ -310,14 +310,14 @@ function buildDetailsPage(data: ExportData): any {
 
   if (background.text) {
     background.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
+      children.push(para([text(line, { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
   if (scope.text) {
     children.push(emptyLine());
     scope.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
+      children.push(para([text(line, { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
@@ -326,7 +326,7 @@ function buildDetailsPage(data: ExportData): any {
     properties: {
       page: {
         size: { width: PAGE_WIDTH, height: PAGE_HEIGHT },
-        margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
+        margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN, header: 720, footer: 432 },
         borders: {
           pageBorderTop: pageBorder,
           pageBorderRight: pageBorder,
