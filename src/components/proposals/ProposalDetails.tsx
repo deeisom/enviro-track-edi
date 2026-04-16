@@ -30,16 +30,16 @@ export function ProposalDetails({ proposal, contacts, onUpdate }: Props) {
         <CardContent className="space-y-4">
           {field("Proposal Date", "proposalDate", "MM/DD/YYYY")}
           {field("Expiration Date", "expirationDate", "MM/DD/YYYY")}
-          {field("Service Type", "serviceType", "e.g. Targeted Mold Evaluation")}
+          {field("Work Performed Title", "serviceType", "e.g. Targeted Mold Evaluation")}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Site / Facility</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Work Location</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          {field("Site / Facility Name", "siteName", "e.g. Wesley D. Tisdale Elementary School")}
-          {field("Site Address", "siteAddress")}
-          {field("Building / Room / Area", "buildingArea", "e.g. Room 1A & Room 2")}
+          {field("Location Name", "siteName", "e.g. Wesley D. Tisdale Elementary School")}
+          {field("Work Performed Address", "siteAddress")}
+          {field("Secondary Location", "buildingArea", "e.g. Room 1A & Room 2")}
         </CardContent>
       </Card>
 
