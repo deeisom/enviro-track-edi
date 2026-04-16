@@ -10,8 +10,8 @@ interface Props {
   onUpdate: (p: Partial<Proposal>) => void;
 }
 
-export function ProposalDetails({ proposal, contacts, onUpdate }: Props) {
-  const field = (label: string, key: keyof Proposal, placeholder = "") => (
+function useField(proposal: Partial<Proposal>, onUpdate: (p: Partial<Proposal>) => void) {
+  return (label: string, key: keyof Proposal, placeholder = "") => (
     <div>
       <Label>{label}</Label>
       <Input
@@ -22,7 +22,11 @@ export function ProposalDetails({ proposal, contacts, onUpdate }: Props) {
       />
     </div>
   );
+}
 
+/** Proposal info + Work location — used on the Proposal tab */
+export function ProposalInfoSection({ proposal, onUpdate }: Omit<Props, "contacts">) {
+  const field = useField(proposal, onUpdate);
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
@@ -42,7 +46,15 @@ export function ProposalDetails({ proposal, contacts, onUpdate }: Props) {
           {field("Secondary Location", "buildingArea", "e.g. Room 1A & Room 2")}
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
+/** Company rep + client signer — used on the Setup tab */
+export function SignersSection({ proposal, onUpdate }: Omit<Props, "contacts">) {
+  const field = useField(proposal, onUpdate);
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader><CardTitle>Company Representative</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -65,6 +77,16 @@ export function ProposalDetails({ proposal, contacts, onUpdate }: Props) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/** Backwards-compatible combined view (all four cards) */
+export function ProposalDetails({ proposal, onUpdate }: Props) {
+  return (
+    <div className="space-y-6">
+      <ProposalInfoSection proposal={proposal} onUpdate={onUpdate} />
+      <SignersSection proposal={proposal} onUpdate={onUpdate} />
     </div>
   );
 }
