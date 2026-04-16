@@ -6,7 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { getProposal, createProposal, updateProposal, getNextProposalNumber, getAllClauses } from "@/services/proposalStorage";
 import { getAllClients, getAllProjects, getContactsByClient } from "@/services/storage";
 import { exportProposalDocx } from "@/services/proposalExport";
-import type { Proposal, ProposalClauseSelection } from "@/types/proposal";
+import type { Proposal } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
 import { ProposalSetup } from "@/components/proposals/ProposalSetup";
 import { ProposalInfoSection, SignersSection } from "@/components/proposals/ProposalDetails";
