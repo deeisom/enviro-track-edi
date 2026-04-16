@@ -452,7 +452,7 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
   children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })], { spacing: { after: 0 } }));
   children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], { spacing: { after: 0 } }));
   children.push(para([
-    text("EDI", { size: 22, italics: true }),
+    ediRun(22),
     text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
   ], { spacing: { after: 300 } }));
 
