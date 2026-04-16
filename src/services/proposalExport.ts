@@ -96,11 +96,11 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   // Header: left-aligned title + green italic company name + rule
   children.push(para([text("Environmental Services Proposal", { bold: true, size: 44 })], { spacing: { after: 0 } }));
   children.push(para([new TextRun({ text: "Environmental Design Inc.", font: BRAND_FONT, italics: true, size: 28, color: EDI_GREEN })], {
-    spacing: { after: 400 },
+    spacing: { after: 100 },
   }));
 
-  // Spacer
-  for (let i = 0; i < 3; i++) children.push(emptyLine());
+  // Spacer (reduced to prevent bottom logo/contact from bleeding to next page)
+  children.push(emptyLine());
 
   // Service type - centered, bold, small caps (NO underline per guide)
   children.push(para([text(p.serviceType || "[SERVICE TYPE]", { bold: true, size: 56, smallCaps: true })], {
