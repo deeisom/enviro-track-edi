@@ -37,7 +37,8 @@ const PAGE_HEIGHT = 15840;
 const MARGIN = 1440;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const EDI_GREEN = "4A7C59";
-const TABLE_GREEN = "C5E0B4";
+const TABLE_GREEN = "E2EFDA"; // Green, Accent 6, Lighter 80%
+const TABLE_FONT = "Calibri";
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "999999" };
 const cellBorders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
