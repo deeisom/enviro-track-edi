@@ -1,41 +1,27 @@
 
-The user wants specific styling changes to the DOCX export. Let me map them out:
+The user wants the AI prompts to consistently know "EDI = Environmental Design Inc." Currently, the `generate-proposal-content` edge function calls EDI "Environmental Dynamics Inc." in the background prompt — that's a bug. The clauses recommender already uses "Environmental Design Inc." Let me verify and plan the fix.
 
-**Header changes (all pages except cover):**
-- Remove current "EDI" with underline
-- New header: "EDI" in Final Frontier, 26pt, italic, color "Green Accent 6 Darker 50%" → hex `#375623` (Office theme color)
-- Header distance from top = 0.5" (720 DXA)
-- Header distance from bottom = 0.3" (432 DXA)
+Looking at the current state:
+- `generate-proposal-content/index.ts` system prompts say **"Environmental Dynamics Inc. (EDI)"** — wrong company name
+- `recommend-proposal-clauses/index.ts` says **"Environmental Design Inc. (EDI)"** — correct
 
-**Proposal/Details page (page 2):**
-- "Proposal" title: TNR, 20pt bold, left-aligned (currently 28pt → change to 20pt half-points = 40)
-- Default body text: TNR 12pt (size 24 in half-points) — currently mostly 22 (11pt)
-- "Background & Scope of Work" subtitle: TNR 12pt **bold** (size 24, bold)
-- All "EDI" mentions: Final Frontier 12pt italic (size 24, italic, font BRAND_FONT)
-- "Environmental Design Inc." consultant name: Final Frontier 12pt italic, left-aligned, "Dark Green Accent 3 Darker 50%" → hex `#375623` (same family — Office "Dark Green, Accent 3, Darker 50%" is `#375F1F` actually; Green Accent 6 Darker 50% = `#375623`). I'll use `#375F1F` for Dark Green Accent 3 D50% and `#375623` for Green Accent 6 D50%.
+### Plan
 
-### Office theme color mapping
-- Green, Accent 6, Darker 50% (default Office theme) = `#375623`
-- Dark Green, Accent 3, Darker 50% (default Office theme) = `#375F1F`
+**Single file edit: `supabase/functions/generate-proposal-content/index.ts`**
 
-### Implementation in `src/services/proposalExport.ts`
+1. Add a shared `COMPANY_CONTEXT` constant at the top:
+   > "EDI is the abbreviation for Environmental Design Inc., an environmental consulting firm. Always expand 'EDI' as 'Environmental Design Inc.' on first mention in the section, then use 'EDI' thereafter. Never refer to the company by any other name."
 
-1. **`buildEdiHeader`**: Replace the underlined right-aligned EDI block with a single paragraph: `EDI` in Final Frontier, italic, size 52 (26pt), color `#375623`. Drop the contact lines and bottom border. Apply only to non-cover sections.
+2. Prepend this context to BOTH the background and scope system prompts.
 
-2. **Header margins**: Add `header: 720, footer: 432` to the `page.margin` block of the details section so header sits 0.5" from top.
+3. Fix the existing typo: change "Environmental Dynamics Inc." → "Environmental Design Inc." in both system prompts.
 
-3. **`buildDetailsPage`**:
-   - "Proposal" title: change `size: 28` → `size: 40`, keep bold, default left-align (already left).
-   - Bump all body `size: 22` → `size: 24` (12pt).
-   - "Background & Scope of Work": already bold, change `size: 24` → `size: 24` (already 12pt) — confirm bold remains.
-   - "And the Consultant: Environmental Design Inc." — replace plain TNR italic with Final Frontier italic color `#375F1F`, size 24.
-   - Every standalone "EDI" TextRun (in Project # lines, etc.) → swap to Final Frontier italic size 24.
+4. Also add a reinforcement line in the user prompt: `Company: Environmental Design Inc. (EDI)` so the model sees it in user context too.
 
-4. **`buildFeeSchedulePage` & `buildAcceptancePage`**: Same EDI swap for "EDI" mentions in those sections.
+That's it — one file, three small edits. Edge functions auto-deploy so no further action needed.
+
+### Why this works
+LLMs reliably follow naming rules when stated explicitly in the system prompt AND echoed in the user prompt. Putting it in both places makes the binding stick across regenerations.
 
 ### Files modified
-- `src/services/proposalExport.ts` — header rebuild, page margins (header/footer distances), font/size/color updates across details, fee, and acceptance builders.
-
-### Notes
-- Cover page section does NOT get a header (already the case — only details/fee/terms/acceptance share the second section).
-- Default document run size stays at 22 (11pt) for safety, but explicit `size: 24` on body paragraphs overrides.
+- `supabase/functions/generate-proposal-content/index.ts`
