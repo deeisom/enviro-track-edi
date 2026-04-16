@@ -454,7 +454,7 @@ function buildTermsSection(data: ExportData): Paragraph[] {
 
   allBodies.forEach(body => {
     body.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
+      children.push(para(ediText(line, { size: 22 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
     });
     children.push(emptyLine());
   });
