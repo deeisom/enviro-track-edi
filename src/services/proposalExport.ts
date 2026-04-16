@@ -37,7 +37,8 @@ const PAGE_HEIGHT = 15840;
 const MARGIN = 1440;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const EDI_GREEN = "4A7C59";
-const TABLE_GREEN = "C5E0B4";
+const TABLE_GREEN = "E2EFDA"; // Green, Accent 6, Lighter 80%
+const TABLE_FONT = "Calibri";
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 1, color: "999999" };
 const cellBorders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
@@ -370,11 +371,11 @@ function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
   children.push(para([text("Fee Schedule", { bold: true, size: 24 })], { spacing: { after: 100 } }));
-  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })], { spacing: { after: 0 } }));
-  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], { spacing: { after: 0 } }));
+  children.push(para([text(p.serviceType || "[Service Type]", { size: 24 })], { spacing: { after: 0 } }));
+  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 24 })], { spacing: { after: 0 } }));
   children.push(para([
-    ediRun(22),
-    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
+    ediRun(24),
+    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 24 }),
   ], { spacing: { after: 300 } }));
 
   if (feeItems.length > 0) {
@@ -382,33 +383,37 @@ function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
     const greenShading = { fill: TABLE_GREEN, type: ShadingType.CLEAR, color: "auto" };
     const cellMargins = { top: 60, bottom: 60, left: 80, right: 80 };
 
+    // Calibri 10pt = size 20
+    const tCell = (t: string, opts: any = {}) =>
+      new TextRun({ text: t, font: TABLE_FONT, size: 20, ...opts });
+
     const headerRow = new TableRow({
       children: [
-        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Item", { bold: true, size: 20 })])] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Description", { bold: true, size: 20 })])] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Qty", { bold: true, size: 20 })], { alignment: AlignmentType.CENTER })] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Rate", { bold: true, size: 20 })], { alignment: AlignmentType.RIGHT })] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Amount", { bold: true, size: 20 })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell("Item", { bold: true })])] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell("Description", { bold: true })])] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell("Qty", { bold: true })], { alignment: AlignmentType.CENTER })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell("Rate", { bold: true })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell("Amount", { bold: true })], { alignment: AlignmentType.RIGHT })] }),
       ],
     });
 
     const dataRows = feeItems.map(item =>
       new TableRow({
         children: [
-          new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, margins: cellMargins, verticalAlign: "top" as any, children: [para([text(item.displayItem, { size: 20 })])] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, margins: cellMargins, verticalAlign: "top" as any, children: [para([text(item.displayDescription, { size: 20 })], { alignment: AlignmentType.JUSTIFIED })] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, margins: cellMargins, children: [para([text(String(item.displayQty), { size: 20 })], { alignment: AlignmentType.CENTER })] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, margins: cellMargins, children: [para([text(`$${item.displayRate.toLocaleString()}`, { size: 20 })], { alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, margins: cellMargins, children: [para([text(`$${item.displayAmount.toLocaleString()}`, { size: 20 })], { alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, margins: cellMargins, verticalAlign: "top" as any, children: [para([tCell(item.displayItem)])] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[1], type: WidthType.DXA }, margins: cellMargins, verticalAlign: "top" as any, children: [para([tCell(item.displayDescription)], { alignment: AlignmentType.JUSTIFIED })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[2], type: WidthType.DXA }, margins: cellMargins, children: [para([tCell(String(item.displayQty))], { alignment: AlignmentType.CENTER })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, margins: cellMargins, children: [para([tCell(`$${item.displayRate.toLocaleString()}`)], { alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, margins: cellMargins, children: [para([tCell(`$${item.displayAmount.toLocaleString()}`)], { alignment: AlignmentType.RIGHT })] }),
         ],
       })
     );
 
     const totalRow = new TableRow({
       children: [
-        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, columnSpan: 3, children: [para([text("", { size: 20 })])] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text("Total", { bold: true, size: 22 })], { alignment: AlignmentType.RIGHT })] }),
-        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([text(`$${feeTotal.toLocaleString()}`, { bold: true, size: 22 })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[0], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, columnSpan: 3, children: [para([tCell("")])] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[3], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell("Total", { bold: true })], { alignment: AlignmentType.RIGHT })] }),
+        new TableCell({ borders: cellBorders, width: { size: colWidths[4], type: WidthType.DXA }, shading: greenShading, margins: cellMargins, children: [para([tCell(`$${feeTotal.toLocaleString()}`, { bold: true })], { alignment: AlignmentType.RIGHT })] }),
       ],
     });
 
@@ -454,7 +459,7 @@ function buildTermsSection(data: ExportData): Paragraph[] {
 
   allBodies.forEach(body => {
     body.split("\n").forEach(line => {
-      children.push(para(ediText(line, { size: 22 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
+      children.push(para(ediText(line, { size: 24 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 80 } }));
     });
     children.push(emptyLine());
   });
@@ -469,49 +474,49 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
 
   children.push(new Paragraph({ children: [new PageBreak()] }));
   children.push(para([text("Acceptance of the Proposal", { bold: true, size: 24 })], { spacing: { after: 100 } }));
-  children.push(para([text(p.serviceType || "[Service Type]", { size: 22 })], { spacing: { after: 0 } }));
-  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 22 })], { spacing: { after: 0 } }));
+  children.push(para([text(p.serviceType || "[Service Type]", { size: 24 })], { spacing: { after: 0 } }));
+  children.push(para([text(`${p.siteName || "[Site Name]"}${p.buildingArea ? ` - ${p.buildingArea}` : ""}`, { size: 24 })], { spacing: { after: 0 } }));
   children.push(para([
-    ediRun(22),
-    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
+    ediRun(24),
+    text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 24 }),
   ], { spacing: { after: 300 } }));
 
-  children.push(para(ediText("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
-  children.push(para([text("Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 600 } }));
+  children.push(para(ediText("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 24 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
+  children.push(para([text("Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.", { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 600 } }));
 
   // Company rep signature - horizontal layout with tab stops
   children.push(para([
-    text("_".repeat(40), { size: 22 }),
-    text("\t_".repeat(1) + "_".repeat(20), { size: 22 }),
+    text("_".repeat(40), { size: 24 }),
+    text("\t_".repeat(1) + "_".repeat(20), { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
     spacing: { after: 0 },
   }));
   children.push(para([
-    text(p.companyRepName || "[Company Representative]", { size: 22 }),
-    text("\tDated", { size: 22 }),
+    text(p.companyRepName || "[Company Representative]", { size: 24 }),
+    text("\tDated", { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
     spacing: { after: 0 },
   }));
-  children.push(para([text(p.companyRepTitle || "[Title]", { size: 20, italics: true })], { spacing: { after: 600 } }));
+  children.push(para([text(p.companyRepTitle || "[Title]", { size: 24, italics: true })], { spacing: { after: 600 } }));
 
   // Client rep signature
   children.push(para([
-    text("_".repeat(40), { size: 22 }),
-    text("\t_".repeat(1) + "_".repeat(20), { size: 22 }),
+    text("_".repeat(40), { size: 24 }),
+    text("\t_".repeat(1) + "_".repeat(20), { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
     spacing: { after: 0 },
   }));
   children.push(para([
-    text("Client Authorized Representative", { size: 22 }),
-    text("\tDated", { size: 22 }),
+    text("Client Authorized Representative", { size: 24 }),
+    text("\tDated", { size: 24 }),
   ], {
     tabStops: [{ type: TabStopType.LEFT, position: 6000 }],
   }));
   if (p.clientSignerName) {
-    children.push(para([text(`${p.clientSignerName}${p.clientSignerTitle ? `, ${p.clientSignerTitle}` : ""}`, { size: 20, italics: true })]));
+    children.push(para([text(`${p.clientSignerName}${p.clientSignerTitle ? `, ${p.clientSignerTitle}` : ""}`, { size: 24, italics: true })]));
   }
 
   return children;
