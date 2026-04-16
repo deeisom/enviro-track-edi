@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAllRates, createRate, updateRate, deleteRate } from "@/services/invoiceStorage";
 import { RateItem, RateCategory, RATE_CATEGORIES } from "@/types/invoice";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Leaf } from "lucide-react";
+import { Plus, Edit, Trash2, Leaf, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { exportToCsv, timestampedFilename } from "@/services/csvExport";
 
 const UNITS = ["per hour", "per day", "per sample", "each", "flat"];
 
@@ -74,7 +75,23 @@ export default function RatesPage() {
           <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Rate Table <Leaf className="h-5 w-5 text-primary" /></h1>
           <p className="text-muted-foreground text-sm">Manage reusable line items for estimates and invoices</p>
         </div>
-        {canEdit && <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add Item</Button>}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => {
+            const rows = rates.map(r => ({
+              "Name": r.name,
+              "Item": r.item,
+              "Item Description": r.itemDescription,
+              "Category": getCatLabel(r.category),
+              "Default Rate": r.defaultRate,
+              "Unit": r.unit,
+            }));
+            exportToCsv(timestampedFilename("rate_table"), rows);
+            toast({ title: "Exported rate table", description: `${rates.length} items` });
+          }}>
+            <Download className="h-4 w-4 mr-1" /> Export CSV
+          </Button>
+          {canEdit && <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add Item</Button>}
+        </div>
       </div>
 
       <div className="flex gap-2">

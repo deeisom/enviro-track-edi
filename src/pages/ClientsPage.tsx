@@ -18,9 +18,10 @@ import {
 } from "@/services/storage";
 import { Client, Contact, Project } from "@/types";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil, Leaf, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, ArrowLeft, Trash2, Users, Building2, Pencil, Leaf, LayoutGrid, List, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
+import { exportToCsv, timestampedFilename } from "@/services/csvExport";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -107,7 +108,41 @@ function ClientsList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-frontier font-bold italic tracking-wide flex items-center gap-2">Clients & Contacts <Leaf className="h-5 w-5 text-primary" /></h1>
-        {canEdit && <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => {
+            const clientRows = clients.map(c => ({
+              "Company Name": c.companyName,
+              "Industry / Type": c.industryType,
+              "Address": c.address,
+              "Phone": c.phone,
+              "Fax": c.fax,
+              "Website": c.website,
+              "Notes": c.notes,
+              "Contact Count": contactsByClient.get(c.id)?.length ?? 0,
+              "Created": c.createdAt,
+              "Updated": c.updatedAt,
+            }));
+            exportToCsv(timestampedFilename("clients"), clientRows);
+            const contactRows = contacts.map(ct => {
+              const parent = clients.find(c => c.id === ct.clientId);
+              return {
+                "Company": parent?.companyName || "",
+                "Contact Name": ct.name,
+                "Title": ct.title,
+                "Email": ct.email,
+                "Secondary Email": ct.secondaryEmail,
+                "Phone": ct.phone,
+                "Mobile Phone": ct.mobilePhone,
+                "Created": ct.createdAt,
+              };
+            });
+            exportToCsv(timestampedFilename("contacts"), contactRows);
+            toast({ title: "Exported clients & contacts", description: `${clients.length} clients, ${contacts.length} contacts` });
+          }}>
+            <Download className="h-4 w-4 mr-1" /> Export CSV
+          </Button>
+          {canEdit && <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
