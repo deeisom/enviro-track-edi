@@ -19,8 +19,8 @@ export function CoverPagePreview({
   projectNumber,
 }: Omit<Props, "onUpdate">) {
   const pageStyle = { fontFamily: "Times New Roman, serif" };
+  const brandFont = { fontFamily: "'Final Frontier', serif" };
 
-  // Split client address into lines
   const clientAddressLines = (clientAddress || "").split("\n").filter(Boolean);
 
   return (
@@ -36,8 +36,13 @@ export function CoverPagePreview({
     >
       {/* Header - left aligned */}
       <div className="mb-1">
-        <p className="text-2xl font-bold leading-tight">Environmental Services Proposal</p>
-        <p className="text-sm italic leading-tight" style={{ color: EDI_GREEN }}>
+        <p className="font-bold leading-tight" style={{ fontSize: "22px" }}>
+          Environmental Services Proposal
+        </p>
+        <p
+          className="leading-tight"
+          style={{ ...brandFont, color: EDI_GREEN, fontSize: "14px", fontStyle: "italic" }}
+        >
           Environmental Design Inc.
         </p>
       </div>
@@ -47,67 +52,67 @@ export function CoverPagePreview({
       <div className="flex-1 flex flex-col items-center justify-center text-center -mt-8">
         {/* Work Performed Title */}
         <h2
-          className="text-2xl font-bold underline mb-2 tracking-wide"
-          style={{ fontVariant: "small-caps" }}
+          className="font-bold mb-2 tracking-wide"
+          style={{ fontSize: "28px", fontVariant: "small-caps" }}
         >
           {proposal.serviceType || "[WORK PERFORMED TITLE]"}
         </h2>
         {/* Optional Secondary Title */}
         {proposal.secondaryServiceType && (
           <p
-            className="text-base mb-2"
-            style={{ fontVariant: "small-caps" }}
+            className="mb-2"
+            style={{ fontSize: "20px", fontVariant: "small-caps" }}
           >
             {proposal.secondaryServiceType}
           </p>
         )}
 
-        <p className="text-sm my-3">AT</p>
+        <p className="my-3" style={{ fontSize: "20px" }}>AT</p>
 
         {/* Location Name */}
         <p
-          className="text-xl font-bold"
-          style={{ fontVariant: "small-caps" }}
+          className="font-bold"
+          style={{ fontSize: "22px", fontVariant: "small-caps" }}
         >
           {proposal.siteName || "[LOCATION NAME]"}
         </p>
         {/* Optional Secondary Location */}
         {proposal.buildingArea && (
           <p
-            className="text-lg font-bold"
-            style={{ fontVariant: "small-caps" }}
+            className="font-bold"
+            style={{ fontSize: "22px", fontVariant: "small-caps" }}
           >
             {proposal.buildingArea}
           </p>
         )}
         {/* Address */}
-        <p className="text-base" style={{ fontVariant: "small-caps" }}>
+        <p style={{ fontSize: "20px", fontVariant: "small-caps" }}>
           {proposal.siteAddress || "[STREET ADDRESS]"}
         </p>
         {proposal.siteAddressLine2 && (
-          <p className="text-base" style={{ fontVariant: "small-caps" }}>
+          <p style={{ fontSize: "20px", fontVariant: "small-caps" }}>
             {proposal.siteAddressLine2}
           </p>
         )}
 
         {/* Client section */}
         <div className="mt-8">
-          <p className="text-base" style={{ fontVariant: "small-caps" }}>
+          <p style={{ fontSize: "20px", fontVariant: "small-caps" }}>
             For the Client
           </p>
           <p
-            className="text-lg font-bold"
-            style={{ fontVariant: "small-caps" }}
+            className="font-bold"
+            style={{ fontSize: "20px", fontVariant: "small-caps" }}
           >
             {clientName || "[CLIENT NAME]"}
           </p>
           {clientAddressLines.map((line, i) => (
-            <p key={i} className="text-base" style={{ fontVariant: "small-caps" }}>
+            <p key={i} style={{ fontSize: "20px", fontVariant: "small-caps" }}>
               {line}
             </p>
           ))}
           {!clientAddress && (
-            <p className="text-base" style={{ fontVariant: "small-caps" }}>
+            <p style={{ fontSize: "20px", fontVariant: "small-caps" }}>
               [CLIENT ADDRESS]
             </p>
           )}
@@ -115,8 +120,9 @@ export function CoverPagePreview({
 
         {/* Project # */}
         <div className="mt-8">
-          <p className="text-sm italic">
-            <span className="italic">EDI</span> Project # {projectNumber || "[PROJECT #]"}
+          <p style={{ fontSize: "16px" }}>
+            <span style={{ ...brandFont, fontStyle: "italic" }}>EDI </span>
+            Project # {projectNumber || "[PROJECT #]"}
           </p>
         </div>
       </div>
@@ -124,15 +130,19 @@ export function CoverPagePreview({
       {/* Bottom section */}
       <div className="flex items-end justify-between mt-2">
         <div>
-          <p className="text-sm mb-3">{proposal.proposalDate || "[DATE]"}</p>
-          <p className="text-sm italic" style={{ color: EDI_GREEN }}>
+          <p className="mb-3" style={{ fontSize: "16px" }}>
+            {proposal.proposalDate || "[DATE]"}
+          </p>
+          <p style={{ ...brandFont, color: EDI_GREEN, fontSize: "16px" }}>
             Environmental Design Inc.
           </p>
-          <p className="text-xs">5434 King Avenue, Suite 101</p>
-          <p className="text-xs">Pennsauken, New Jersey 08109</p>
+          <p style={{ fontSize: "12px" }}>5434 King Avenue, Suite 101</p>
+          <p style={{ fontSize: "12px" }}>Pennsauken, New Jersey 08109</p>
+          <p style={{ fontSize: "12px" }}>Phone: 1-888-306-4545</p>
+          <p style={{ fontSize: "12px" }}>www.editesting.com</p>
         </div>
         <img
-          src="/images/edi-globe-logo.jpg"
+          src="/images/edi-globe-logo.png"
           alt="EDI Globe Logo"
           className="object-contain"
           style={{ height: "140px" }}
