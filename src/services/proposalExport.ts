@@ -158,7 +158,7 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   const rightColWidth = CONTENT_WIDTH - leftColWidth;
 
   const leftCellChildren: Paragraph[] = [
-    para([text(p.proposalDate || "[DATE]", { size: 32 })], { spacing: { after: 200 } }),
+    para([text(p.proposalDate || "[DATE]", { size: 32 })], { spacing: { after: 960 } }),
     para([new TextRun({ text: "Environmental Design Inc.", font: BRAND_FONT, size: 32, color: EDI_GREEN })], { spacing: { after: 0 } }),
     para([text("5434 King Avenue, Suite 101", { size: 24 })], { spacing: { after: 0 } }),
     para([text("Pennsauken, New Jersey 08109", { size: 24 })], { spacing: { after: 0 } }),
@@ -174,7 +174,7 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
         new ImageRun({
           type: "png",
           data: logoData,
-          transformation: { width: 160, height: 170 },
+          transformation: { width: 187, height: 219 },
           altText: { title: "EDI Logo", description: "Environmental Design Inc. Globe Logo", name: "EDI Logo" },
         }),
       ],
