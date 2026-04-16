@@ -3,6 +3,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+const COMPANY_CONTEXT = `IMPORTANT COMPANY IDENTITY: "EDI" is the abbreviation for "Environmental Design Inc.", an environmental consulting firm. Always expand "EDI" as "Environmental Design Inc." on first mention within the section, then use "EDI" thereafter. Never refer to the company by any other name (do NOT use "Environmental Dynamics", "Environmental Designs", or any variation).`;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -27,9 +29,10 @@ Deno.serve(async (req) => {
     let userPrompt = "";
 
     if (section === "background") {
-      systemPrompt = `You are a professional environmental consulting proposal writer for Environmental Dynamics Inc. (EDI). Write a formal "Background" section for a proposal. The background should explain why the client requested the work, what condition or concern led to the proposal, where the issue exists, and why the service is needed. Use a professional, third-person tone. Do not invent specific sample counts, certifications, legal outcomes, or compliance claims. Write 2-4 paragraphs. Do not include headers or titles.`;
+      systemPrompt = `${COMPANY_CONTEXT}\n\nYou are a professional environmental consulting proposal writer for Environmental Design Inc. (EDI). Write a formal "Background" section for a proposal. The background should explain why the client requested the work, what condition or concern led to the proposal, where the issue exists, and why the service is needed. Use a professional, third-person tone. Do not invent specific sample counts, certifications, legal outcomes, or compliance claims. Write 2-4 paragraphs. Do not include headers or titles.`;
 
       userPrompt = `Write a Background section for this proposal:
+- Company: Environmental Design Inc. (EDI)
 - Service Type: ${inputs.serviceType || "Environmental evaluation"}
 - Issue/Concern: ${inputs.concern || "Not specified"}
 - Affected Area(s): ${inputs.affectedAreas || "Not specified"}
@@ -39,9 +42,10 @@ Deno.serve(async (req) => {
 - Site/Facility Name: ${inputs.siteName || "Not specified"}
 - Building/Area: ${inputs.buildingArea || "Not specified"}`;
     } else if (section === "scope") {
-      systemPrompt = `You are a professional environmental consulting proposal writer for Environmental Dynamics Inc. (EDI). Write a formal "Scope of Work" section for a proposal. The scope should explain what services will be performed, what sampling/testing/inspection activities will occur, what equipment/methods will be used if appropriate, what deliverables will be produced, and what follow-up interpretation/reporting is included. Use a professional, third-person tone. Use numbered or bulleted lists where appropriate for clarity. Do not invent specific pricing, sample counts beyond what is provided, certifications, or compliance claims. Write 3-5 paragraphs. Do not include headers or titles.`;
+      systemPrompt = `${COMPANY_CONTEXT}\n\nYou are a professional environmental consulting proposal writer for Environmental Design Inc. (EDI). Write a formal "Scope of Work" section for a proposal. The scope should explain what services will be performed, what sampling/testing/inspection activities will occur, what equipment/methods will be used if appropriate, what deliverables will be produced, and what follow-up interpretation/reporting is included. Use a professional, third-person tone. Use numbered or bulleted lists where appropriate for clarity. Do not invent specific pricing, sample counts beyond what is provided, certifications, or compliance claims. Write 3-5 paragraphs. Do not include headers or titles.`;
 
       userPrompt = `Write a Scope of Work section for this proposal:
+- Company: Environmental Design Inc. (EDI)
 - Service Type: ${inputs.serviceType || "Environmental evaluation"}
 - Selected Services: ${inputs.selectedServices || "Not specified"}
 - Methods/Sample Types: ${inputs.methods || "Not specified"}
