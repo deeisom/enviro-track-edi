@@ -205,7 +205,7 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
     ],
   }));
 
-  const pageBorder = { style: BorderStyle.SINGLE, size: 6, color: "000000" };
+  const pageBorder = { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 24 };
   return {
     properties: {
       page: {
@@ -216,6 +216,7 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
           pageBorderRight: pageBorder,
           pageBorderBottom: pageBorder,
           pageBorderLeft: pageBorder,
+          pageBorders: { offsetFrom: "page" as any, display: "allPages" as any, zOrder: "front" as any },
         },
       },
     },
