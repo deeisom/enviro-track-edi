@@ -1,38 +1,68 @@
 
 
-## Plan: Fix DOCX Export — Logo + Formatting Match
+## Plan: Align Cover Page to Formatting Guide Specifications
 
-### Two problems
+### What's changing
 
-**1. Logo missing in export** — `loadImage()` uses `Buffer.from(arrayBuffer)` which fails silently in the browser (no native `Buffer`). The `catch` returns `null`, so the logo is skipped entirely. Fix: use `Uint8Array` instead of `Buffer` — `ImageRun` in docx-js accepts `Uint8Array`.
+The formatting guide provides exact font, size, weight, alignment, and styling for every cover page element. The current implementation has incorrect sizes throughout and uses the wrong font for "EDI" and "Environmental Design Inc." (should be "Final Frontier", not Times New Roman). The uploaded logo image also needs to replace the current one.
 
-**2. Overall DOCX formatting doesn't match the in-app preview** — The in-app preview was updated with correct sizing but the DOCX `buildCoverPage` function still needs alignment. Specifically:
-- Font sizes in the DOCX should match what the preview shows (the preview was updated but the export sizes may not correspond)
-- The page border thickness should match the thin black border in the preview
-- Spacing between sections needs to match the generous gaps in the preview
+### Formatting guide spec vs current DOCX export
 
-### Changes to `src/services/proposalExport.ts`
+| Element | Font Guide Spec | Current DOCX `size` (half-pts) | Correct `size` |
+|---|---|---|---|
+| Template Title ("Environmental Services Proposal") | TNR 22pt Bold, Left | 28 (14pt) | **44** |
+| "Environmental Design Inc." (header) | **Final Frontier** 14pt Italic, Left | 22 TNR (11pt) | **28**, font: Final Frontier |
+| Primary Title (service type) | TNR 28pt Bold, Center | 32 (16pt) | **56** |
+| Secondary Title | TNR 20pt, Center | 24 (12pt) | **40** |
+| "AT" | TNR 20pt, Center | 22 (11pt) | **40** |
+| Primary Location | TNR 22pt Bold, Center | 26 (13pt) | **44** |
+| Secondary Location | TNR 22pt Bold, Center | 26 (13pt) | **44** |
+| Work Location Address | TNR 20pt, Center | 22 (11pt) | **40** |
+| "For the Client" | TNR 20pt, Center | 22 (11pt) | **40** |
+| Client Name | TNR 20pt Bold, Center | 24 (12pt) | **40** |
+| Client Address | TNR 20pt, Center | 22 (11pt) | **40** |
+| "EDI" (project # line) | **Final Frontier** 16pt Italic, Center | 22 TNR | **32**, font: Final Frontier |
+| "Project # ..." | TNR 16pt, Center | 22 (11pt) | **32** |
+| Date | TNR 16pt, Left | 22 (11pt) | **32** |
+| "Environmental Design Inc." (bottom) | **Final Frontier** 16pt, Left | 22 TNR | **32**, font: Final Frontier |
+| EDI Address/Contact | TNR 12pt, Left | 18 (9pt) | **24** |
 
-**Fix `loadImage`**: Change return type from `Buffer | null` to `Uint8Array | null`, replace `Buffer.from(arrayBuffer)` with `new Uint8Array(arrayBuffer)`.
+Key findings:
+1. **"Final Frontier" font** is used for all "EDI" and "Environmental Design Inc." text — not Times New Roman
+2. **All font sizes need increasing** — current values are roughly half what they should be
+3. **Primary Title should NOT be underlined** — the guide says Bold only (no underline mentioned); looking at the example image confirms no underline
+4. **"EDI" in the project # line** uses Final Frontier 16pt Italic, separate from the "Project # ..." which is TNR 16pt
+5. **The bottom section** needs phone and website info added (TNR 12pt)
+6. **Logo** needs replacing with the uploaded high-res PNG version
 
-**Fix `buildCoverPage` ImageRun**: Change `data: logoData` type annotation from `Buffer` to `Uint8Array`. The `ImageRun` constructor accepts `Uint8Array` natively.
+### In-app preview changes
 
-**Verify font sizes match preview**: Cross-reference the DOCX sizes (in half-points) with the CSS preview sizes:
-- "Environmental Services Proposal": preview = `text-2xl` (24px) → DOCX `size: 28` (14pt) — should be `size: 48` (24pt)
-- Work Performed Title: preview = `text-2xl` → DOCX `size: 32` (16pt) — should be `size: 48`
-- Location Name: preview = `text-xl` (20px) → DOCX `size: 26` (13pt) — should be `size: 40`
-- Secondary Location: preview = `text-lg` (18px) → DOCX `size: 26` — should be `size: 36`
-- Address lines: preview = `text-base` (16px) → DOCX `size: 22` (11pt) — should be `size: 32`
-- "For the Client": preview = `text-base` → DOCX `size: 22` — should be `size: 32`
-- Client Name: preview = `text-lg` (18px) → DOCX `size: 24` (12pt) — should be `size: 36`
-- Date/bottom info: preview = `text-sm` (14px) → DOCX `size: 22` — should be `size: 28`
-- Bottom address: preview = `text-xs` (12px) → DOCX `size: 18` — should be `size: 24`
+The CSS preview in `CoverPagePreview` needs matching updates — Final Frontier font-face won't be available in-browser, so we'll use a similar italic/decorative fallback or load the font. Since Final Frontier is the project's brand font (already used in sidebar/headings per memory), we can reference it. The preview sizes also need proportional adjustment.
 
-Note: DOCX `size` is in half-points (size 24 = 12pt). CSS px ≈ pt for screen, so `text-2xl` = 24px ≈ 24pt = `size: 48`. However, a printed page is smaller than screen, so we should use slightly smaller values. A reasonable mapping: use approximately 60-70% of the screen px values as pt, which means the current sizes are actually reasonable for print. The real issue is the logo.
+### Files to modify
 
-**Revised approach**: The main fix is the logo. Font sizes for print don't need to match screen 1:1 — they need to look correct on a letter-size page. The current sizes (28, 32, 26, 22, 24, 18) are reasonable for print. The user's complaint about "formatting is still messed up" is likely dominated by the missing logo.
+**`public/images/edi-globe-logo.png`** — Copy uploaded logo to replace/add as PNG
 
-### Files modified
+**`src/services/proposalExport.ts`** — `buildCoverPage`:
+- Update all font sizes per the table above
+- Change "EDI" and "Environmental Design Inc." text to use `font: "Final Frontier"` instead of default TNR
+- Remove `underline` from Primary Title (guide says Bold only)
+- Change "EDI" in header to use Final Frontier 14pt Italic
+- Add phone/website lines to bottom-left section (TNR 12pt)
+- Update logo reference to `.png` and adjust dimensions
+- Fix "smallCaps" usage — the guide shows small caps styling on most centered text
 
-- `src/services/proposalExport.ts` — Fix `loadImage` to use `Uint8Array` instead of `Buffer`, update type signatures throughout
+**`src/components/proposals/CoverPageStep.tsx`** — `CoverPagePreview`:
+- Match font sizes proportionally to the guide (scale for 612px preview width vs 8.5" page)
+- Use Final Frontier font for "EDI" and "Environmental Design Inc." spans
+- Remove underline from Primary Title
+- Add phone/website to bottom-left info
+- Update logo src to `.png`
+
+### Technical notes
+
+- DOCX `size` field is in **half-points** (size 44 = 22pt, size 56 = 28pt)
+- Final Frontier font: the DOCX will reference it by name; it must be installed on the machine opening the document (standard for EDI's computers). For the web preview, the font is already loaded via the app's CSS.
+- The logo will be loaded as PNG (`type: "png"` in ImageRun)
+- The bottom section phone/website lines from the guide: "Phone: 1-888-306-4545" and "www.editesting.com" at TNR 12pt
 
