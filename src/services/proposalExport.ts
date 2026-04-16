@@ -64,28 +64,32 @@ async function loadImage(path: string): Promise<Uint8Array | null> {
   }
 }
 
-function buildEdiHeader(showContact = false): Header {
-  const children: Paragraph[] = [
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      children: [text("EDI", { bold: true, italics: true, size: 36, color: EDI_GREEN })],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 1 } },
-      spacing: { after: 100 },
-    }),
-  ];
-  if (showContact) {
-    children.push(
+const HEADER_GREEN = "375623"; // Green, Accent 6, Darker 50%
+const CONSULTANT_GREEN = "375F1F"; // Dark Green, Accent 3, Darker 50%
+
+function buildEdiHeader(_showContact = false): Header {
+  return new Header({
+    children: [
       new Paragraph({
-        children: [text("Phone: 1-888-306-4545", { size: 18 })],
+        alignment: AlignmentType.LEFT,
+        children: [
+          new TextRun({
+            text: "EDI",
+            font: BRAND_FONT,
+            italics: true,
+            size: 52, // 26pt
+            color: HEADER_GREEN,
+          }),
+        ],
         spacing: { after: 0 },
       }),
-      new Paragraph({
-        children: [text("www.editesting.com", { size: 18 })],
-        spacing: { after: 200 },
-      })
-    );
-  }
-  return new Header({ children });
+    ],
+  });
+}
+
+/** Final Frontier italic "EDI" run at body size (12pt) */
+function ediRun(size = 24): TextRun {
+  return new TextRun({ text: "EDI", font: BRAND_FONT, italics: true, size });
 }
 
 function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
