@@ -330,14 +330,14 @@ function buildDetailsPage(data: ExportData): any {
 
   if (background.text) {
     background.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
+      children.push(para(ediText(line, { size: 24 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
   if (scope.text) {
     children.push(emptyLine());
     scope.text.split("\n").forEach(line => {
-      children.push(para([text(line, { size: 24 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
+      children.push(para(ediText(line, { size: 24 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 100 } }));
     });
   }
 
