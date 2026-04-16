@@ -92,6 +92,26 @@ function ediRun(size = 24): TextRun {
   return new TextRun({ text: "EDI", font: BRAND_FONT, italics: true, size });
 }
 
+/**
+ * Split a string containing "EDI" into multiple runs so every "EDI"
+ * is rendered in Final Frontier italic at the given size, and the
+ * surrounding text uses the normal TNR style.
+ */
+function ediText(input: string, opts: any = {}): TextRun[] {
+  const size = opts.size || 24;
+  const parts = input.split(/(EDI)/g);
+  const runs: TextRun[] = [];
+  for (const part of parts) {
+    if (!part) continue;
+    if (part === "EDI") {
+      runs.push(new TextRun({ text: "EDI", font: BRAND_FONT, italics: true, size, color: opts.color }));
+    } else {
+      runs.push(new TextRun({ text: part, font: FONT, size, ...opts }));
+    }
+  }
+  return runs;
+}
+
 function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   const p = data.proposal;
   const projectNumber = data.project?.projectNumber || "";
