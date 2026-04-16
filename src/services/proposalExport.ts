@@ -31,6 +31,7 @@ interface ExportData {
 }
 
 const FONT = "Times New Roman";
+const BRAND_FONT = "Final Frontier";
 const PAGE_WIDTH = 12240;
 const PAGE_HEIGHT = 15840;
 const MARGIN = 1440;
@@ -93,8 +94,8 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   const children: (Paragraph | Table)[] = [];
 
   // Header: left-aligned title + green italic company name + rule
-  children.push(para([text("Environmental Services Proposal", { bold: true, size: 28 })], { spacing: { after: 0 } }));
-  children.push(para([text("Environmental Design Inc.", { italics: true, size: 22, color: EDI_GREEN })], {
+  children.push(para([text("Environmental Services Proposal", { bold: true, size: 44 })], { spacing: { after: 0 } }));
+  children.push(para([new TextRun({ text: "Environmental Design Inc.", font: BRAND_FONT, italics: true, size: 28, color: EDI_GREEN })], {
     border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 4 } },
     spacing: { after: 400 },
   }));
@@ -102,51 +103,54 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   // Spacer
   for (let i = 0; i < 3; i++) children.push(emptyLine());
 
-  // Service type - centered, bold, underlined, small caps
-  children.push(para([text(p.serviceType || "[SERVICE TYPE]", { bold: true, size: 32, smallCaps: true, underline: { type: "single" } })], {
+  // Service type - centered, bold, small caps (NO underline per guide)
+  children.push(para([text(p.serviceType || "[SERVICE TYPE]", { bold: true, size: 56, smallCaps: true })], {
     alignment: AlignmentType.CENTER,
     spacing: { after: 100 },
   }));
   if (p.secondaryServiceType) {
-    children.push(para([text(p.secondaryServiceType, { size: 24, smallCaps: true })], {
+    children.push(para([text(p.secondaryServiceType, { size: 40, smallCaps: true })], {
       alignment: AlignmentType.CENTER,
       spacing: { after: 100 },
     }));
   }
 
-  children.push(para([text("AT", { size: 22 })], { alignment: AlignmentType.CENTER }));
+  children.push(para([text("AT", { size: 40 })], { alignment: AlignmentType.CENTER }));
 
   // Site info - centered, bold, small caps
-  children.push(para([text(p.siteName || "[SITE NAME]", { bold: true, size: 26, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+  children.push(para([text(p.siteName || "[SITE NAME]", { bold: true, size: 44, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   if (p.buildingArea) {
-    children.push(para([text(p.buildingArea, { bold: true, size: 26, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+    children.push(para([text(p.buildingArea, { bold: true, size: 44, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   }
-  children.push(para([text(p.siteAddress || "[SITE ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+  children.push(para([text(p.siteAddress || "[SITE ADDRESS]", { size: 40, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   if (p.siteAddressLine2) {
-    children.push(para([text(p.siteAddressLine2, { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+    children.push(para([text(p.siteAddressLine2, { size: 40, smallCaps: true })], { alignment: AlignmentType.CENTER }));
   }
   children.push(emptyLine());
 
   // Client info
-  children.push(para([text("For the Client", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
-  children.push(para([text(data.clientName || "[CLIENT NAME]", { bold: true, size: 24, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+  children.push(para([text("For the Client", { size: 40, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+  children.push(para([text(data.clientName || "[CLIENT NAME]", { bold: true, size: 40, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
   
   // Split client address into multiple lines
   const clientAddressLines = (data.clientAddress || "").split("\n").filter(Boolean);
   if (clientAddressLines.length > 0) {
     clientAddressLines.forEach(line => {
-      children.push(para([text(line, { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
+      children.push(para([text(line, { size: 40, smallCaps: true })], { alignment: AlignmentType.CENTER, spacing: { after: 0 } }));
     });
   } else {
-    children.push(para([text("[CLIENT ADDRESS]", { size: 22, smallCaps: true })], { alignment: AlignmentType.CENTER }));
+    children.push(para([text("[CLIENT ADDRESS]", { size: 40, smallCaps: true })], { alignment: AlignmentType.CENTER }));
   }
   children.push(emptyLine());
 
-  // Project #
-  children.push(para([text("EDI", { italics: true, size: 22 }), text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 })], { alignment: AlignmentType.CENTER }));
+  // Project # — "EDI" in Final Frontier italic, rest in TNR
+  children.push(para([
+    new TextRun({ text: "EDI ", font: BRAND_FONT, italics: true, size: 32 }),
+    text(`Project # ${projectNumber || "[PROJECT #]"}`, { size: 32 }),
+  ], { alignment: AlignmentType.CENTER }));
 
   // Spacers before bottom
-  for (let i = 0; i < 4; i++) children.push(emptyLine());
+  for (let i = 0; i < 3; i++) children.push(emptyLine());
 
   // Bottom section: 2-column borderless table — left: date + company info, right: logo
   const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
@@ -155,10 +159,12 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   const rightColWidth = CONTENT_WIDTH - leftColWidth;
 
   const leftCellChildren: Paragraph[] = [
-    para([text(p.proposalDate || "[DATE]", { size: 22 })], { spacing: { after: 200 } }),
-    para([text("Environmental Design Inc.", { italics: true, size: 22, color: EDI_GREEN })], { spacing: { after: 0 } }),
-    para([text("5434 King Avenue, Suite 101", { size: 18 })], { spacing: { after: 0 } }),
-    para([text("Pennsauken, New Jersey 08109", { size: 18 })], { spacing: { after: 0 } }),
+    para([text(p.proposalDate || "[DATE]", { size: 32 })], { spacing: { after: 200 } }),
+    para([new TextRun({ text: "Environmental Design Inc.", font: BRAND_FONT, size: 32, color: EDI_GREEN })], { spacing: { after: 0 } }),
+    para([text("5434 King Avenue, Suite 101", { size: 24 })], { spacing: { after: 0 } }),
+    para([text("Pennsauken, New Jersey 08109", { size: 24 })], { spacing: { after: 0 } }),
+    para([text("Phone: 1-888-306-4545", { size: 24 })], { spacing: { after: 0 } }),
+    para([text("www.editesting.com", { size: 24 })], { spacing: { after: 0 } }),
   ];
 
   const rightCellChildren: Paragraph[] = [];
@@ -167,9 +173,9 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
       alignment: AlignmentType.RIGHT,
       children: [
         new ImageRun({
-          type: "jpg",
+          type: "png",
           data: logoData,
-          transformation: { width: 150, height: 160 },
+          transformation: { width: 160, height: 170 },
           altText: { title: "EDI Logo", description: "Environmental Design Inc. Globe Logo", name: "EDI Logo" },
         }),
       ],
@@ -480,7 +486,7 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
 }
 
 export async function exportProposalDocx(data: ExportData): Promise<void> {
-  const logoData = await loadImage("/images/edi-globe-logo.jpg");
+  const logoData = await loadImage("/images/edi-globe-logo.png");
 
   const coverSection = buildCoverPage(data, logoData);
   const detailsSection = buildDetailsPage(data);
