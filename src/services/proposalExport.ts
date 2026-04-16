@@ -476,7 +476,7 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
     text(` Project # ${projectNumber || "[PROJECT #]"}`, { size: 22 }),
   ], { spacing: { after: 300 } }));
 
-  children.push(para([text("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
+  children.push(para(ediText("Acceptance of this proposal is to be made only by an individual authorized by the Client to engage Client financially. EDI considers the authorized signature made on this document to be by such an individual.", { size: 22 }), { alignment: AlignmentType.JUSTIFIED, spacing: { after: 200 } }));
   children.push(para([text("Please make note acceptance of this proposal by signing the original and returning it to us. Please make a copy of this proposal for your records. Thank you.", { size: 22 })], { alignment: AlignmentType.JUSTIFIED, spacing: { after: 600 } }));
 
   // Company rep signature - horizontal layout with tab stops
