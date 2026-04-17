@@ -222,9 +222,9 @@ export default function ProposalBuilder() {
         <TabsContent value="cover" className="mt-4">
           <CoverPageStep
             proposal={proposal}
-            clientName={clientName}
-            clientAddress={clientAddress}
-            projectNumber={projectNumber}
+            clientName={autoClientName}
+            clientAddress={autoClientAddress}
+            projectNumber={autoProjectNumber}
             onUpdate={update}
           />
         </TabsContent>
