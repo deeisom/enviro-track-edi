@@ -596,6 +596,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _dedup_clients_once: {
+        Args: never
+        Returns: {
+          canonical_kept: number
+          clients_deleted: number
+          contacts_repointed: number
+        }[]
+      }
+      _dedup_contacts_once: {
+        Args: never
+        Returns: {
+          deleted: number
+        }[]
+      }
       get_next_invoice_number: { Args: { _type: string }; Returns: string }
       get_next_project_number: { Args: never; Returns: string }
       get_next_proposal_number: { Args: never; Returns: string }
