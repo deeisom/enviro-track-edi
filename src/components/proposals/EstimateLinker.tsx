@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "cmdk";
-import { Check, ChevronsUpDown, Download } from "lucide-react";
+import { Check, ChevronsUpDown, Download, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllInvoices } from "@/services/invoiceStorage";
 import type { Invoice, InvoiceLineItem } from "@/types/invoice";
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Props) {
-  const [estimates, setEstimates] = useState<Invoice[]>([]);
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -25,9 +25,8 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       setLoading(true);
       try {
         const all = await getAllInvoices();
-        // Show all estimates — don't filter by project
-        const ests = all.filter(i => i.type === "estimate");
-        setEstimates(ests);
+        // Include both estimates AND invoices — user can attach either
+        setAllInvoices(all);
       } catch {
         // silently fail
       } finally {
@@ -35,9 +34,26 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       }
     };
     load();
-  }, [projectId]);
+  }, []);
 
-  const selectedEstimate = estimates.find(e => e.id === estimateId);
+  // Sort: project-associated first (with star), then the rest. Within each group: estimates before invoices, newest first.
+  const sortedInvoices = useMemo(() => {
+    const associated: Invoice[] = [];
+    const others: Invoice[] = [];
+    for (const inv of allInvoices) {
+      if (projectId && inv.projectId === projectId) associated.push(inv);
+      else others.push(inv);
+    }
+    const byTypeThenDate = (a: Invoice, b: Invoice) => {
+      if (a.type !== b.type) return a.type === "estimate" ? -1 : 1;
+      return (b.date || "").localeCompare(a.date || "");
+    };
+    associated.sort(byTypeThenDate);
+    others.sort(byTypeThenDate);
+    return { associated, others };
+  }, [allInvoices, projectId]);
+
+  const selectedEstimate = allInvoices.find(e => e.id === estimateId);
 
   const mapLineItemsToFeeItems = (lineItems: InvoiceLineItem[]): ProposalFeeItem[] => {
     return lineItems
