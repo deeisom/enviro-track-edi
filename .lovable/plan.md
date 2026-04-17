@@ -1,27 +1,46 @@
 
-The user wants the AI prompts to consistently know "EDI = Environmental Design Inc." Currently, the `generate-proposal-content` edge function calls EDI "Environmental Dynamics Inc." in the background prompt — that's a bug. The clauses recommender already uses "Environmental Design Inc." Let me verify and plan the fix.
 
-Looking at the current state:
-- `generate-proposal-content/index.ts` system prompts say **"Environmental Dynamics Inc. (EDI)"** — wrong company name
-- `recommend-proposal-clauses/index.ts` says **"Environmental Design Inc. (EDI)"** — correct
+## Investigation summary
 
-### Plan
+Database currently has **3,748 contact rows** but only **2,231 unique names** — so the previous import created duplicates (likely re-ran), and you're still missing rows. The expected count is **3,574 unique contacts** from your spreadsheet.
 
-**Single file edit: `supabase/functions/generate-proposal-content/index.ts`**
+By first letter the data exists across the whole alphabet, but several letters look thin (H=57, I=22, N=71, O=6, Q=1, U=5). The "H and later got dropped" hunch is likely a side effect of how rows were grouped per client during the prior import — not a hard alphabetical cutoff.
 
-1. Add a shared `COMPANY_CONTEXT` constant at the top:
-   > "EDI is the abbreviation for Environmental Design Inc., an environmental consulting firm. Always expand 'EDI' as 'Environmental Design Inc.' on first mention in the section, then use 'EDI' thereafter. Never refer to the company by any other name."
+I cannot fully parse the uploaded `.xlsx` from plan mode. The actual fix needs default mode so I can read every row, diff against the DB, and re-import only the missing ones.
 
-2. Prepend this context to BOTH the background and scope system prompts.
+## Plan
 
-3. Fix the existing typo: change "Environmental Dynamics Inc." → "Environmental Design Inc." in both system prompts.
+**1. Inspect the uploaded file**
+- Copy `New_Contacts_for_Envirotrack.xlsx` to a temp path and read all 3,574 rows with `openpyxl`.
+- Confirm the column layout (Name, Title, Email, Phone, Mobile, Secondary Email, Client/Company).
+- Report exact row count and any blank-name rows.
 
-4. Also add a reinforcement line in the user prompt: `Company: Environmental Design Inc. (EDI)` so the model sees it in user context too.
+**2. Clean up duplicates from the prior import**
+- Identify duplicate `(client_id, name, email)` triples in `contacts` and delete the redundant copies (keep the oldest row per triple).
+- Show a before/after count.
 
-That's it — one file, three small edits. Edge functions auto-deploy so no further action needed.
+**3. Match contacts to existing clients**
+- For each spreadsheet row, look up the client by company name in the `clients` table (case-insensitive, trimmed).
+- Rows whose company matches an existing client → link via `client_id`.
+- Rows whose company has no client yet → either (a) auto-create a new client, or (b) drop into a "needs review" bucket. Plan defaults to **auto-create** to match the prior import behavior, but I'll confirm in step 4.
 
-### Why this works
-LLMs reliably follow naming rules when stated explicitly in the system prompt AND echoed in the user prompt. Putting it in both places makes the binding stick across regenerations.
+**4. Quick confirmation question (one prompt)**
+- Before inserting, ask you whether to auto-create missing companies as new clients or skip them, and whether to delete duplicate contacts created by the prior runs.
 
-### Files modified
-- `supabase/functions/generate-proposal-content/index.ts`
+**5. Bulk insert only missing contacts**
+- Diff the spreadsheet against current DB on `(client_id, lower(name), lower(email))`.
+- Insert only rows that don't already exist, in chunks.
+- Report final counts: rows in file, rows already present, rows newly inserted, rows skipped (and why).
+
+**6. Verification**
+- Re-run the per-letter count query and confirm totals make sense.
+- Spot-check 5 contacts whose names start with H, I, O, Q, U to confirm they're now present.
+
+### Files / systems touched
+- No app code changes.
+- Database `contacts` table: deletes duplicates + inserts missing rows.
+- Possibly `clients` table: inserts for any new companies (pending your answer in step 4).
+
+### Why this is safer than just re-running the prior import
+Re-running the original script would add another full set of duplicates. The diff-then-insert approach guarantees each spreadsheet row ends up in the DB exactly once.
+
