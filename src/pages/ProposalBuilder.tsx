@@ -11,7 +11,7 @@ import type { Client, Project, Contact } from "@/types";
 import { ProposalSetup } from "@/components/proposals/ProposalSetup";
 import { ProposalInfoSection, SignersSection } from "@/components/proposals/ProposalDetails";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
-import { CoverPageStep } from "@/components/proposals/CoverPageStep";
+import { CoverPageStep, getEffectiveCoverFields } from "@/components/proposals/CoverPageStep";
 import { AIContentControls } from "@/components/proposals/AIContentControls";
 import { FeeScheduleEditor } from "@/components/proposals/FeeScheduleEditor";
 import { TermsClauseEngine } from "@/components/proposals/TermsClauseEngine";
