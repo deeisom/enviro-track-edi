@@ -142,9 +142,10 @@ function mapProject(row: any): Project {
 // --- Clients ---
 
 export async function getAllClients(): Promise<Client[]> {
-  const { data, error } = await supabase.from("clients").select("*").order("company_name");
-  if (error) throw error;
-  return (data || []).map(mapClient);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("clients").select("*").order("company_name")
+  );
+  return rows.map(mapClient);
 }
 
 export async function getClient(id: string): Promise<Client | undefined> {
