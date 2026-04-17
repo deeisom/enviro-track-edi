@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "./storage";
 import type { Proposal, ProposalClause, ProposalStatus, ProposalFeeItem, ProposalClauseSelection, AIContentBlock } from "@/types/proposal";
 
 // --- Proposals ---
