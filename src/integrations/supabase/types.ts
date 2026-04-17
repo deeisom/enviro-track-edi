@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      _import_contacts_staging: {
+        Row: {
+          company: string
+          email: string
+          email2: string
+          id: number
+          mobile: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          company: string
+          email?: string
+          email2?: string
+          id?: number
+          mobile?: string
+          name: string
+          phone?: string
+        }
+        Update: {
+          company?: string
+          email?: string
+          email2?: string
+          id?: number
+          mobile?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: []
+      }
       activity_log: {
         Row: {
           id: string
