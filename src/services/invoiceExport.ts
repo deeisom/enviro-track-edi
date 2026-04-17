@@ -264,6 +264,42 @@ function renderInvoiceToSheet(ws: ExcelJS.Worksheet, invoice: Invoice) {
 
 }
 
+/** Memoized loader for accreditation logos PNG. Loads once per session. */
+let logosImgPromise: Promise<string | null> | null = null;
+function loadLogos(): Promise<string | null> {
+  if (!logosImgPromise) {
+    logosImgPromise = (async () => {
+      try {
+        const resp = await fetch("/images/accreditation-logos.png");
+        if (!resp.ok) {
+          console.error("Failed to fetch accreditation logos:", resp.status);
+          return null;
+        }
+        const blob = await resp.blob();
+        if (!blob.type.includes("png") && !blob.type.includes("image")) {
+          console.error("Unexpected blob type for accreditation logos:", blob.type);
+          return null;
+        }
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        if (!dataUrl.startsWith("data:image/png;base64,")) {
+          console.error("Invalid data URL format for accreditation logos");
+          return null;
+        }
+        return dataUrl;
+      } catch (err) {
+        console.error("Error loading accreditation logos:", err);
+        return null;
+      }
+    })();
+  }
+  return logosImgPromise;
+}
+
 /** Wrap a render call to translate merge-overflow errors into a user-friendly message. */
 async function safeRender(fn: () => void | Promise<void>) {
   try {
@@ -326,21 +362,8 @@ async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Prom
   const isEstimate = invoice.type === "estimate";
   const docLabel = isEstimate ? "Estimate" : "Invoice";
 
-  // Load accreditation logos
-  let logosImg: string | null = null;
-  try {
-    const resp = await fetch("/images/accreditation-logos.png");
-    if (!resp.ok) throw new Error(`Failed to fetch logos: ${resp.status}`);
-    const blob = await resp.blob();
-    logosImg = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.error("Could not load accreditation logos:", err);
-  }
+  // Load accreditation logos (memoized — only fetches/decodes once per session)
+  const logosImg = await loadLogos();
 
   // Header
   doc.setFontSize(16);
@@ -460,13 +483,17 @@ async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Prom
     { align: "center" }
   );
 
-  // Accreditation logos
+  // Accreditation logos (decorative — never fail the export over this)
   if (logosImg) {
-    const imgWidth = 120;
-    const imgHeight = 30;
-    const imgX = (pageWidth - imgWidth) / 2;
-    const imgY = pageHeight - imgHeight - 10;
-    doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
+    try {
+      const imgWidth = 120;
+      const imgHeight = 30;
+      const imgX = (pageWidth - imgWidth) / 2;
+      const imgY = pageHeight - imgHeight - 10;
+      doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
+    } catch (err) {
+      console.error("Failed to add accreditation logos to PDF page:", err);
+    }
   }
 
   return doc;
