@@ -15,7 +15,7 @@ import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRate
 import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivity } from "@/services/storage";
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
 import { Project, Client } from "@/types";
-import { exportInvoiceToExcel, exportInvoiceToPDF, exportCombinedInvoiceToExcel } from "@/services/invoiceExport";
+import { exportInvoiceToExcel, exportInvoiceToPDF, exportCombinedInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
 import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,8 +40,8 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
   const handleCombinedExport = async (parent: Invoice) => {
     const continuations = invoices.filter(i => i.parentInvoiceId === parent.id);
     try {
-      await exportCombinedInvoiceToExcel(parent, continuations);
-      toast({ title: `Combined Excel downloaded (${continuations.length + 1} pages)` });
+      await exportCombinedInvoiceToPDF(parent, continuations);
+      toast({ title: `Combined PDF downloaded (${continuations.length + 1} pages)` });
     } catch (e: any) {
       toast({ title: "Combine failed", description: e?.message || String(e), variant: "destructive" });
     }
@@ -150,7 +150,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-primary"
-                          title={`Combine with ${continuationCount} continuation page(s) into one Excel file`}
+                          title={`Combine with ${continuationCount} continuation page(s) into one PDF`}
                           onClick={() => handleCombinedExport(inv)}
                         >
                           <Layers className="h-3.5 w-3.5" />
