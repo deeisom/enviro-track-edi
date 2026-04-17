@@ -469,5 +469,30 @@ async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Prom
     doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
   }
 
+  return doc;
+}
+
+/** Export a single invoice as a one-page PDF. */
+export async function exportInvoiceToPDF(invoice: Invoice) {
+  const doc = await renderInvoicePDFPage(invoice);
   doc.save(`${invoice.invoiceNumber}.pdf`);
+}
+
+/**
+ * Combined PDF export: renders the parent invoice as page 1 and each
+ * continuation as a subsequent page in the same PDF. Each page is
+ * byte-identical to the standalone single-invoice PDF.
+ */
+export async function exportCombinedInvoiceToPDF(parent: Invoice, continuations: Invoice[]) {
+  const ordered = [...continuations].sort((a, b) => {
+    const sa = parseInt(a.invoiceNumber.split("-").pop() || "0", 10);
+    const sb = parseInt(b.invoiceNumber.split("-").pop() || "0", 10);
+    return sa - sb;
+  });
+
+  const doc = await renderInvoicePDFPage(parent);
+  for (const cont of ordered) {
+    await renderInvoicePDFPage(cont, doc);
+  }
+  doc.save(`${parent.invoiceNumber}-combined.pdf`);
 }
