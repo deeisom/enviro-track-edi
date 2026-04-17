@@ -37,6 +37,15 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
     try { await exportInvoiceToExcel(inv); toast({ title: "Excel downloaded" }); }
     catch (e) { toast({ title: "Export failed", description: String(e), variant: "destructive" }); }
   };
+  const handleCombinedExport = async (parent: Invoice) => {
+    const continuations = invoices.filter(i => i.parentInvoiceId === parent.id);
+    try {
+      await exportCombinedInvoiceToExcel(parent, continuations);
+      toast({ title: `Combined Excel downloaded (${continuations.length + 1} pages)` });
+    } catch (e: any) {
+      toast({ title: "Combine failed", description: e?.message || String(e), variant: "destructive" });
+    }
+  };
 
   const handleStatusChange = async (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
     await updateInvoice(inv.id, { status: newStatus });
