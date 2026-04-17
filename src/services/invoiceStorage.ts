@@ -65,9 +65,10 @@ export async function getNextInvoiceNumber(type: "invoice" | "estimate"): Promis
 }
 
 export async function getAllInvoices(): Promise<Invoice[]> {
-  const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapInvoice);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("invoices").select("*").order("created_at", { ascending: false })
+  );
+  return rows.map(mapInvoice);
 }
 
 export async function getInvoice(id: string): Promise<Invoice | undefined> {
