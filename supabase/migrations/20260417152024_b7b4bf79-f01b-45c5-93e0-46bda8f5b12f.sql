@@ -1,0 +1,1 @@
+INSERT INTO storage.buckets (id, name, public) VALUES ('import-staging','import-staging', false) ON CONFLICT (id) DO NOTHING;
