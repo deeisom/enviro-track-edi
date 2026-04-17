@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "cmdk";
-import { Check, ChevronsUpDown, Download } from "lucide-react";
+import { Check, ChevronsUpDown, Download, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllInvoices } from "@/services/invoiceStorage";
 import type { Invoice, InvoiceLineItem } from "@/types/invoice";
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Props) {
-  const [estimates, setEstimates] = useState<Invoice[]>([]);
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -25,9 +25,8 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       setLoading(true);
       try {
         const all = await getAllInvoices();
-        // Show all estimates — don't filter by project
-        const ests = all.filter(i => i.type === "estimate");
-        setEstimates(ests);
+        // Include both estimates AND invoices — user can attach either
+        setAllInvoices(all);
       } catch {
         // silently fail
       } finally {
@@ -35,9 +34,26 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       }
     };
     load();
-  }, [projectId]);
+  }, []);
 
-  const selectedEstimate = estimates.find(e => e.id === estimateId);
+  // Sort: project-associated first (with star), then the rest. Within each group: estimates before invoices, newest first.
+  const sortedInvoices = useMemo(() => {
+    const associated: Invoice[] = [];
+    const others: Invoice[] = [];
+    for (const inv of allInvoices) {
+      if (projectId && inv.projectId === projectId) associated.push(inv);
+      else others.push(inv);
+    }
+    const byTypeThenDate = (a: Invoice, b: Invoice) => {
+      if (a.type !== b.type) return a.type === "estimate" ? -1 : 1;
+      return (b.date || "").localeCompare(a.date || "");
+    };
+    associated.sort(byTypeThenDate);
+    others.sort(byTypeThenDate);
+    return { associated, others };
+  }, [allInvoices, projectId]);
+
+  const selectedEstimate = allInvoices.find(e => e.id === estimateId);
 
   const mapLineItemsToFeeItems = (lineItems: InvoiceLineItem[]): ProposalFeeItem[] => {
     return lineItems
@@ -66,37 +82,48 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
     setOpen(false);
   };
 
+  const renderItem = (inv: Invoice, isAssociated: boolean) => (
+    <CommandItem
+      key={inv.id}
+      value={`${inv.invoiceNumber} ${inv.projectSummary} ${inv.type}`}
+      onSelect={() => handleSelect(inv)}
+    >
+      <Check className={cn("mr-2 h-4 w-4 shrink-0", estimateId === inv.id ? "opacity-100" : "opacity-0")} />
+      <div className="flex flex-col flex-1 min-w-0">
+        <span className="font-mono text-xs flex items-center gap-1">
+          {isAssociated && <Star className="h-3 w-3 fill-primary text-primary" />}
+          {inv.invoiceNumber}
+          <span className="ml-1 text-[10px] uppercase text-muted-foreground">({inv.type})</span>
+        </span>
+        <span className="text-xs text-muted-foreground truncate">
+          {inv.projectSummary || "No summary"} — ${inv.total.toLocaleString()}
+        </span>
+      </div>
+    </CommandItem>
+  );
+
   return (
     <div>
-      <Label>Linked Estimate</Label>
+      <Label>Linked Estimate or Invoice</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" role="combobox" className="w-full justify-between mt-1">
-            {selectedEstimate ? `${selectedEstimate.invoiceNumber} — $${selectedEstimate.total.toLocaleString()}` : "Select estimate..."}
+            {selectedEstimate ? `${selectedEstimate.invoiceNumber} — $${selectedEstimate.total.toLocaleString()}` : "Select estimate or invoice..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[500px] p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search estimates..." />
+            <CommandInput placeholder="Search estimates and invoices..." />
             <CommandList>
-              <CommandEmpty>{loading ? "Loading..." : "No estimates found."}</CommandEmpty>
-              <CommandGroup className="max-h-[300px] overflow-y-auto">
-                {estimates.map(est => (
-                  <CommandItem
-                    key={est.id}
-                    value={`${est.invoiceNumber} ${est.projectSummary}`}
-                    onSelect={() => handleSelect(est)}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", estimateId === est.id ? "opacity-100" : "opacity-0")} />
-                    <div className="flex flex-col">
-                      <span className="font-mono text-xs">{est.invoiceNumber}</span>
-                      <span className="text-xs text-muted-foreground truncate max-w-[400px]">
-                        {est.projectSummary || "No summary"} — ${est.total.toLocaleString()}
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
+              <CommandEmpty>{loading ? "Loading..." : "Nothing found."}</CommandEmpty>
+              {sortedInvoices.associated.length > 0 && (
+                <CommandGroup heading="★ Associated with this project" className="max-h-[200px] overflow-y-auto">
+                  {sortedInvoices.associated.map(inv => renderItem(inv, true))}
+                </CommandGroup>
+              )}
+              <CommandGroup heading="All other estimates & invoices" className="max-h-[300px] overflow-y-auto">
+                {sortedInvoices.others.map(inv => renderItem(inv, false))}
               </CommandGroup>
             </CommandList>
           </Command>
