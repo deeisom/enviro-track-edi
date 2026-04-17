@@ -32,9 +32,10 @@ export async function getNextProjectNumber(): Promise<string> {
 }
 
 export async function getAllProjects(): Promise<Project[]> {
-  const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapProject);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("projects").select("*").order("created_at", { ascending: false })
+  );
+  return rows.map(mapProject);
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
