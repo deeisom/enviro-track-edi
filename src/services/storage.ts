@@ -1,6 +1,28 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Project, Client, Contact, ActivityLogEntry, ProjectStatus } from "@/types";
 
+// Supabase caps a single .select() at 1000 rows by default. For tables that can
+// exceed that (clients, contacts, projects, activity_log) we page through with
+// .range() until we've fetched everything.
+const PAGE_SIZE = 1000;
+
+export async function fetchAllPaged<T>(
+  build: () => any,
+): Promise<T[]> {
+  const out: T[] = [];
+  let from = 0;
+  // Hard upper bound to prevent infinite loops in pathological cases.
+  for (let i = 0; i < 200; i++) {
+    const { data, error } = await build().range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data || []) as T[];
+    out.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
+}
+
 // --- Projects ---
 
 export async function getNextProjectNumber(): Promise<string> {
