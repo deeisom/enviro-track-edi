@@ -308,99 +308,19 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
 }
 
 /**
- * Combined Excel export: renders the parent invoice and each continuation
- * onto its own sheet within a single workbook. Sheets are ordered parent
- * first, then continuations sorted by their numeric suffix (-01, -02, …).
+ * Render a single invoice as one PDF page. If `existingDoc` is provided,
+ * appends a new page to that doc and renders into it; otherwise creates a
+ * fresh single-page jsPDF doc. Returns the doc.
  */
-export async function exportCombinedInvoiceToExcel(parent: Invoice, continuations: Invoice[]) {
-  const ordered = [...continuations].sort((a, b) => {
-    const sa = parseInt(a.invoiceNumber.split("-").pop() || "0", 10);
-    const sb = parseInt(b.invoiceNumber.split("-").pop() || "0", 10);
-    return sa - sb;
-  });
-
-  const wb = new ExcelJS.Workbook();
-  const response = await fetch("/invoice-template.xlsx");
-  const buffer = await response.arrayBuffer();
-
-  // Helper: load a fresh copy of the template into a temp workbook and copy
-  // its first sheet into the destination workbook with the given name.
-  async function appendTemplateSheet(name: string): Promise<ExcelJS.Worksheet> {
-    const tempWb = new ExcelJS.Workbook();
-    await tempWb.xlsx.load(buffer);
-    const src = tempWb.worksheets[0];
-    if (!src) throw new Error("Template worksheet missing");
-    const safeName = name.substring(0, 31);
-    const dest = wb.addWorksheet(safeName);
-
-    // Copy column widths
-    src.columns?.forEach((col, i) => {
-      if (col?.width) dest.getColumn(i + 1).width = col.width;
-    });
-
-    // Copy row heights and cells (values + styles)
-    src.eachRow({ includeEmpty: true }, (row, rowNumber) => {
-      const destRow = dest.getRow(rowNumber);
-      if (row.height) destRow.height = row.height;
-      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        const destCell = destRow.getCell(colNumber);
-        destCell.value = cell.value;
-        if (cell.style) destCell.style = JSON.parse(JSON.stringify(cell.style));
-      });
-    });
-
-    // Copy merges
-    const merges = Object.keys((src as any)._merges || {});
-    merges.forEach((range) => {
-      try { dest.mergeCells(range); } catch { /* already merged or invalid */ }
-    });
-
-    // Copy images (logos, header art)
-    const srcImages = (src as any).getImages?.() || [];
-    srcImages.forEach((img: any) => {
-      const media = (tempWb as any).model?.media?.find((m: any) => m.index === img.imageId);
-      if (media) {
-        const newImageId = wb.addImage({
-          buffer: media.buffer,
-          extension: media.extension,
-        });
-        dest.addImage(newImageId, img.range);
-      }
-    });
-
-    // Copy page setup (margins, fit-to-page, etc.)
-    dest.pageSetup = { ...src.pageSetup };
-
-    return dest;
-  }
-
-  const sheets: { ws: ExcelJS.Worksheet; invoice: Invoice }[] = [];
-  sheets.push({ ws: await appendTemplateSheet(parent.invoiceNumber), invoice: parent });
-  for (const cont of ordered) {
-    sheets.push({ ws: await appendTemplateSheet(cont.invoiceNumber), invoice: cont });
-  }
-
-  await safeRender(() => {
-    for (const { ws, invoice } of sheets) {
-      renderInvoiceToSheet(ws, invoice);
-    }
-  });
-
-  const buf = await wb.xlsx.writeBuffer();
-  saveAs(
-    new Blob([buf], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }),
-    `${parent.invoiceNumber}-combined.xlsx`
-  );
-}
-
-export async function exportInvoiceToPDF(invoice: Invoice) {
+async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Promise<jsPDF> {
   // Custom margins in mm: top=0.85in, left=0.25in, right=0.2in, bottom=0in
   const marginTop = 0.85 * 25.4;   // ~21.6mm
   const marginLeft = 0.25 * 25.4;  // ~6.35mm
   const marginRight = 0.2 * 25.4;  // ~5.08mm
-  const doc = new jsPDF();
+  const doc = existingDoc ?? new jsPDF();
+  if (existingDoc) {
+    existingDoc.addPage();
+  }
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const isEstimate = invoice.type === "estimate";
