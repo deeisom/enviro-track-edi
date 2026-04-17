@@ -1,5 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 import type { Proposal } from "@/types/proposal";
 
 interface Props {
@@ -11,6 +13,36 @@ interface Props {
 }
 
 const EDI_GREEN = "#4A7C59";
+
+/** Split a free-form address into a street line and a city/state/zip line.
+ *  Honors explicit newlines; otherwise splits on the last comma before a state/zip. */
+function splitAddress(addr: string): { line1: string; line2: string } {
+  if (!addr) return { line1: "", line2: "" };
+  const lines = addr.split("\n").map(s => s.trim()).filter(Boolean);
+  if (lines.length >= 2) return { line1: lines[0], line2: lines.slice(1).join(", ") };
+  // Try to split single-line "123 Main St, City, ST 12345"
+  const single = lines[0] || "";
+  const match = single.match(/^(.*?),\s*(.+\s+[A-Z]{2}\s*\d{0,5}.*)$/);
+  if (match) return { line1: match[1].trim(), line2: match[2].trim() };
+  return { line1: single, line2: "" };
+}
+
+/** Compute effective cover-page field values: override (when set) else auto. */
+export function getEffectiveCoverFields(
+  proposal: Partial<Proposal>,
+  autoClientName: string,
+  autoClientAddress: string,
+  autoProjectNumber: string,
+) {
+  const cp = (proposal.coverPage || {}) as Record<string, any>;
+  const auto = splitAddress(autoClientAddress);
+  const clientName = cp.clientNameOverride ?? autoClientName;
+  const clientAddressLine1 = cp.clientAddressLine1 ?? auto.line1;
+  const clientAddressLine2 = cp.clientAddressLine2 ?? auto.line2;
+  const projectNumber = cp.projectNumberOverride ?? autoProjectNumber;
+  const clientAddress = [clientAddressLine1, clientAddressLine2].filter(Boolean).join("\n");
+  return { clientName, clientAddress, clientAddressLine1, clientAddressLine2, projectNumber };
+}
 
 export function CoverPagePreview({
   proposal,
@@ -110,7 +142,7 @@ export function CoverPagePreview({
               {line}
             </p>
           ))}
-          {!clientAddress && (
+          {clientAddressLines.length === 0 && (
             <p style={{ fontSize: "20px", fontVariant: "small-caps" }}>
               [CLIENT ADDRESS]
             </p>
@@ -152,6 +184,21 @@ export function CoverPagePreview({
 }
 
 export function CoverPageStep({ proposal, clientName, clientAddress, projectNumber, onUpdate }: Props) {
+  const cp = (proposal.coverPage || {}) as Record<string, any>;
+  const effective = getEffectiveCoverFields(proposal, clientName, clientAddress, projectNumber);
+
+  const updateCover = (patch: Record<string, any>) => {
+    onUpdate({ coverPage: { ...cp, ...patch } });
+  };
+
+  const resetField = (key: string) => {
+    const next = { ...cp };
+    delete next[key];
+    onUpdate({ coverPage: next });
+  };
+
+  const isOverridden = (key: string) => cp[key] !== undefined && cp[key] !== null;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Left: Form */}
@@ -228,20 +275,104 @@ export function CoverPageStep({ proposal, clientName, clientAddress, projectNumb
           />
         </div>
 
-        {/* Read-only fields */}
+        {/* Editable client + project (auto-populated from Setup, overridable here) */}
         <div className="border-t pt-4 mt-4 space-y-3">
-          <h4 className="text-sm font-medium text-muted-foreground">Auto-populated from Setup</h4>
-          <div>
-            <Label className="text-muted-foreground">Client Name</Label>
-            <p className="text-sm">{clientName || "—"}</p>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-muted-foreground">
+              Client &amp; Project (auto-populated from Setup — editable)
+            </h4>
           </div>
-          <div>
-            <Label className="text-muted-foreground">Client Address</Label>
-            <p className="text-sm whitespace-pre-line">{clientAddress || "—"}</p>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="clientNameOverride">Client Name</Label>
+              {isOverridden("clientNameOverride") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => resetField("clientNameOverride")}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Reset to auto
+                </Button>
+              )}
+            </div>
+            <Input
+              id="clientNameOverride"
+              value={effective.clientName}
+              onChange={e => updateCover({ clientNameOverride: e.target.value })}
+              placeholder="Client name"
+            />
           </div>
-          <div>
-            <Label className="text-muted-foreground">Project Number</Label>
-            <p className="text-sm">{projectNumber || "—"}</p>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="clientAddressLine1">Client Address (Street)</Label>
+              {isOverridden("clientAddressLine1") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => resetField("clientAddressLine1")}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Reset to auto
+                </Button>
+              )}
+            </div>
+            <Input
+              id="clientAddressLine1"
+              value={effective.clientAddressLine1}
+              onChange={e => updateCover({ clientAddressLine1: e.target.value })}
+              placeholder="e.g. 123 Example Lane"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="clientAddressLine2">Client Address (City, State, Zip)</Label>
+              {isOverridden("clientAddressLine2") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => resetField("clientAddressLine2")}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Reset to auto
+                </Button>
+              )}
+            </div>
+            <Input
+              id="clientAddressLine2"
+              value={effective.clientAddressLine2}
+              onChange={e => updateCover({ clientAddressLine2: e.target.value })}
+              placeholder="e.g. Example City, NJ 08110"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="projectNumberOverride">Project Number</Label>
+              {isOverridden("projectNumberOverride") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => resetField("projectNumberOverride")}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Reset to auto
+                </Button>
+              )}
+            </div>
+            <Input
+              id="projectNumberOverride"
+              value={effective.projectNumber}
+              onChange={e => updateCover({ projectNumberOverride: e.target.value })}
+              placeholder="e.g. EDI-2026-0001"
+            />
           </div>
         </div>
       </div>
@@ -252,9 +383,9 @@ export function CoverPageStep({ proposal, clientName, clientAddress, projectNumb
         <div className="transform origin-top-left scale-[0.75]">
           <CoverPagePreview
             proposal={proposal}
-            clientName={clientName}
-            clientAddress={clientAddress}
-            projectNumber={projectNumber}
+            clientName={effective.clientName}
+            clientAddress={effective.clientAddress}
+            projectNumber={effective.projectNumber}
           />
         </div>
       </div>
