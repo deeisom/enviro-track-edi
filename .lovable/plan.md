@@ -1,63 +1,41 @@
 
-The user wants a way to combine a parent invoice with all of its child continuation invoices into a single multi-page Excel export. The "Continuation Invoices" feature already exists — invoices have a `parentInvoiceId` field linking children to a parent, and there's a manual workflow for handling 8+ line items across multiple invoices.
-
-Let me confirm what exists by checking the relevant files.
-<lov-tool-use id="toolu_vrtx_01CU1PxSnXdK36xiCtiUPwLc" name="code--view" integration-id="code" data="{\"file_path\": \"src/services/invoiceExport.ts\", \"lines\": \"1-80\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_018auGZx5aswq3XsLeDxdETV" name="code--search_files" integration-id="code" data="{\"query\": \"parentInvoiceId|parent_invoice_id\", \"include_patterns\": \"src/**/*.tsx,src/**/*.ts\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_017Q1asmnX8tzNdRqZHUo1jK" name="code--view" integration-id="code" data="{\"file_path\": \"src/pages/InvoicesPage.tsx\", \"lines\": \"1-80\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_01QwSFd7T4T6Qi4wqh3zdjfe" name="code--view" integration-id="code" data="{\"file_path\": \"src/services/invoiceExport.ts\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_01TpQRz88SBpu6VUPQVdAXtT" name="code--search_files" integration-id="code" data="{\"query\": \"parentInvoiceId|parent_invoice_id|Continuation\", \"include_patterns\": \"src/**/*.tsx,src/**/*.ts\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_01FiUzroHYRLQZAbRFrUweme" name="code--view" integration-id="code" data="{\"file_path\": \"src/pages/InvoicesPage.tsx\"}">
-</lov-tool-use>
-I have enough context to plan.
-
-<lov-plan>
 
 ## Goal
-Add a "Combine" button on the Invoices list that fuses a parent invoice with all its continuation invoices into a single multi-page Excel file for export.
+Replace the broken Excel-sheet-copy combine with a clean PDF combine: each invoice (parent + each continuation) renders as its own perfect single page, then all pages are merged into one PDF.
 
-## How combining works today
-- Continuation invoices are stored as separate rows in the `invoices` table with `parent_invoice_id` pointing at the parent. Their numbers look like `INV-0042-01`, `INV-0042-02`, etc.
-- The Excel export currently exports one invoice = one worksheet/page using `/invoice-template.xlsx`.
-- There's no existing way to download all pages of a multi-page invoice as one file.
+## Why the current version is broken
+The current combine builds a multi-sheet `.xlsx` by copying the template worksheet cell-by-cell. Print area, page breaks, and print scaling don't survive the copy, so the sheets visually smoosh together when previewed/printed. Excel's print fidelity across copied sheets is fragile and not worth fighting.
 
-## Plan
+## The fix
+Use the existing single-page PDF renderer (`exportInvoiceToPDF` in `src/services/invoiceExport.ts`) as the source of truth. Each invoice already produces a clean, locked single-page PDF identical to the standalone export. We just stitch those pages together.
 
-### 1. New export function: `exportCombinedInvoiceToExcel(parent, continuations)`
-In `src/services/invoiceExport.ts`:
-- Load `/invoice-template.xlsx` once into a workbook.
-- The first sheet renders the parent invoice (reusing the existing single-invoice render logic, refactored into a helper `renderInvoiceToSheet(ws, invoice)`).
-- For each continuation (sorted by suffix `-01`, `-02`, …), duplicate the template sheet and render the continuation onto it. Sheets are named `INV-0042`, `INV-0042-01`, etc.
-- Save as `${parent.invoiceNumber}-combined.xlsx`.
+### 1. Refactor `exportInvoiceToPDF` to return the `jsPDF` doc (in addition to saving)
+Split it into:
+- `buildInvoicePDF(invoice): Promise<jsPDF>` — pure renderer, returns the doc (one page).
+- `exportInvoiceToPDF(invoice)` — calls `buildInvoicePDF` then `doc.save()`. No behaviour change for existing callers.
 
-Refactor: pull the body of the current `exportInvoiceToExcel` (lines ~39–273) into a `renderInvoiceToSheet(ws, invoice)` helper so both single and combined exports share it.
+### 2. New function: `exportCombinedInvoiceToPDF(parent, continuations)`
+- Sort continuations by suffix (`-01`, `-02`, …) — same logic as today.
+- Build the parent PDF via `buildInvoicePDF(parent)`. This is page 1, locked exactly as the standalone export.
+- For each continuation: build its PDF, then append its first page to the parent doc using `doc.addPage()` followed by `doc.setPage()` and copying the content. jsPDF supports this via `pdf.addPage()` + redrawing, but the cleanest approach is to render directly into the same doc:
+  - Inside `buildInvoicePDF`, accept an optional `existingDoc` + `appendPage` flag. When appending, call `existingDoc.addPage()` instead of creating a new doc, then run the same draw routine against it.
+- Save as `${parent.invoiceNumber}-combined.pdf`.
 
-### 2. Combine button in the Invoices list
-In `src/pages/InvoicesPage.tsx`:
-- For each invoice row that **is a parent and has at least one continuation** (i.e. some other row has `parentInvoiceId === inv.id`), show a new "Combine" icon button (Layers icon) next to Excel/Edit.
-- Clicking it loads the parent + continuations and calls the new combined export function.
-- Continuation rows themselves don't show the combine button — only the parent does.
-- Hide the standalone combine button when there are no continuations so it stays out of the way for normal one-page invoices.
+This guarantees each page is byte-identical to its standalone PDF — same margins, header, layout, accreditation logos at the bottom.
 
-### 3. (Optional polish) Visual grouping in the list
-Add a small "+N pages" badge next to the parent invoice number when continuations exist, so it's obvious which invoice can be combined.
+### 3. Update the Combine button in `src/pages/InvoicesPage.tsx`
+- Swap the handler from `exportCombinedInvoiceToExcel` → `exportCombinedInvoiceToPDF`.
+- Keep the Layers icon, the "+N pages" badge, and the parent-only visibility rule.
+- Update tooltip to "Combine into PDF".
+
+### 4. Remove the broken Excel combine
+Delete `exportCombinedInvoiceToExcel` and the `appendTemplateSheet` helper. The standalone Excel export per invoice still works as before.
 
 ## Files touched
-- `src/services/invoiceExport.ts` — refactor + new `exportCombinedInvoiceToExcel`
-- `src/pages/InvoicesPage.tsx` — Combine button, page-count badge, handler
+- `src/services/invoiceExport.ts` — refactor PDF builder, add `exportCombinedInvoiceToPDF`, remove broken Excel combine.
+- `src/pages/InvoicesPage.tsx` — point Combine button at the new PDF function, update tooltip.
 
 ## Out of scope
-- No DB changes.
-- PDF combined export (Excel only, matching existing export-only-Excel rule).
-- Auto-renumbering or merging into a single logical invoice — continuations stay separate records.
+- No DB / type changes.
+- Standalone single-invoice Excel and PDF exports stay exactly as they are today.
 
