@@ -268,9 +268,10 @@ function mapContact(row: any): Contact {
 // --- Activity Log ---
 
 export async function getAllActivity(): Promise<ActivityLogEntry[]> {
-  const { data, error } = await supabase.from("activity_log").select("*").order("timestamp", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapActivity);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("activity_log").select("*").order("timestamp", { ascending: false })
+  );
+  return rows.map(mapActivity);
 }
 
 export async function getProjectActivity(projectId: string): Promise<ActivityLogEntry[]> {
