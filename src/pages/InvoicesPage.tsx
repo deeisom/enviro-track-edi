@@ -15,9 +15,9 @@ import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRate
 import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivity } from "@/services/storage";
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
 import { Project, Client } from "@/types";
-import { exportInvoiceToExcel, exportInvoiceToPDF, exportCombinedInvoiceToPDF } from "@/services/invoiceExport";
+import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle, Layers } from "lucide-react";
+import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
@@ -36,15 +36,6 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
   const handleExcelExport = async (inv: Invoice) => {
     try { await exportInvoiceToExcel(inv); toast({ title: "Excel downloaded" }); }
     catch (e) { toast({ title: "Export failed", description: String(e), variant: "destructive" }); }
-  };
-  const handleCombinedExport = async (parent: Invoice) => {
-    const continuations = invoices.filter(i => i.parentInvoiceId === parent.id);
-    try {
-      await exportCombinedInvoiceToPDF(parent, continuations);
-      toast({ title: `Combined PDF downloaded (${continuations.length + 1} pages)` });
-    } catch (e: any) {
-      toast({ title: "Combine failed", description: e?.message || String(e), variant: "destructive" });
-    }
   };
 
   const handleStatusChange = async (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
@@ -112,20 +103,9 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                 <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>
               ) : invoices.map(inv => {
                 const linkedProject = projects.find(p => p.id === inv.projectId);
-                const continuationCount = invoices.filter(i => i.parentInvoiceId === inv.id).length;
-                const hasContinuations = continuationCount > 0;
                 return (
                 <TableRow key={inv.id}>
-                  <TableCell className="font-mono font-medium">
-                    <div className="flex items-center gap-2">
-                      {inv.invoiceNumber}
-                      {hasContinuations && (
-                        <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
-                          +{continuationCount} pages
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
+                  <TableCell className="font-mono font-medium">{inv.invoiceNumber}</TableCell>
                   <TableCell className="capitalize">{inv.type}</TableCell>
                   <TableCell className="font-mono text-sm">{linkedProject?.projectNumber || "—"}</TableCell>
                   <TableCell>{inv.billTo.name}</TableCell>
@@ -145,17 +125,6 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>
-                      {hasContinuations && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-primary"
-                          title={`Combine with ${continuationCount} continuation page(s) into one PDF`}
-                          onClick={() => handleCombinedExport(inv)}
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
                       
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

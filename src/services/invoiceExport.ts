@@ -29,11 +29,21 @@ function splitAddress(address: string): [string, string] {
  * contains the correct layout, logos, borders, and formatting. We only
  * overwrite the dynamic data cells and clear/fill the line-item rows.
  */
-/**
- * Render a single invoice's data onto a pre-loaded worksheet that already
- * contains the invoice template layout (logos, borders, formatting).
- */
-function renderInvoiceToSheet(ws: ExcelJS.Worksheet, invoice: Invoice) {
+export async function exportInvoiceToExcel(invoice: Invoice) {
+  try {
+  const wb = new ExcelJS.Workbook();
+  const response = await fetch("/invoice-template.xlsx");
+  const buffer = await response.arrayBuffer();
+  await wb.xlsx.load(buffer);
+
+  const ws = wb.worksheets[0];
+  if (!ws) throw new Error("No worksheet found");
+
+  // Remove extra worksheets to prevent Excel repair warnings
+  while (wb.worksheets.length > 1) {
+    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
+  }
+
   // Print scaling — fit all columns on one page width
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
@@ -262,48 +272,13 @@ function renderInvoiceToSheet(ws: ExcelJS.Worksheet, invoice: Invoice) {
     result: invoice.total,
   };
 
-}
-
-/** Memoized loader for accreditation logos PNG. Loads once per session. */
-let logosImgPromise: Promise<string | null> | null = null;
-function loadLogos(): Promise<string | null> {
-  if (!logosImgPromise) {
-    logosImgPromise = (async () => {
-      try {
-        const resp = await fetch("/images/accreditation-logos.png");
-        if (!resp.ok) {
-          console.error("Failed to fetch accreditation logos:", resp.status);
-          return null;
-        }
-        const blob = await resp.blob();
-        if (!blob.type.includes("png") && !blob.type.includes("image")) {
-          console.error("Unexpected blob type for accreditation logos:", blob.type);
-          return null;
-        }
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(blob);
-        });
-        if (!dataUrl.startsWith("data:image/png;base64,")) {
-          console.error("Invalid data URL format for accreditation logos");
-          return null;
-        }
-        return dataUrl;
-      } catch (err) {
-        console.error("Error loading accreditation logos:", err);
-        return null;
-      }
-    })();
-  }
-  return logosImgPromise;
-}
-
-/** Wrap a render call to translate merge-overflow errors into a user-friendly message. */
-async function safeRender(fn: () => void | Promise<void>) {
-  try {
-    await fn();
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `${invoice.invoiceNumber}.xlsx`
+  );
   } catch (err: any) {
     const msg = String(err?.message || err);
     if (msg.toLowerCase().includes("merge")) {
@@ -313,57 +288,32 @@ async function safeRender(fn: () => void | Promise<void>) {
   }
 }
 
-/**
- * Excel export: loads the reference invoice template (.xlsx) which already
- * contains the correct layout, logos, borders, and formatting. We only
- * overwrite the dynamic data cells and clear/fill the line-item rows.
- */
-export async function exportInvoiceToExcel(invoice: Invoice) {
-  const wb = new ExcelJS.Workbook();
-  const response = await fetch("/invoice-template.xlsx");
-  const buffer = await response.arrayBuffer();
-  await wb.xlsx.load(buffer);
-
-  const ws = wb.worksheets[0];
-  if (!ws) throw new Error("No worksheet found");
-
-  // Remove extra worksheets to prevent Excel repair warnings
-  while (wb.worksheets.length > 1) {
-    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
-  }
-
-  await safeRender(() => renderInvoiceToSheet(ws, invoice));
-
-  const buf = await wb.xlsx.writeBuffer();
-  saveAs(
-    new Blob([buf], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }),
-    `${invoice.invoiceNumber}.xlsx`
-  );
-}
-
-/**
- * Render a single invoice as one PDF page. If `existingDoc` is provided,
- * appends a new page to that doc and renders into it; otherwise creates a
- * fresh single-page jsPDF doc. Returns the doc.
- */
-async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Promise<jsPDF> {
+export async function exportInvoiceToPDF(invoice: Invoice) {
   // Custom margins in mm: top=0.85in, left=0.25in, right=0.2in, bottom=0in
   const marginTop = 0.85 * 25.4;   // ~21.6mm
   const marginLeft = 0.25 * 25.4;  // ~6.35mm
   const marginRight = 0.2 * 25.4;  // ~5.08mm
-  const doc = existingDoc ?? new jsPDF();
-  if (existingDoc) {
-    existingDoc.addPage();
-  }
+  const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const isEstimate = invoice.type === "estimate";
   const docLabel = isEstimate ? "Estimate" : "Invoice";
 
-  // Load accreditation logos (memoized — only fetches/decodes once per session)
-  const logosImg = await loadLogos();
+  // Load accreditation logos
+  let logosImg: string | null = null;
+  try {
+    const resp = await fetch("/images/accreditation-logos.png");
+    if (!resp.ok) throw new Error(`Failed to fetch logos: ${resp.status}`);
+    const blob = await resp.blob();
+    logosImg = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error("Could not load accreditation logos:", err);
+  }
 
   // Header
   doc.setFontSize(16);
@@ -483,43 +433,14 @@ async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Prom
     { align: "center" }
   );
 
-  // Accreditation logos (decorative — never fail the export over this)
+  // Accreditation logos
   if (logosImg) {
-    try {
-      const imgWidth = 120;
-      const imgHeight = 30;
-      const imgX = (pageWidth - imgWidth) / 2;
-      const imgY = pageHeight - imgHeight - 10;
-      doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
-    } catch (err) {
-      console.error("Failed to add accreditation logos to PDF page:", err);
-    }
+    const imgWidth = 120;
+    const imgHeight = 30;
+    const imgX = (pageWidth - imgWidth) / 2;
+    const imgY = pageHeight - imgHeight - 10;
+    doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
   }
 
-  return doc;
-}
-
-/** Export a single invoice as a one-page PDF. */
-export async function exportInvoiceToPDF(invoice: Invoice) {
-  const doc = await renderInvoicePDFPage(invoice);
   doc.save(`${invoice.invoiceNumber}.pdf`);
-}
-
-/**
- * Combined PDF export: renders the parent invoice as page 1 and each
- * continuation as a subsequent page in the same PDF. Each page is
- * byte-identical to the standalone single-invoice PDF.
- */
-export async function exportCombinedInvoiceToPDF(parent: Invoice, continuations: Invoice[]) {
-  const ordered = [...continuations].sort((a, b) => {
-    const sa = parseInt(a.invoiceNumber.split("-").pop() || "0", 10);
-    const sb = parseInt(b.invoiceNumber.split("-").pop() || "0", 10);
-    return sa - sb;
-  });
-
-  const doc = await renderInvoicePDFPage(parent);
-  for (const cont of ordered) {
-    await renderInvoicePDFPage(cont, doc);
-  }
-  doc.save(`${parent.invoiceNumber}-combined.pdf`);
 }

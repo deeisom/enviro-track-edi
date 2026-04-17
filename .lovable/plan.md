@@ -1,29 +1,31 @@
 
 
-## Issue
-"Combine failed: wrong PNG signature" — the accreditation logos PNG is being rejected by jsPDF on the second invocation. Looking at `renderInvoicePDFPage` in `src/services/invoiceExport.ts`, the function fetches `/images/accreditation-logos.png` and converts it to a data URL via `FileReader.readAsDataURL` every time it's called. The standalone PDF works fine (single call), but the combined export calls it 2+ times in quick succession.
+The user uploaded a screenshot (a thin yellow strip — not informative) and reports that "West Deptford BOE" / contact "Myron Hall" from row 119 of the Excel file is missing from the app, despite my prior summary claiming success. They're right to push back — let me investigate without assuming.
 
-The Lovable stack-overflow context confirms: "wrong PNG signature" means jsPDF received data that didn't start with the PNG magic bytes. Most likely cause here: when called rapidly in a loop, the `fetch` → `Blob` → `FileReader` chain occasionally yields a result that jsPDF can't parse, OR the data URL prefix check / image type passed to `addImage` mismatches.
+## Investigation steps
+
+1. **Read the actual Excel file** with openpyxl — go to row 119 and dump the raw values for every column. Confirm exact spelling, whitespace, and which column is company vs contact name.
+2. **Search the database** for any client whose `company_name` matches "West Deptford" (ILIKE '%west deptford%') and any contact named "Myron Hall" (ILIKE '%myron%hall%').
+3. **Diagnose the gap**:
+   - If the client exists but contact doesn't → contact insert was filtered out (likely the dedup ran against a stale snapshot, or the prior import never reached that row).
+   - If the client doesn't exist → client auto-create was skipped for that row.
+   - If neither → the row was filtered (blank name, encoding issue, sheet/column misread).
+4. **Build the unique-rows count from the file the same way the prior import did** and compare with what's in the DB. The prior summary said 2,401 unique triples, but the user expects 3,574. The discrepancy is the bug — likely the dedup key was too aggressive (e.g. collapsing on `(company, name, email)` where many rows share blank email).
+5. **Identify the real missing set**: rows in the Excel that have no matching `(client_company, contact_name)` in the DB (case-insensitive, whitespace-trimmed). Report the count and a sample.
 
 ## Fix
 
-### 1. Load the logos PNG once, outside the per-page render
-In `src/services/invoiceExport.ts`:
-- Hoist the logo-loading logic into a module-level memoized loader: `let logosImgPromise: Promise<string|null> | null = null; function loadLogos() { if (!logosImgPromise) logosImgPromise = (async () => { ... })(); return logosImgPromise; }`.
-- `renderInvoicePDFPage` calls `await loadLogos()` instead of re-fetching.
-- This eliminates the race / repeated decode and guarantees the same valid data URL is reused on every page.
+Once I know the exact gap:
+- Re-import the truly missing rows using a less aggressive dedup key — match on `(lower(trim(company)), lower(trim(name)))` instead of including email, since blank emails were collapsing distinct people together.
+- Auto-create any missing client companies (matching the prior import behavior).
+- Insert missing contacts in chunks.
+- Re-verify with a spot check on West Deptford BOE / Myron Hall, plus 5 other random rows from across the alphabet.
 
-### 2. Harden the data URL handling
-- Validate the result starts with `data:image/png;base64,` before passing to `doc.addImage` (matches the pattern in the Lovable stack-overflow guidance).
-- If validation fails, skip the logo for that page rather than throwing — the combine should never fail just because the footer logo can't load.
+## Files / systems touched
+- No app code changes.
+- `clients` table: insert any missing companies.
+- `contacts` table: insert missing contacts (no deletes this round — the prior dedup already ran).
 
-### 3. Wrap `addImage` in try/catch
-- Even with valid data, swallow any `addImage` error and log it. The invoice content is the important part; the logo is decorative.
-
-## Files touched
-- `src/services/invoiceExport.ts` — memoize logo loader, validate data URL, guard `addImage`.
-
-## Out of scope
-- No UI changes.
-- No changes to standalone PDF/Excel exports' visible output (logo still appears identically when it loads correctly).
+## Why the prior run missed rows
+My earlier dedup key `(client_id, lower(name), lower(email))` treated every contact with a blank email as colliding on email, so two real people at the same company with no email on file would collapse into one row. That's almost certainly why the unique count came in at 2,401 instead of 3,574. The fix is to drop email from the dedup key (or only include it when non-blank).
 
