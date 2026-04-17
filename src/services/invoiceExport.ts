@@ -362,21 +362,8 @@ async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Prom
   const isEstimate = invoice.type === "estimate";
   const docLabel = isEstimate ? "Estimate" : "Invoice";
 
-  // Load accreditation logos
-  let logosImg: string | null = null;
-  try {
-    const resp = await fetch("/images/accreditation-logos.png");
-    if (!resp.ok) throw new Error(`Failed to fetch logos: ${resp.status}`);
-    const blob = await resp.blob();
-    logosImg = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.error("Could not load accreditation logos:", err);
-  }
+  // Load accreditation logos (memoized — only fetches/decodes once per session)
+  const logosImg = await loadLogos();
 
   // Header
   doc.setFontSize(16);
