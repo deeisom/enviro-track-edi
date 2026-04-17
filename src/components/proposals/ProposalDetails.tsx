@@ -33,8 +33,6 @@ export function ProposalInfoSection({ proposal, onUpdate }: Omit<Props, "contact
         <CardHeader><CardTitle>Proposal Info</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {field("Proposal Date", "proposalDate", "MM/DD/YYYY")}
-          {field("Expiration Date", "expirationDate", "MM/DD/YYYY")}
-          {field("Work Performed Title", "serviceType", "e.g. Targeted Mold Evaluation")}
         </CardContent>
       </Card>
     </div>
