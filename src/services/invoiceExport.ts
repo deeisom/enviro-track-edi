@@ -29,21 +29,11 @@ function splitAddress(address: string): [string, string] {
  * contains the correct layout, logos, borders, and formatting. We only
  * overwrite the dynamic data cells and clear/fill the line-item rows.
  */
-export async function exportInvoiceToExcel(invoice: Invoice) {
-  try {
-  const wb = new ExcelJS.Workbook();
-  const response = await fetch("/invoice-template.xlsx");
-  const buffer = await response.arrayBuffer();
-  await wb.xlsx.load(buffer);
-
-  const ws = wb.worksheets[0];
-  if (!ws) throw new Error("No worksheet found");
-
-  // Remove extra worksheets to prevent Excel repair warnings
-  while (wb.worksheets.length > 1) {
-    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
-  }
-
+/**
+ * Render a single invoice's data onto a pre-loaded worksheet that already
+ * contains the invoice template layout (logos, borders, formatting).
+ */
+function renderInvoiceToSheet(ws: ExcelJS.Worksheet, invoice: Invoice) {
   // Print scaling — fit all columns on one page width
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
@@ -272,13 +262,12 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     result: invoice.total,
   };
 
-  const buf = await wb.xlsx.writeBuffer();
-  saveAs(
-    new Blob([buf], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }),
-    `${invoice.invoiceNumber}.xlsx`
-  );
+}
+
+/** Wrap a render call to translate merge-overflow errors into a user-friendly message. */
+async function safeRender(fn: () => void | Promise<void>) {
+  try {
+    await fn();
   } catch (err: any) {
     const msg = String(err?.message || err);
     if (msg.toLowerCase().includes("merge")) {
@@ -286,6 +275,124 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     }
     throw err;
   }
+}
+
+/**
+ * Excel export: loads the reference invoice template (.xlsx) which already
+ * contains the correct layout, logos, borders, and formatting. We only
+ * overwrite the dynamic data cells and clear/fill the line-item rows.
+ */
+export async function exportInvoiceToExcel(invoice: Invoice) {
+  const wb = new ExcelJS.Workbook();
+  const response = await fetch("/invoice-template.xlsx");
+  const buffer = await response.arrayBuffer();
+  await wb.xlsx.load(buffer);
+
+  const ws = wb.worksheets[0];
+  if (!ws) throw new Error("No worksheet found");
+
+  // Remove extra worksheets to prevent Excel repair warnings
+  while (wb.worksheets.length > 1) {
+    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
+  }
+
+  await safeRender(() => renderInvoiceToSheet(ws, invoice));
+
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `${invoice.invoiceNumber}.xlsx`
+  );
+}
+
+/**
+ * Combined Excel export: renders the parent invoice and each continuation
+ * onto its own sheet within a single workbook. Sheets are ordered parent
+ * first, then continuations sorted by their numeric suffix (-01, -02, …).
+ */
+export async function exportCombinedInvoiceToExcel(parent: Invoice, continuations: Invoice[]) {
+  const ordered = [...continuations].sort((a, b) => {
+    const sa = parseInt(a.invoiceNumber.split("-").pop() || "0", 10);
+    const sb = parseInt(b.invoiceNumber.split("-").pop() || "0", 10);
+    return sa - sb;
+  });
+
+  const wb = new ExcelJS.Workbook();
+  const response = await fetch("/invoice-template.xlsx");
+  const buffer = await response.arrayBuffer();
+
+  // Helper: load a fresh copy of the template into a temp workbook and copy
+  // its first sheet into the destination workbook with the given name.
+  async function appendTemplateSheet(name: string): Promise<ExcelJS.Worksheet> {
+    const tempWb = new ExcelJS.Workbook();
+    await tempWb.xlsx.load(buffer);
+    const src = tempWb.worksheets[0];
+    if (!src) throw new Error("Template worksheet missing");
+    const safeName = name.substring(0, 31);
+    const dest = wb.addWorksheet(safeName);
+
+    // Copy column widths
+    src.columns?.forEach((col, i) => {
+      if (col?.width) dest.getColumn(i + 1).width = col.width;
+    });
+
+    // Copy row heights and cells (values + styles)
+    src.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      const destRow = dest.getRow(rowNumber);
+      if (row.height) destRow.height = row.height;
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const destCell = destRow.getCell(colNumber);
+        destCell.value = cell.value;
+        if (cell.style) destCell.style = JSON.parse(JSON.stringify(cell.style));
+      });
+    });
+
+    // Copy merges
+    const merges = Object.keys((src as any)._merges || {});
+    merges.forEach((range) => {
+      try { dest.mergeCells(range); } catch { /* already merged or invalid */ }
+    });
+
+    // Copy images (logos, header art)
+    const srcImages = (src as any).getImages?.() || [];
+    srcImages.forEach((img: any) => {
+      const media = (tempWb as any).model?.media?.find((m: any) => m.index === img.imageId);
+      if (media) {
+        const newImageId = wb.addImage({
+          buffer: media.buffer,
+          extension: media.extension,
+        });
+        dest.addImage(newImageId, img.range);
+      }
+    });
+
+    // Copy page setup (margins, fit-to-page, etc.)
+    dest.pageSetup = { ...src.pageSetup };
+
+    return dest;
+  }
+
+  const sheets: { ws: ExcelJS.Worksheet; invoice: Invoice }[] = [];
+  sheets.push({ ws: await appendTemplateSheet(parent.invoiceNumber), invoice: parent });
+  for (const cont of ordered) {
+    sheets.push({ ws: await appendTemplateSheet(cont.invoiceNumber), invoice: cont });
+  }
+
+  await safeRender(() => {
+    for (const { ws, invoice } of sheets) {
+      renderInvoiceToSheet(ws, invoice);
+    }
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `${parent.invoiceNumber}-combined.xlsx`
+  );
 }
 
 export async function exportInvoiceToPDF(invoice: Invoice) {
