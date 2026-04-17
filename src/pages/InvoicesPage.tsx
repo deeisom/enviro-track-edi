@@ -15,9 +15,9 @@ import { getAllInvoices, createInvoice, updateInvoice, deleteInvoice, getAllRate
 import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivity } from "@/services/storage";
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
 import { Project, Client } from "@/types";
-import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
+import { exportInvoiceToExcel, exportInvoiceToPDF, exportCombinedInvoiceToExcel } from "@/services/invoiceExport";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
+import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
