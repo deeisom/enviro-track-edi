@@ -483,13 +483,17 @@ async function renderInvoicePDFPage(invoice: Invoice, existingDoc?: jsPDF): Prom
     { align: "center" }
   );
 
-  // Accreditation logos
+  // Accreditation logos (decorative — never fail the export over this)
   if (logosImg) {
-    const imgWidth = 120;
-    const imgHeight = 30;
-    const imgX = (pageWidth - imgWidth) / 2;
-    const imgY = pageHeight - imgHeight - 10;
-    doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
+    try {
+      const imgWidth = 120;
+      const imgHeight = 30;
+      const imgX = (pageWidth - imgWidth) / 2;
+      const imgY = pageHeight - imgHeight - 10;
+      doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
+    } catch (err) {
+      console.error("Failed to add accreditation logos to PDF page:", err);
+    }
   }
 
   return doc;
