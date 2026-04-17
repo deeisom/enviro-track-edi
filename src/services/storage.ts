@@ -206,9 +206,10 @@ function mapClient(row: any): Client {
 // --- Contacts ---
 
 export async function getAllContacts(): Promise<Contact[]> {
-  const { data, error } = await supabase.from("contacts").select("*");
-  if (error) throw error;
-  return (data || []).map(mapContact);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("contacts").select("*").order("name")
+  );
+  return rows.map(mapContact);
 }
 
 export async function getContactsByClient(clientId: string): Promise<Contact[]> {
