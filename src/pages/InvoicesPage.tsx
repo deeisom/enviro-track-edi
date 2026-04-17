@@ -99,13 +99,60 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>
-              ) : invoices.map(inv => {
-                const linkedProject = projects.find(p => p.id === inv.projectId);
-                return (
-                <TableRow key={inv.id}>
-                  <TableCell className="font-mono font-medium">{inv.invoiceNumber}</TableCell>
+              {(() => {
+                if (invoices.length === 0) {
+                  return <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>;
+                }
+
+                // Group continuations under their parents
+                const byId = new Map(invoices.map(i => [i.id, i]));
+                const childrenByParent = new Map<string, Invoice[]>();
+                for (const inv of invoices) {
+                  if (inv.parentInvoiceId && byId.has(inv.parentInvoiceId)) {
+                    const arr = childrenByParent.get(inv.parentInvoiceId) || [];
+                    arr.push(inv);
+                    childrenByParent.set(inv.parentInvoiceId, arr);
+                  }
+                }
+                // Sort children by invoice number suffix
+                for (const arr of childrenByParent.values()) {
+                  arr.sort((a, b) => a.invoiceNumber.localeCompare(b.invoiceNumber));
+                }
+
+                const ordered: Invoice[] = [];
+                for (const inv of invoices) {
+                  // Skip children — they'll be appended after their parent
+                  if (inv.parentInvoiceId && byId.has(inv.parentInvoiceId)) continue;
+                  ordered.push(inv);
+                  const kids = childrenByParent.get(inv.id);
+                  if (kids) ordered.push(...kids);
+                }
+
+                return ordered.map(inv => {
+                  const linkedProject = projects.find(p => p.id === inv.projectId);
+                  const isChild = !!inv.parentInvoiceId && byId.has(inv.parentInvoiceId);
+                  const childCount = childrenByParent.get(inv.id)?.length || 0;
+                  const parent = isChild ? byId.get(inv.parentInvoiceId!) : null;
+                  const suffix = isChild && parent
+                    ? inv.invoiceNumber.slice(parent.invoiceNumber.length)
+                    : "";
+                  return (
+                <TableRow key={inv.id} className={isChild ? "bg-muted/30" : ""}>
+                  <TableCell className="font-mono font-medium">
+                    {isChild ? (
+                      <span className="inline-flex items-center gap-1 pl-6 text-muted-foreground" title={inv.invoiceNumber}>
+                        <span aria-hidden>└</span>
+                        <span>{suffix || inv.invoiceNumber}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        {inv.invoiceNumber}
+                        {childCount > 0 && (
+                          <Badge variant="secondary" className="text-[10px] h-5 px-1.5">+{childCount} {childCount === 1 ? "page" : "pages"}</Badge>
+                        )}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="capitalize">{inv.type}</TableCell>
                   <TableCell className="font-mono text-sm">{linkedProject?.projectNumber || "—"}</TableCell>
                   <TableCell>{inv.billTo.name}</TableCell>
@@ -144,8 +191,9 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                     </div>
                   </TableCell>
                 </TableRow>
-                );
-              })}
+                  );
+                });
+              })()}
             </TableBody>
           </Table>
         </CardContent>
