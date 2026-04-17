@@ -1,6 +1,28 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Project, Client, Contact, ActivityLogEntry, ProjectStatus } from "@/types";
 
+// Supabase caps a single .select() at 1000 rows by default. For tables that can
+// exceed that (clients, contacts, projects, activity_log) we page through with
+// .range() until we've fetched everything.
+const PAGE_SIZE = 1000;
+
+export async function fetchAllPaged<T>(
+  build: () => any,
+): Promise<T[]> {
+  const out: T[] = [];
+  let from = 0;
+  // Hard upper bound to prevent infinite loops in pathological cases.
+  for (let i = 0; i < 200; i++) {
+    const { data, error } = await build().range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data || []) as T[];
+    out.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
+}
+
 // --- Projects ---
 
 export async function getNextProjectNumber(): Promise<string> {
@@ -10,9 +32,10 @@ export async function getNextProjectNumber(): Promise<string> {
 }
 
 export async function getAllProjects(): Promise<Project[]> {
-  const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapProject);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("projects").select("*").order("created_at", { ascending: false })
+  );
+  return rows.map(mapProject);
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
@@ -119,9 +142,10 @@ function mapProject(row: any): Project {
 // --- Clients ---
 
 export async function getAllClients(): Promise<Client[]> {
-  const { data, error } = await supabase.from("clients").select("*").order("company_name");
-  if (error) throw error;
-  return (data || []).map(mapClient);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("clients").select("*").order("company_name")
+  );
+  return rows.map(mapClient);
 }
 
 export async function getClient(id: string): Promise<Client | undefined> {
@@ -182,9 +206,10 @@ function mapClient(row: any): Client {
 // --- Contacts ---
 
 export async function getAllContacts(): Promise<Contact[]> {
-  const { data, error } = await supabase.from("contacts").select("*");
-  if (error) throw error;
-  return (data || []).map(mapContact);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("contacts").select("*").order("name")
+  );
+  return rows.map(mapContact);
 }
 
 export async function getContactsByClient(clientId: string): Promise<Contact[]> {
@@ -243,9 +268,10 @@ function mapContact(row: any): Contact {
 // --- Activity Log ---
 
 export async function getAllActivity(): Promise<ActivityLogEntry[]> {
-  const { data, error } = await supabase.from("activity_log").select("*").order("timestamp", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapActivity);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("activity_log").select("*").order("timestamp", { ascending: false })
+  );
+  return rows.map(mapActivity);
 }
 
 export async function getProjectActivity(projectId: string): Promise<ActivityLogEntry[]> {

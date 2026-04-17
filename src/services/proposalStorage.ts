@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "./storage";
 import type { Proposal, ProposalClause, ProposalStatus, ProposalFeeItem, ProposalClauseSelection, AIContentBlock } from "@/types/proposal";
 
 // --- Proposals ---
@@ -10,9 +11,10 @@ export async function getNextProposalNumber(): Promise<string> {
 }
 
 export async function getAllProposals(): Promise<Proposal[]> {
-  const { data, error } = await supabase.from("proposals").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapProposal);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("proposals").select("*").order("created_at", { ascending: false })
+  );
+  return rows.map(mapProposal);
 }
 
 export async function getProposal(id: string): Promise<Proposal | undefined> {

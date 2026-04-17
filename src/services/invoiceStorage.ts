@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RateItem, Invoice, InvoiceLineItem } from "@/types/invoice";
+import { fetchAllPaged } from "./storage";
 
 // --- Rate Items ---
 
@@ -64,9 +65,10 @@ export async function getNextInvoiceNumber(type: "invoice" | "estimate"): Promis
 }
 
 export async function getAllInvoices(): Promise<Invoice[]> {
-  const { data, error } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(mapInvoice);
+  const rows = await fetchAllPaged<any>(() =>
+    supabase.from("invoices").select("*").order("created_at", { ascending: false })
+  );
+  return rows.map(mapInvoice);
 }
 
 export async function getInvoice(id: string): Promise<Invoice | undefined> {
