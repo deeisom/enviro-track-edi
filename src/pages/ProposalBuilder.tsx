@@ -274,7 +274,7 @@ export default function ProposalBuilder() {
             proposal={proposal}
             clientName={clientName}
             clientAddress={clientAddress}
-            project={project}
+            project={effectiveProject}
             clauses={clauses}
             contacts={contacts}
           />
