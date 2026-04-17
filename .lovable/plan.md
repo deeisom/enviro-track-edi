@@ -1,31 +1,36 @@
 
 
-The user uploaded a screenshot (a thin yellow strip — not informative) and reports that "West Deptford BOE" / contact "Myron Hall" from row 119 of the Excel file is missing from the app, despite my prior summary claiming success. They're right to push back — let me investigate without assuming.
+## Goal
+Group continuation invoices visually under their parent in the Invoices list, with indentation and a connector so they're clearly attached.
 
-## Investigation steps
+## Approach
 
-1. **Read the actual Excel file** with openpyxl — go to row 119 and dump the raw values for every column. Confirm exact spelling, whitespace, and which column is company vs contact name.
-2. **Search the database** for any client whose `company_name` matches "West Deptford" (ILIKE '%west deptford%') and any contact named "Myron Hall" (ILIKE '%myron%hall%').
-3. **Diagnose the gap**:
-   - If the client exists but contact doesn't → contact insert was filtered out (likely the dedup ran against a stale snapshot, or the prior import never reached that row).
-   - If the client doesn't exist → client auto-create was skipped for that row.
-   - If neither → the row was filtered (blank name, encoding issue, sheet/column misread).
-4. **Build the unique-rows count from the file the same way the prior import did** and compare with what's in the DB. The prior summary said 2,401 unique triples, but the user expects 3,574. The discrepancy is the bug — likely the dedup key was too aggressive (e.g. collapsing on `(company, name, email)` where many rows share blank email).
-5. **Identify the real missing set**: rows in the Excel that have no matching `(client_company, contact_name)` in the DB (case-insensitive, whitespace-trimmed). Report the count and a sample.
+### 1. Reorder the list so children follow their parent
+In `src/pages/InvoicesPage.tsx`, after invoices are loaded/filtered/sorted, run a grouping pass:
+- Build a map of `parentId → children[]`, sorted by invoice number suffix (`-01`, `-02`, …).
+- Build the final display list by iterating top-level invoices (those with no `parentInvoiceId`) and immediately appending their children after each parent.
+- Orphan continuations (parent missing/filtered out) fall back to their normal sort position so nothing disappears.
 
-## Fix
+This grouping happens regardless of the current sort/filter — children always travel with their parent.
 
-Once I know the exact gap:
-- Re-import the truly missing rows using a less aggressive dedup key — match on `(lower(trim(company)), lower(trim(name)))` instead of including email, since blank emails were collapsing distinct people together.
-- Auto-create any missing client companies (matching the prior import behavior).
-- Insert missing contacts in chunks.
-- Re-verify with a spot check on West Deptford BOE / Myron Hall, plus 5 other random rows from across the alphabet.
+### 2. Visual treatment for continuation rows
+For any row where `parentInvoiceId` is set:
+- Indent the first cell (~24px left padding) and render a small corner-connector glyph (`└`) before the invoice number to show the parent/child relationship.
+- Use a slightly muted background (`bg-muted/30`) so the group reads as one unit.
+- Replace the invoice-number cell display with just the suffix part (e.g. `└ -01`) to reduce noise — full number still shown on hover/tooltip.
 
-## Files / systems touched
-- No app code changes.
-- `clients` table: insert any missing companies.
-- `contacts` table: insert missing contacts (no deletes this round — the prior dedup already ran).
+### 3. Parent row badge
+Keep the existing "+N pages" badge next to parent invoice numbers when continuations exist (already added with the Combine feature) so parents are also visually marked.
 
-## Why the prior run missed rows
-My earlier dedup key `(client_id, lower(name), lower(email))` treated every contact with a blank email as colliding on email, so two real people at the same company with no email on file would collapse into one row. That's almost certainly why the unique count came in at 2,401 instead of 3,574. The fix is to drop email from the dedup key (or only include it when non-blank).
+### 4. Works in both Card and Table views
+- **Table view**: indentation + connector in the first column.
+- **Card view**: continuation cards rendered with `ml-6` margin and a left border (`border-l-2 border-muted`) so they visually nest under the parent card.
+
+## Files touched
+- `src/pages/InvoicesPage.tsx` — grouping logic + row/card styling for continuations.
+
+## Out of scope
+- No DB changes.
+- No change to sorting controls — grouping is applied as a final pass on top of the user's chosen sort.
+- No collapse/expand toggle (can add later if the nesting feels too busy).
 
