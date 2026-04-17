@@ -230,14 +230,7 @@ export default function ProposalBuilder() {
         </TabsContent>
 
         <TabsContent value="proposal" className="mt-4 space-y-6">
-          <ProposalInfoSection
-            proposal={proposal}
-            onUpdate={update}
-            contact={contacts.find(c => c.id === (proposal.proposalDetails as any)?.contactId) || null}
-            clientName={clientName}
-            clientAddress={clientAddress}
-            projectNumber={projectNumber}
-          />
+          <ProposalInfoSection proposal={proposal} onUpdate={update} />
           <AIContentControls
             section="background"
             title="Background"
