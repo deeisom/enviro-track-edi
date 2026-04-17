@@ -1,46 +1,31 @@
 
 
-## Investigation summary
+The user uploaded a screenshot (a thin yellow strip — not informative) and reports that "West Deptford BOE" / contact "Myron Hall" from row 119 of the Excel file is missing from the app, despite my prior summary claiming success. They're right to push back — let me investigate without assuming.
 
-Database currently has **3,748 contact rows** but only **2,231 unique names** — so the previous import created duplicates (likely re-ran), and you're still missing rows. The expected count is **3,574 unique contacts** from your spreadsheet.
+## Investigation steps
 
-By first letter the data exists across the whole alphabet, but several letters look thin (H=57, I=22, N=71, O=6, Q=1, U=5). The "H and later got dropped" hunch is likely a side effect of how rows were grouped per client during the prior import — not a hard alphabetical cutoff.
+1. **Read the actual Excel file** with openpyxl — go to row 119 and dump the raw values for every column. Confirm exact spelling, whitespace, and which column is company vs contact name.
+2. **Search the database** for any client whose `company_name` matches "West Deptford" (ILIKE '%west deptford%') and any contact named "Myron Hall" (ILIKE '%myron%hall%').
+3. **Diagnose the gap**:
+   - If the client exists but contact doesn't → contact insert was filtered out (likely the dedup ran against a stale snapshot, or the prior import never reached that row).
+   - If the client doesn't exist → client auto-create was skipped for that row.
+   - If neither → the row was filtered (blank name, encoding issue, sheet/column misread).
+4. **Build the unique-rows count from the file the same way the prior import did** and compare with what's in the DB. The prior summary said 2,401 unique triples, but the user expects 3,574. The discrepancy is the bug — likely the dedup key was too aggressive (e.g. collapsing on `(company, name, email)` where many rows share blank email).
+5. **Identify the real missing set**: rows in the Excel that have no matching `(client_company, contact_name)` in the DB (case-insensitive, whitespace-trimmed). Report the count and a sample.
 
-I cannot fully parse the uploaded `.xlsx` from plan mode. The actual fix needs default mode so I can read every row, diff against the DB, and re-import only the missing ones.
+## Fix
 
-## Plan
+Once I know the exact gap:
+- Re-import the truly missing rows using a less aggressive dedup key — match on `(lower(trim(company)), lower(trim(name)))` instead of including email, since blank emails were collapsing distinct people together.
+- Auto-create any missing client companies (matching the prior import behavior).
+- Insert missing contacts in chunks.
+- Re-verify with a spot check on West Deptford BOE / Myron Hall, plus 5 other random rows from across the alphabet.
 
-**1. Inspect the uploaded file**
-- Copy `New_Contacts_for_Envirotrack.xlsx` to a temp path and read all 3,574 rows with `openpyxl`.
-- Confirm the column layout (Name, Title, Email, Phone, Mobile, Secondary Email, Client/Company).
-- Report exact row count and any blank-name rows.
-
-**2. Clean up duplicates from the prior import**
-- Identify duplicate `(client_id, name, email)` triples in `contacts` and delete the redundant copies (keep the oldest row per triple).
-- Show a before/after count.
-
-**3. Match contacts to existing clients**
-- For each spreadsheet row, look up the client by company name in the `clients` table (case-insensitive, trimmed).
-- Rows whose company matches an existing client → link via `client_id`.
-- Rows whose company has no client yet → either (a) auto-create a new client, or (b) drop into a "needs review" bucket. Plan defaults to **auto-create** to match the prior import behavior, but I'll confirm in step 4.
-
-**4. Quick confirmation question (one prompt)**
-- Before inserting, ask you whether to auto-create missing companies as new clients or skip them, and whether to delete duplicate contacts created by the prior runs.
-
-**5. Bulk insert only missing contacts**
-- Diff the spreadsheet against current DB on `(client_id, lower(name), lower(email))`.
-- Insert only rows that don't already exist, in chunks.
-- Report final counts: rows in file, rows already present, rows newly inserted, rows skipped (and why).
-
-**6. Verification**
-- Re-run the per-letter count query and confirm totals make sense.
-- Spot-check 5 contacts whose names start with H, I, O, Q, U to confirm they're now present.
-
-### Files / systems touched
+## Files / systems touched
 - No app code changes.
-- Database `contacts` table: deletes duplicates + inserts missing rows.
-- Possibly `clients` table: inserts for any new companies (pending your answer in step 4).
+- `clients` table: insert any missing companies.
+- `contacts` table: insert missing contacts (no deletes this round — the prior dedup already ran).
 
-### Why this is safer than just re-running the prior import
-Re-running the original script would add another full set of duplicates. The diff-then-insert approach guarantees each spreadsheet row ends up in the DB exactly once.
+## Why the prior run missed rows
+My earlier dedup key `(client_id, lower(name), lower(email))` treated every contact with a blank email as colliding on email, so two real people at the same company with no email on file would collapse into one row. That's almost certainly why the unique count came in at 2,401 instead of 3,574. The fix is to drop email from the dedup key (or only include it when non-blank).
 
