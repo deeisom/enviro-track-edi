@@ -29,21 +29,11 @@ function splitAddress(address: string): [string, string] {
  * contains the correct layout, logos, borders, and formatting. We only
  * overwrite the dynamic data cells and clear/fill the line-item rows.
  */
-export async function exportInvoiceToExcel(invoice: Invoice) {
-  try {
-  const wb = new ExcelJS.Workbook();
-  const response = await fetch("/invoice-template.xlsx");
-  const buffer = await response.arrayBuffer();
-  await wb.xlsx.load(buffer);
-
-  const ws = wb.worksheets[0];
-  if (!ws) throw new Error("No worksheet found");
-
-  // Remove extra worksheets to prevent Excel repair warnings
-  while (wb.worksheets.length > 1) {
-    wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
-  }
-
+/**
+ * Render a single invoice's data onto a pre-loaded worksheet that already
+ * contains the invoice template layout (logos, borders, formatting).
+ */
+function renderInvoiceToSheet(ws: ExcelJS.Worksheet, invoice: Invoice) {
   // Print scaling — fit all columns on one page width
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
