@@ -150,7 +150,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-primary"
-                          title={`Combine with ${continuationCount} continuation page(s) into one Excel file`}
+                          title={`Combine with ${continuationCount} continuation page(s) into one PDF`}
                           onClick={() => handleCombinedExport(inv)}
                         >
                           <Layers className="h-3.5 w-3.5" />
