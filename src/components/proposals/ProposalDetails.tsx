@@ -37,15 +37,6 @@ export function ProposalInfoSection({ proposal, onUpdate }: Omit<Props, "contact
           {field("Work Performed Title", "serviceType", "e.g. Targeted Mold Evaluation")}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Work Location</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {field("Location Name", "siteName", "e.g. Wesley D. Tisdale Elementary School")}
-          {field("Work Performed Address", "siteAddress")}
-          {field("Secondary Location", "buildingArea", "e.g. Room 1A & Room 2")}
-        </CardContent>
-      </Card>
     </div>
   );
 }
