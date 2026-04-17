@@ -40,8 +40,8 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
   const handleCombinedExport = async (parent: Invoice) => {
     const continuations = invoices.filter(i => i.parentInvoiceId === parent.id);
     try {
-      await exportCombinedInvoiceToExcel(parent, continuations);
-      toast({ title: `Combined Excel downloaded (${continuations.length + 1} pages)` });
+      await exportCombinedInvoiceToPDF(parent, continuations);
+      toast({ title: `Combined PDF downloaded (${continuations.length + 1} pages)` });
     } catch (e: any) {
       toast({ title: "Combine failed", description: e?.message || String(e), variant: "destructive" });
     }
