@@ -264,6 +264,42 @@ function renderInvoiceToSheet(ws: ExcelJS.Worksheet, invoice: Invoice) {
 
 }
 
+/** Memoized loader for accreditation logos PNG. Loads once per session. */
+let logosImgPromise: Promise<string | null> | null = null;
+function loadLogos(): Promise<string | null> {
+  if (!logosImgPromise) {
+    logosImgPromise = (async () => {
+      try {
+        const resp = await fetch("/images/accreditation-logos.png");
+        if (!resp.ok) {
+          console.error("Failed to fetch accreditation logos:", resp.status);
+          return null;
+        }
+        const blob = await resp.blob();
+        if (!blob.type.includes("png") && !blob.type.includes("image")) {
+          console.error("Unexpected blob type for accreditation logos:", blob.type);
+          return null;
+        }
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        if (!dataUrl.startsWith("data:image/png;base64,")) {
+          console.error("Invalid data URL format for accreditation logos");
+          return null;
+        }
+        return dataUrl;
+      } catch (err) {
+        console.error("Error loading accreditation logos:", err);
+        return null;
+      }
+    })();
+  }
+  return logosImgPromise;
+}
+
 /** Wrap a render call to translate merge-overflow errors into a user-friendly message. */
 async function safeRender(fn: () => void | Promise<void>) {
   try {
