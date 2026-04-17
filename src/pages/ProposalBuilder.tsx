@@ -128,11 +128,17 @@ export default function ProposalBuilder() {
     try {
       const clientObj = clients.find(c => c.id === proposal.clientId);
       const project = projects.find(p => p.id === proposal.projectId);
+      const autoClientName = clientObj?.companyName || "";
+      const autoClientAddress = clientObj?.address || "";
+      const autoProjectNumber = project?.projectNumber || "";
+      const eff = getEffectiveCoverFields(proposal, autoClientName, autoClientAddress, autoProjectNumber);
       await exportProposalDocx({
         proposal,
-        clientName: clientObj?.companyName || "",
-        clientAddress: clientObj?.address || "",
-        project,
+        clientName: eff.clientName,
+        clientAddress: eff.clientAddress,
+        project: eff.projectNumber !== autoProjectNumber && project
+          ? { ...project, projectNumber: eff.projectNumber }
+          : project,
         clauses,
         contacts,
       });
@@ -144,10 +150,17 @@ export default function ProposalBuilder() {
     }
   };
 
-  const clientName = clients.find(c => c.id === proposal.clientId)?.companyName || "";
-  const clientAddress = clients.find(c => c.id === proposal.clientId)?.address || "";
+  const autoClientName = clients.find(c => c.id === proposal.clientId)?.companyName || "";
+  const autoClientAddress = clients.find(c => c.id === proposal.clientId)?.address || "";
   const project = projects.find(p => p.id === proposal.projectId);
-  const projectNumber = project?.projectNumber || "";
+  const autoProjectNumber = project?.projectNumber || "";
+  const effective = getEffectiveCoverFields(proposal, autoClientName, autoClientAddress, autoProjectNumber);
+  const clientName = effective.clientName;
+  const clientAddress = effective.clientAddress;
+  const projectNumber = effective.projectNumber;
+  const effectiveProject = projectNumber !== autoProjectNumber && project
+    ? { ...project, projectNumber }
+    : project;
 
   if (loading) {
     return (
