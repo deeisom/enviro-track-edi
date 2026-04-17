@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RateItem, Invoice, InvoiceLineItem } from "@/types/invoice";
+import { fetchAllPaged } from "./storage";
 
 // --- Rate Items ---
 
