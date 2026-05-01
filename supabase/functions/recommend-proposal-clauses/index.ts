@@ -1,12 +1,88 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5-mini";
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const recommendationSchema = {
+  type: "object",
+  properties: {
+    recommendations: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          clauseId: { type: "string", description: "The ID of the clause from the library" },
+          reason: { type: "string", description: "Brief reason why this clause is recommended" },
+          suggestedVariables: {
+            type: "object",
+            description: "Suggested values for [variableName] placeholders in the clause body",
+            additionalProperties: { type: "string" },
+          },
+        },
+        required: ["clauseId", "reason"],
+        additionalProperties: false,
+      },
+    },
+    newClauseSuggestions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          body: { type: "string" },
+          category: { type: "string" },
+          reason: { type: "string" },
+        },
+        required: ["title", "body", "category", "reason"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["recommendations", "newClauseSuggestions"],
+  additionalProperties: false,
+};
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function extractOutputText(data: any): string {
+  if (typeof data?.output_text === "string") return data.output_text.trim();
+
+  const output = Array.isArray(data?.output) ? data.output : [];
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const part of content) {
+      if (typeof part?.text === "string") return part.text.trim();
+    }
+  }
+
+  return "";
+}
+
+function parseJsonObject(text: string) {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  return JSON.parse(cleaned);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,10 +93,11 @@ Deno.serve(async (req) => {
     const { description, clauses } = await req.json();
 
     if (!description || !clauses) {
-      return new Response(JSON.stringify({ error: "Missing description or clauses" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Missing description or clauses" }, 400);
+    }
+
+    if (!OPENAI_API_KEY) {
+      return jsonResponse({ error: "OPENAI_API_KEY not configured" }, 500);
     }
 
     const clauseList = clauses.map((c: any, i: number) =>
@@ -34,7 +111,7 @@ You have access to EDI's clause library. For each recommendation:
 2. Suggest values for any [variableName] placeholders in those clauses
 3. If the job description mentions concerns not covered by existing clauses, draft new clause suggestions
 
-Return a JSON object using this exact tool schema.`;
+Return only a JSON object matching the requested schema.`;
 
     const userPrompt = `Job Description:
 ${description}
@@ -44,118 +121,49 @@ ${clauseList}
 
 Based on this job description, recommend which clauses to include and suggest variable values.`;
 
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const response = await fetch(LOVABLE_AI_URL, {
+    const response = await fetch(OPENAI_RESPONSES_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.4,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "recommend_clauses",
-              description: "Return clause recommendations for a proposal",
-              parameters: {
-                type: "object",
-                properties: {
-                  recommendations: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        clauseId: { type: "string", description: "The ID of the clause from the library" },
-                        reason: { type: "string", description: "Brief reason why this clause is recommended" },
-                        suggestedVariables: {
-                          type: "object",
-                          description: "Suggested values for [variableName] placeholders in the clause body",
-                          additionalProperties: { type: "string" },
-                        },
-                      },
-                      required: ["clauseId", "reason"],
-                      additionalProperties: false,
-                    },
-                  },
-                  newClauseSuggestions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string" },
-                        body: { type: "string" },
-                        category: { type: "string" },
-                        reason: { type: "string" },
-                      },
-                      required: ["title", "body", "category", "reason"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["recommendations", "newClauseSuggestions"],
-                additionalProperties: false,
-              },
-            },
+        model: OPENAI_MODEL,
+        instructions: systemPrompt,
+        input: userPrompt,
+        max_output_tokens: 2500,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "clause_recommendations",
+            strict: false,
+            schema: recommendationSchema,
           },
-        ],
-        tool_choice: { type: "function", function: { name: "recommend_clauses" } },
+        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
+      console.error("OpenAI API error:", response.status, errorText);
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Rate limit exceeded. Please try again in a moment." }, 429);
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds in Settings > Workspace > Usage." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "AI recommendation failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "AI recommendation failed" }, 500);
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const outputText = extractOutputText(data);
 
-    if (!toolCall?.function?.arguments) {
-      return new Response(JSON.stringify({ error: "AI did not return structured recommendations" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!outputText) {
+      return jsonResponse({ error: "AI did not return structured recommendations" }, 500);
     }
 
-    const result = JSON.parse(toolCall.function.arguments);
+    const result = parseJsonObject(outputText);
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(result);
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: errorMessage(error) }, 500);
   }
 });

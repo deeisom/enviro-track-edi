@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5-mini";
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 const COMPANY_CONTEXT = `IMPORTANT COMPANY IDENTITY: "EDI" is the abbreviation for "Environmental Design Inc.", an environmental consulting firm. Always expand "EDI" as "Environmental Design Inc." on first mention within the section, then use "EDI" thereafter. Never refer to the company by any other name (do NOT use "Environmental Dynamics", "Environmental Designs", or any variation).`;
 
@@ -9,6 +10,31 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function extractOutputText(data: any): string {
+  if (typeof data?.output_text === "string") return data.output_text.trim();
+
+  const output = Array.isArray(data?.output) ? data.output : [];
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const part of content) {
+      if (typeof part?.text === "string") return part.text.trim();
+    }
+  }
+
+  return "";
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -19,10 +45,11 @@ Deno.serve(async (req) => {
     const { section, inputs } = await req.json();
 
     if (!section || !inputs) {
-      return new Response(JSON.stringify({ error: "Missing section or inputs" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Missing section or inputs" }, 400);
+    }
+
+    if (!OPENAI_API_KEY) {
+      return jsonResponse({ error: "OPENAI_API_KEY not configured" }, 500);
     }
 
     let systemPrompt = "";
@@ -56,49 +83,39 @@ Deno.serve(async (req) => {
 - Site/Facility Name: ${inputs.siteName || "Not specified"}
 - Building/Area: ${inputs.buildingArea || "Not specified"}`;
     } else {
-      return new Response(JSON.stringify({ error: "Invalid section. Must be 'background' or 'scope'." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Invalid section. Must be 'background' or 'scope'." }, 400);
     }
 
-    const response = await fetch(LOVABLE_AI_URL, {
+    const response = await fetch(OPENAI_RESPONSES_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_completion_tokens: 2000,
+        model: OPENAI_MODEL,
+        instructions: systemPrompt,
+        input: userPrompt,
+        max_output_tokens: 2000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI API error:", errorText);
-      return new Response(JSON.stringify({ error: "AI generation failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("OpenAI API error:", response.status, errorText);
+      return jsonResponse({ error: response.status === 429 ? "Rate limit exceeded. Please try again in a moment." : "AI generation failed" }, response.status === 429 ? 429 : 500);
     }
 
     const data = await response.json();
-    const generatedText = data.choices?.[0]?.message?.content || "";
+    const generatedText = extractOutputText(data);
 
-    return new Response(JSON.stringify({ text: generatedText }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    if (!generatedText) {
+      return jsonResponse({ error: "AI did not return generated text" }, 500);
+    }
+
+    return jsonResponse({ text: generatedText });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: errorMessage(error) }, 500);
   }
 });
