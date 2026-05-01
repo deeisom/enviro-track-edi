@@ -90,17 +90,12 @@ export async function deleteProposal(id: string) {
   if (error) throw error;
 }
 
-export async function duplicateProposal(id: string): Promise<Proposal> {
-  const source = await getProposal(id);
-  if (!source) throw new Error("Proposal not found");
-  const newNumber = await getNextProposalNumber();
-  
-  // Lock AI sections and copy as static content
+export function buildDuplicatedProposalInput(source: Proposal, proposalNumber: string): Partial<Proposal> & { proposalNumber: string } {
   const background = { ...source.background, locked: source.background.ai_generated ? true : source.background.locked };
   const scope = { ...source.scope, locked: source.scope.ai_generated ? true : source.scope.locked };
 
-  return createProposal({
-    proposalNumber: newNumber,
+  return {
+    proposalNumber,
     status: "draft",
     version: 1,
     clientId: source.clientId,
@@ -125,7 +120,15 @@ export async function duplicateProposal(id: string): Promise<Proposal> {
     feeItems: source.feeItems,
     termsSelections: source.termsSelections,
     acceptance: source.acceptance,
-  });
+  };
+}
+
+export async function duplicateProposal(id: string): Promise<Proposal> {
+  const source = await getProposal(id);
+  if (!source) throw new Error("Proposal not found");
+  const newNumber = await getNextProposalNumber();
+
+  return createProposal(buildDuplicatedProposalInput(source, newNumber));
 }
 
 function mapProposal(row: any): Proposal {

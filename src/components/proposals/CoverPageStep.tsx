@@ -279,7 +279,7 @@ export function CoverPageStep({ proposal, clientName, clientAddress, projectNumb
         <div className="border-t pt-4 mt-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-muted-foreground">
-              Client &amp; Project (auto-populated from Setup — editable)
+              Client &amp; Project (auto-populated from Setup - editable)
             </h4>
           </div>
 

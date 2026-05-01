@@ -40,6 +40,7 @@ export default function RatesPage() {
   };
 
   const handleSave = async () => {
+    if (!canEdit) return;
     if (!form.name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
     try {
       if (editId) {
@@ -57,6 +58,7 @@ export default function RatesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) return;
     try {
       await deleteRate(id);
       toast({ title: "Rate item deleted" });
@@ -115,12 +117,12 @@ export default function RatesPage() {
                 <TableHead>Category</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead>Unit</TableHead>
-                <TableHead className="w-20"></TableHead>
+                {canEdit && <TableHead className="w-20"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No rate items yet. Click "Add Item" to get started.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={canEdit ? 7 : 6} className="text-center text-muted-foreground py-8">No rate items yet. Click "Add Item" to get started.</TableCell></TableRow>
               ) : filtered.map(r => (
                 <TableRow key={r.id}>
                   <TableCell>
@@ -131,26 +133,30 @@ export default function RatesPage() {
                   <TableCell className="text-sm">{getCatLabel(r.category)}</TableCell>
                   <TableCell className="font-mono">${r.defaultRate.toFixed(2)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.unit}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}><Edit className="h-3 w-3" /></Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete "{r.name}"?</AlertDialogTitle>
-                            <AlertDialogDescription>This won't affect existing invoices.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(r.id)}>Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
+                  {canEdit && (
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button aria-label={`Edit rate ${r.name}`} variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}><Edit className="h-3 w-3" /></Button>
+                        {isAdmin && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button aria-label={`Delete rate ${r.name}`} variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete "{r.name}"?</AlertDialogTitle>
+                                <AlertDialogDescription>This won't affect existing invoices.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(r.id)}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

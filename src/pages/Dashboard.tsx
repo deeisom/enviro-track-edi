@@ -119,7 +119,7 @@ function ActivityRow({ entry: a }: { entry: ActivityLogEntry }) {
         <Link to={`/projects/${a.projectId}`} className="font-medium text-primary hover:underline">
           {a.projectNumber}
         </Link>
-        {" → "}
+        {" -> "}
         {a.isInvoiceEvent ? (
           <span className="text-muted-foreground">{a.note}</span>
         ) : (
@@ -137,7 +137,7 @@ function ActivityRow({ entry: a }: { entry: ActivityLogEntry }) {
             </Tooltip>
           </TooltipProvider>
         )}
-        {!a.isInvoiceEvent && a.note && <span className="text-muted-foreground ml-2">— {a.note}</span>}
+        {!a.isInvoiceEvent && a.note && <span className="text-muted-foreground ml-2">- {a.note}</span>}
       </div>
     </div>
   );

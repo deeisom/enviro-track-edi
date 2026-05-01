@@ -124,7 +124,7 @@ export default function CreateProject() {
 
             <div className="space-y-2">
               <Label htmlFor="name">Project Name *</Label>
-              <Input id="name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Phase I ESA — Elm Street Property" />
+              <Input id="name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Phase I ESA - Elm Street Property" />
             </div>
 
             <div className="space-y-2">
@@ -175,7 +175,7 @@ export default function CreateProject() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PROJECT_STATUSES.map(s => (
-                      <SelectItem key={s.code} value={s.code}>{s.code} — {s.label}</SelectItem>
+                      <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -199,7 +199,7 @@ export default function CreateProject() {
                 <SelectContent>
                   <SelectItem value="_none">None</SelectItem>
                   {existingProjects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.projectNumber} — {p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.projectNumber} - {p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

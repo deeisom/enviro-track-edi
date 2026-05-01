@@ -18,7 +18,7 @@ export function StatusBadge({ status, className }: { status: ProjectStatus; clas
 
   return (
     <Badge className={cn(colorClass, "font-medium", className)} variant="default">
-      {def.code} — {def.label}
+      {def.code} - {def.label}
     </Badge>
   );
 }

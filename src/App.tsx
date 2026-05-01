@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { RequireAdmin, RequireEdit } from "@/components/AuthGuards";
 import Dashboard from "@/pages/Dashboard";
 import ProjectsList from "@/pages/ProjectsList";
 import CreateProject from "@/pages/CreateProject";
@@ -21,7 +22,7 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoutes() {
-  const { user, loading, canEdit } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -38,16 +39,16 @@ function ProtectedRoutes() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<ProjectsList />} />
-        <Route path="/projects/new" element={<CreateProject />} />
+        <Route path="/projects/new" element={<RequireEdit><CreateProject /></RequireEdit>} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
-        {canEdit && <Route path="/clients" element={<ClientsPage />} />}
-        {canEdit && <Route path="/clients/:id" element={<ClientsPage />} />}
+        <Route path="/clients" element={<RequireEdit><ClientsPage /></RequireEdit>} />
+        <Route path="/clients/:id" element={<RequireEdit><ClientsPage /></RequireEdit>} />
         <Route path="/rates" element={<RatesPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/proposals" element={<ProposalsPage />} />
-        <Route path="/proposals/new" element={<ProposalBuilder />} />
+        <Route path="/proposals/new" element={<RequireEdit><ProposalBuilder /></RequireEdit>} />
         <Route path="/proposals/:id" element={<ProposalBuilder />} />
-        <Route path="/users" element={<UsersPage />} />
+        <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

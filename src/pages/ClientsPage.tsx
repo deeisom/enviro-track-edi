@@ -177,7 +177,7 @@ function ClientsList() {
                   {c.address && <p className="truncate">{c.address}</p>}
                   {match && (
                     <p className="text-xs text-primary truncate">
-                      Matched: {match.field} — {match.value}
+                      Matched: {match.field} - {match.value}
                     </p>
                   )}
                   {(contactsByClient.get(c.id)?.length ?? 0) > 0 && (
@@ -206,8 +206,8 @@ function ClientsList() {
                   <TableCell>
                     <Link to={`/clients/${c.id}`} className="font-medium text-primary hover:underline">{c.companyName}</Link>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{c.industryType || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.industryType || "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.phone || "-"}</TableCell>
                   <TableCell>{contactsByClient.get(c.id)?.length ?? 0}</TableCell>
                   {search && (
                     <TableCell className="text-xs text-primary truncate max-w-[200px]">
@@ -310,6 +310,7 @@ function ClientDetail() {
   };
 
   const handleAddContact = async () => {
+    if (!canEdit) return;
     if (!contactForm.name.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
     if (editingContact) {
       await updateContact(editingContact.id, contactForm);
@@ -325,6 +326,7 @@ function ClientDetail() {
   };
 
   const handleDeleteContact = async (contactId: string) => {
+    if (!isAdmin) return;
     await deleteContact(contactId);
     toast({ title: "Contact removed" });
     load();
@@ -386,8 +388,8 @@ function ClientDetail() {
                       {c.mobilePhone && <p>Mobile: {c.mobilePhone}</p>}
                     </div>
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}><Pencil className="h-3 w-3 text-muted-foreground" /></Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}><Trash2 className="h-3 w-3 text-muted-foreground" /></Button>
+                      {canEdit && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditContact(c)}><Pencil className="h-3 w-3 text-muted-foreground" /></Button>}
+                      {isAdmin && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteContact(c.id)}><Trash2 className="h-3 w-3 text-muted-foreground" /></Button>}
                     </div>
                   </div>
                 ))}

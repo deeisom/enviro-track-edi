@@ -65,7 +65,7 @@ export default function ProjectDetail() {
     await changeProjectStatus(project.id, newStatus, statusNote);
     setStatusDialog(false);
     setStatusNote("");
-    toast({ title: `Status updated to ${getStatusDef(newStatus).code} — ${getStatusDef(newStatus).label}` });
+    toast({ title: `Status updated to ${getStatusDef(newStatus).code} - ${getStatusDef(newStatus).label}` });
     load();
   };
 
@@ -210,7 +210,7 @@ export default function ProjectDetail() {
                       <>
                         {a.previousStatus && (
                           <span className="text-muted-foreground">
-                            {getStatusDef(a.previousStatus).code} → {" "}
+                            {getStatusDef(a.previousStatus).code}{" -> "}
                           </span>
                         )}
                         <StatusBadge status={a.newStatus} className="text-[10px] py-0 px-1.5" />
@@ -230,25 +230,27 @@ export default function ProjectDetail() {
                     )}
                     {!a.isInvoiceEvent && a.note && <p className="text-muted-foreground mt-1">{a.note}</p>}
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto shrink-0 text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete activity log entry?</AlertDialogTitle>
-                        <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={async () => { await deleteActivity(a.id); toast({ title: "Activity entry deleted" }); load(); }}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  {isAdmin && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto shrink-0 text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete activity log entry?</AlertDialogTitle>
+                          <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={async () => { await deleteActivity(a.id); toast({ title: "Activity entry deleted" }); load(); }}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
               ))}
             </div>
@@ -269,7 +271,7 @@ export default function ProjectDetail() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PROJECT_STATUSES.map(s => (
-                    <SelectItem key={s.code} value={s.code}>{s.code} — {s.label}</SelectItem>
+                    <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

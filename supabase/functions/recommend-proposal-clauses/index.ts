@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     }
 
     const clauseList = clauses.map((c: any, i: number) =>
-      `${i + 1}. [ID: ${c.id}] "${c.title}" (category: ${c.category}) — ${c.body.substring(0, 200)}...`
+      `${i + 1}. [ID: ${c.id}] "${c.title}" (category: ${c.category}) - ${c.body.substring(0, 200)}...`
     ).join("\n");
 
     const systemPrompt = `You are an expert environmental consulting proposal advisor for Environmental Design Inc. (EDI). Given a natural language description of a job/project, recommend which contract clauses should be included in the proposal terms and conditions.

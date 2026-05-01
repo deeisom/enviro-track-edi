@@ -74,7 +74,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
             <Popover open={projectOpen} onOpenChange={setProjectOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" role="combobox" className="w-full justify-between mt-1">
-                  {selectedProject ? `${selectedProject.projectNumber} — ${selectedProject.name}` : "Select project..."}
+          {selectedProject ? `${selectedProject.projectNumber} - ${selectedProject.name}` : "Select project..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>

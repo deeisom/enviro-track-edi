@@ -24,7 +24,7 @@ function useField(proposal: Partial<Proposal>, onUpdate: (p: Partial<Proposal>) 
   );
 }
 
-/** Proposal info + Work location — used on the Proposal tab */
+/** Proposal info + Work location; used on the Proposal tab */
 export function ProposalInfoSection({ proposal, onUpdate }: Omit<Props, "contacts">) {
   const field = useField(proposal, onUpdate);
   return (
@@ -39,7 +39,7 @@ export function ProposalInfoSection({ proposal, onUpdate }: Omit<Props, "contact
   );
 }
 
-/** Company rep + client signer — used on the Setup tab */
+/** Company rep + client signer; used on the Setup tab */
 export function SignersSection({ proposal, onUpdate }: Omit<Props, "contacts">) {
   const field = useField(proposal, onUpdate);
   return (

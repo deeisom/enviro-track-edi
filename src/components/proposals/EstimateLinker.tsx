@@ -25,7 +25,7 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       setLoading(true);
       try {
         const all = await getAllInvoices();
-        // Include both estimates AND invoices — user can attach either
+      // Include both estimates AND invoices; user can attach either.
         setAllInvoices(all);
       } catch {
         // silently fail
@@ -96,7 +96,7 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
           <span className="ml-1 text-[10px] uppercase text-muted-foreground">({inv.type})</span>
         </span>
         <span className="text-xs text-muted-foreground truncate">
-          {inv.projectSummary || "No summary"} — ${inv.total.toLocaleString()}
+                              {inv.projectSummary || "No summary"} - ${inv.total.toLocaleString()}
         </span>
       </div>
     </CommandItem>
@@ -108,7 +108,7 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" role="combobox" className="w-full justify-between mt-1">
-            {selectedEstimate ? `${selectedEstimate.invoiceNumber} — $${selectedEstimate.total.toLocaleString()}` : "Select estimate or invoice..."}
+          {selectedEstimate ? `${selectedEstimate.invoiceNumber} - $${selectedEstimate.total.toLocaleString()}` : "Select estimate or invoice..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>

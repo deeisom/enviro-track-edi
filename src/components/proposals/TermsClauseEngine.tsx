@@ -56,7 +56,7 @@ function parseVariables(body: string): string[] {
   return [...new Set(matches.map(m => m.slice(1, -1)))];
 }
 
-/** Replace [variableName] with values, unfilled → [___] */
+/** Replace [variableName] with values, unfilled -> [___] */
 function substituteVariables(body: string, variables: Record<string, string> = {}): string {
   return body.replace(/\[([a-zA-Z_][a-zA-Z0-9_]*)\]/g, (match, name) => {
     return variables[name] || "[___]";
@@ -234,7 +234,7 @@ export function TermsClauseEngine({ clauses, termsSelections, serviceType, onUpd
 
   const applyAllAiRecommendations = () => {
     if (!aiRecommendations) return;
-    let newSelections = [...termsSelections];
+    const newSelections = [...termsSelections];
     aiRecommendations.forEach(rec => {
       const idx = newSelections.findIndex(s => s.clauseId === rec.clauseId);
       if (idx >= 0) {

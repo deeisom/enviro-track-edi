@@ -44,7 +44,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
     wb.removeWorksheet(wb.worksheets[wb.worksheets.length - 1].id);
   }
 
-  // Print scaling — fit all columns on one page width
+  // Print scaling: fit all columns on one page width.
   ws.pageSetup.fitToPage = true;
   ws.pageSetup.fitToWidth = 1;
   ws.pageSetup.fitToHeight = 0;
@@ -288,6 +288,21 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   }
 }
 
+export async function fetchOptionalImageDataUrl(path: string): Promise<string | null> {
+  const resp = await fetch(path);
+  if (!resp.ok) return null;
+
+  const blob = await resp.blob();
+  if (blob.size === 0) return null;
+
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function exportInvoiceToPDF(invoice: Invoice) {
   // Custom margins in mm: top=0.85in, left=0.25in, right=0.2in, bottom=0in
   const marginTop = 0.85 * 25.4;   // ~21.6mm
@@ -302,15 +317,7 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
   // Load accreditation logos
   let logosImg: string | null = null;
   try {
-    const resp = await fetch("/images/accreditation-logos.png");
-    if (!resp.ok) throw new Error(`Failed to fetch logos: ${resp.status}`);
-    const blob = await resp.blob();
-    logosImg = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
+    logosImg = await fetchOptionalImageDataUrl("/images/accreditation-logos.png");
   } catch (err) {
     console.error("Could not load accreditation logos:", err);
   }

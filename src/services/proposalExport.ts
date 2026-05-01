@@ -167,7 +167,7 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   }
   children.push(emptyLine());
 
-  // Project # — "EDI" in Final Frontier italic, rest in TNR
+  // Project number with "EDI" in Final Frontier italic and the rest in TNR.
   children.push(para([
     new TextRun({ text: "EDI ", font: BRAND_FONT, italics: true, size: 32 }),
     text(`Project # ${projectNumber || "[PROJECT #]"}`, { size: 32 }),
@@ -176,7 +176,7 @@ function buildCoverPage(data: ExportData, logoData: Uint8Array | null): any {
   // Spacers before bottom
   for (let i = 0; i < 3; i++) children.push(emptyLine());
 
-  // Bottom section: 2-column borderless table — left: date + company info, right: logo
+  // Bottom section: 2-column borderless table with date/company info and logo.
   const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
   const leftColWidth = Math.round(CONTENT_WIDTH * 0.65);
@@ -285,7 +285,7 @@ function buildDetailsPage(data: ExportData): any {
   }
   children.push(emptyLine());
 
-  // And the Consultant — "Environmental Design Inc." in Final Frontier italic green
+  // Consultant name in Final Frontier italic green.
   children.push(para([
     text("And the Consultant:", { size: 24 }),
     new TextRun({ text: "\tEnvironmental Design Inc.", font: BRAND_FONT, italics: true, size: 24, color: CONSULTANT_GREEN }),
@@ -429,7 +429,7 @@ function buildFeeSchedulePage(data: ExportData): (Paragraph | Table)[] {
   return children;
 }
 
-/** Replace [variableName] with values, unfilled → [___] */
+/** Replace [variableName] with values, unfilled -> [___] */
 function substituteVariables(body: string, variables: Record<string, string> = {}): string {
   return body.replace(/\[([a-zA-Z_][a-zA-Z0-9_]*)\]/g, (match, name) => {
     return variables[name] || "[___]";

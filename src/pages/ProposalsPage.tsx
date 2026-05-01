@@ -58,10 +58,10 @@ export default function ProposalsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const clientName = (id: string | null) => clients.find(c => c.id === id)?.companyName || "—";
+  const clientName = (id: string | null) => clients.find(c => c.id === id)?.companyName || "-";
   const projectName = (id: string | null) => {
     const p = projects.find(p => p.id === id);
-    return p ? `${p.projectNumber} — ${p.name}` : "—";
+    return p ? `${p.projectNumber} - ${p.name}` : "-";
   };
 
   const handleDuplicate = async (id: string) => {
@@ -125,8 +125,8 @@ export default function ProposalsPage() {
                     <TableCell className="font-medium">{p.proposalNumber}</TableCell>
                     <TableCell>{clientName(p.clientId)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{projectName(p.projectId)}</TableCell>
-                    <TableCell>{p.serviceType || "—"}</TableCell>
-                    <TableCell>{p.proposalDate || "—"}</TableCell>
+                    <TableCell>{p.serviceType || "-"}</TableCell>
+                    <TableCell>{p.proposalDate || "-"}</TableCell>
                     <TableCell>
                       <Badge className={statusColors[p.status]} variant="secondary">
                         {statusLabels[p.status]}

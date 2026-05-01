@@ -20,6 +20,54 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
+export interface GroupedInvoiceRow {
+  invoice: Invoice;
+  isChild: boolean;
+  childCount: number;
+  suffix: string;
+}
+
+export function groupInvoicesForDisplay(invoices: Invoice[]): GroupedInvoiceRow[] {
+  const byId = new Map(invoices.map(i => [i.id, i]));
+  const childrenByParent = new Map<string, Invoice[]>();
+
+  for (const inv of invoices) {
+    if (inv.parentInvoiceId && byId.has(inv.parentInvoiceId)) {
+      const arr = childrenByParent.get(inv.parentInvoiceId) || [];
+      arr.push(inv);
+      childrenByParent.set(inv.parentInvoiceId, arr);
+    }
+  }
+
+  for (const arr of childrenByParent.values()) {
+    arr.sort((a, b) => a.invoiceNumber.localeCompare(b.invoiceNumber));
+  }
+
+  const ordered: GroupedInvoiceRow[] = [];
+  for (const inv of invoices) {
+    if (inv.parentInvoiceId && byId.has(inv.parentInvoiceId)) continue;
+
+    ordered.push({
+      invoice: inv,
+      isChild: false,
+      childCount: childrenByParent.get(inv.id)?.length || 0,
+      suffix: "",
+    });
+
+    const kids = childrenByParent.get(inv.id) || [];
+    for (const child of kids) {
+      ordered.push({
+        invoice: child,
+        isChild: true,
+        childCount: 0,
+        suffix: child.invoiceNumber.slice(inv.invoiceNumber.length) || child.invoiceNumber,
+      });
+    }
+  }
+
+  return ordered;
+}
+
 function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoice) => void }) {
   const { canEdit, isAdmin } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -32,13 +80,19 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
   };
   useEffect(() => { load(); }, []);
 
-  const handleDelete = async (id: string) => { await deleteInvoice(id); toast({ title: "Deleted" }); load(); };
+  const handleDelete = async (id: string) => {
+    if (!isAdmin) return;
+    await deleteInvoice(id);
+    toast({ title: "Deleted" });
+    load();
+  };
   const handleExcelExport = async (inv: Invoice) => {
     try { await exportInvoiceToExcel(inv); toast({ title: "Excel downloaded" }); }
     catch (e) { toast({ title: "Export failed", description: String(e), variant: "destructive" }); }
   };
 
   const handleStatusChange = async (inv: Invoice, newStatus: "draft" | "sent" | "paid") => {
+    if (!canEdit) return;
     await updateInvoice(inv.id, { status: newStatus });
 
     // Also update all continuation pages linked to this invoice
@@ -104,44 +158,14 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                   return <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No invoices yet.</TableCell></TableRow>;
                 }
 
-                // Group continuations under their parents
-                const byId = new Map(invoices.map(i => [i.id, i]));
-                const childrenByParent = new Map<string, Invoice[]>();
-                for (const inv of invoices) {
-                  if (inv.parentInvoiceId && byId.has(inv.parentInvoiceId)) {
-                    const arr = childrenByParent.get(inv.parentInvoiceId) || [];
-                    arr.push(inv);
-                    childrenByParent.set(inv.parentInvoiceId, arr);
-                  }
-                }
-                // Sort children by invoice number suffix
-                for (const arr of childrenByParent.values()) {
-                  arr.sort((a, b) => a.invoiceNumber.localeCompare(b.invoiceNumber));
-                }
-
-                const ordered: Invoice[] = [];
-                for (const inv of invoices) {
-                  // Skip children — they'll be appended after their parent
-                  if (inv.parentInvoiceId && byId.has(inv.parentInvoiceId)) continue;
-                  ordered.push(inv);
-                  const kids = childrenByParent.get(inv.id);
-                  if (kids) ordered.push(...kids);
-                }
-
-                return ordered.map(inv => {
+                return groupInvoicesForDisplay(invoices).map(({ invoice: inv, isChild, childCount, suffix }) => {
                   const linkedProject = projects.find(p => p.id === inv.projectId);
-                  const isChild = !!inv.parentInvoiceId && byId.has(inv.parentInvoiceId);
-                  const childCount = childrenByParent.get(inv.id)?.length || 0;
-                  const parent = isChild ? byId.get(inv.parentInvoiceId!) : null;
-                  const suffix = isChild && parent
-                    ? inv.invoiceNumber.slice(parent.invoiceNumber.length)
-                    : "";
                   return (
                 <TableRow key={inv.id} className={isChild ? "bg-muted/30" : ""}>
                   <TableCell className="font-mono font-medium">
                     {isChild ? (
                       <span className="inline-flex items-center gap-1 pl-6 text-muted-foreground" title={inv.invoiceNumber}>
-                        <span aria-hidden>└</span>
+                        <span aria-hidden>--</span>
                         <span>{suffix || inv.invoiceNumber}</span>
                       </span>
                     ) : (
@@ -154,40 +178,46 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
                     )}
                   </TableCell>
                   <TableCell className="capitalize">{inv.type}</TableCell>
-                  <TableCell className="font-mono text-sm">{linkedProject?.projectNumber || "—"}</TableCell>
+                  <TableCell className="font-mono text-sm">{linkedProject?.projectNumber || "-"}</TableCell>
                   <TableCell>{inv.billTo.name}</TableCell>
                   <TableCell>{inv.date}</TableCell>
                   <TableCell className="text-right font-mono">${inv.total.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Select value={inv.status} onValueChange={v => handleStatusChange(inv, v as any)}>
-                      <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="sent">Sent</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {canEdit ? (
+                      <Select value={inv.status} onValueChange={v => handleStatusChange(inv, v as any)}>
+                        <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="sent">Sent</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge variant="secondary" className="capitalize">{inv.status}</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => onEdit(inv)}><Pencil className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Excel" onClick={() => handleExcelExport(inv)}><FileSpreadsheet className="h-3.5 w-3.5" /></Button>
                       
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete {inv.invoiceNumber}?</AlertDialogTitle>
-                            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(inv.id)}>Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {isAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete {inv.invoiceNumber}?</AlertDialogTitle>
+                              <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(inv.id)}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -373,7 +403,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                 <SelectTrigger><SelectValue placeholder="None (standalone)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None (standalone)</SelectItem>
-                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.projectNumber} — {p.name}</SelectItem>)}
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.projectNumber} - {p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -416,7 +446,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                         .filter(i => i.type === type && !i.parentInvoiceId)
                         .map(i => (
                           <SelectItem key={i.id} value={i.id}>
-                            {i.invoiceNumber} — {i.billTo.name}
+                            {i.invoiceNumber} - {i.billTo.name}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -483,7 +513,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
                   <SelectContent>
                     {ratesByCategory.map(g => (
                       g.items.map(r => (
-                        <SelectItem key={r.id} value={r.id}>{r.name} — ${r.defaultRate}/{r.unit}</SelectItem>
+                        <SelectItem key={r.id} value={r.id}>{r.name} - ${r.defaultRate}/{r.unit}</SelectItem>
                       ))
                     ))}
                   </SelectContent>
@@ -498,7 +528,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
           {(() => {
             // Collect line items from parent AND all sibling continuation pages
             const resolvedParentId = isContinuation ? parentInvoiceId : (existingInvoice?.parentInvoiceId || "");
-            let relatedItemNames = new Set<string>();
+            const relatedItemNames = new Set<string>();
             if (resolvedParentId) {
               const parent = allInvoices.find(i => i.id === resolvedParentId);
               if (parent) {
@@ -578,15 +608,24 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
 
 export default function InvoicesPage() {
   const [searchParams] = useSearchParams();
-  const [view, setView] = useState<"list" | "create" | "edit">(searchParams.get("new") ? "create" : "list");
+  const { canEdit } = useAuth();
+  const [view, setView] = useState<"list" | "create" | "edit">(canEdit && searchParams.get("new") ? "create" : "list");
   const [editingInvoice, setEditingInvoice] = useState<Invoice | undefined>();
   const prefillProjectId = searchParams.get("projectId") || undefined;
 
+  useEffect(() => {
+    if (!canEdit && view !== "list") {
+      setView("list");
+      setEditingInvoice(undefined);
+    }
+  }, [canEdit, view]);
+
   const handleEdit = (inv: Invoice) => {
+    if (!canEdit) return;
     setEditingInvoice(inv);
     setView("edit");
   };
 
-  if (view === "list") return <InvoiceList onNew={() => setView("create")} onEdit={handleEdit} />;
+  if (view === "list" || !canEdit) return <InvoiceList onNew={() => setView("create")} onEdit={handleEdit} />;
   return <InvoiceEditor onBack={() => { setView("list"); setEditingInvoice(undefined); }} prefillProjectId={prefillProjectId} existingInvoice={view === "edit" ? editingInvoice : undefined} />;
 }

@@ -30,7 +30,7 @@ export default function ProjectsList() {
   }, []);
 
   const getClientName = (id: string | null) =>
-    id ? clients.find(c => c.id === id)?.companyName || "—" : "—";
+    id ? clients.find(c => c.id === id)?.companyName || "-" : "-";
 
   const archiveStatuses = ["1.1", "6.0", "7.0"];
 
@@ -123,7 +123,7 @@ export default function ProjectsList() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             {PROJECT_STATUSES.map(s => (
-              <SelectItem key={s.code} value={s.code}>{s.code} — {s.label}</SelectItem>
+              <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>

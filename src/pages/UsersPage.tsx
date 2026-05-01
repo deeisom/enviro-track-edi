@@ -67,7 +67,7 @@ export default function UsersPage() {
   };
 
   const removeMember = async (userId: string) => {
-    // Remove their role and profile — they'll still exist in auth but won't appear in the app
+    // Remove their role and profile; they'll still exist in auth but won't appear in the app.
     await supabase.from("user_roles").delete().eq("user_id", userId);
     await supabase.from("profiles").delete().eq("user_id", userId);
     toast({ title: "Member removed" });
@@ -129,7 +129,7 @@ export default function UsersPage() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>

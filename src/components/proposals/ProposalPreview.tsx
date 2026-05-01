@@ -12,7 +12,7 @@ interface Props {
   contacts: Contact[];
 }
 
-/** Replace [variableName] with values, unfilled → [___] */
+/** Replace [variableName] with values, unfilled -> [___] */
 function substituteVariables(body: string, variables: Record<string, string> = {}): string {
   return body.replace(/\[([a-zA-Z_][a-zA-Z0-9_]*)\]/g, (match, name) => {
     return variables[name] || "[___]";
@@ -47,7 +47,7 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
   const contact = contacts.find(c => c.id === proposal.proposalDetails?.contactId);
   const projectNumber = project?.projectNumber || "";
 
-  // Build terms items (no grouping by category needed — just flat list)
+  // Build terms items as a flat list.
   const includedClauses = clauses.filter(c =>
     termsSelections.some(s => s.clauseId === c.id && s.included)
   );
@@ -120,12 +120,12 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
           {background.text ? (
             <p className="text-sm whitespace-pre-wrap leading-relaxed">{background.text}</p>
           ) : (
-            <p className="text-sm text-gray-400 italic">[Background content — edit in Content tab]</p>
+              <p className="text-sm text-gray-400 italic">[Background content - edit in Content tab]</p>
           )}
           {scope.text ? (
             <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed">{scope.text}</div>
           ) : (
-            <p className="text-sm text-gray-400 italic mt-4">[Scope of Work content — edit in Content tab]</p>
+              <p className="text-sm text-gray-400 italic mt-4">[Scope of Work content - edit in Content tab]</p>
           )}
         </div>
       </div>
@@ -170,7 +170,7 @@ export function ProposalPreview({ proposal, clientName, clientAddress, project, 
             </tfoot>
           </table>
         ) : (
-          <p className="text-sm text-gray-400 italic">[Fee schedule — add items in Content tab]</p>
+              <p className="text-sm text-gray-400 italic">[Fee schedule - add items in Content tab]</p>
         )}
       </div>
 
