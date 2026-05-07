@@ -12,10 +12,11 @@ import type { ProposalFeeItem } from "@/types/proposal";
 interface Props {
   projectId: string | null;
   estimateId: string | null;
+  feeItems: ProposalFeeItem[];
   onEstimateSelect: (estimateId: string, feeItems: ProposalFeeItem[]) => void;
 }
 
-export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Props) {
+export function EstimateLinker({ projectId, estimateId, feeItems, onEstimateSelect }: Props) {
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,19 +63,24 @@ export function EstimateLinker({ projectId, estimateId, onEstimateSelect }: Prop
         id: crypto.randomUUID(),
         sourceEstimateItem: li.name,
         sourceDescription: li.description,
-        sourceQty: li.qty,
-        sourceRate: li.rate,
-        sourceAmount: li.amount,
+        sourceQty: Number(li.qty) || 0,
+        sourceRate: Number(li.rate) || 0,
+        sourceAmount: Number(li.amount) || 0,
         displayItem: li.name.trim(),
         displayDescription: li.description.trim(),
-        displayQty: li.qty,
-        displayRate: li.rate,
-        displayAmount: li.qty * li.rate,
+        displayQty: Number(li.qty) || 0,
+        displayRate: Number(li.rate) || 0,
+        displayAmount: Number(li.amount) || (Number(li.qty) || 0) * (Number(li.rate) || 0),
         sortOrder: idx,
         isOptional: false,
         manualOverride: false,
       }));
   };
+
+  useEffect(() => {
+    if (!estimateId || feeItems.length > 0 || !selectedEstimate?.lineItems.length) return;
+    onEstimateSelect(estimateId, mapLineItemsToFeeItems(selectedEstimate.lineItems));
+  }, [estimateId, feeItems.length, selectedEstimate, onEstimateSelect]);
 
   const handleSelect = (est: Invoice) => {
     const feeItems = mapLineItemsToFeeItems(est.lineItems);

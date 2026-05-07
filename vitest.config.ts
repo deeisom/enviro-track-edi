@@ -10,6 +10,11 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    env: {
+      VITE_SUPABASE_PROJECT_ID: "wzlqrcrwhafzuqtnfhou",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "test-supabase-anon-key",
+      VITE_SUPABASE_URL: "https://wzlqrcrwhafzuqtnfhou.supabase.co",
+    },
     globals: true,
     setupFiles: [path.resolve(repoRoot, "src/test/setup.ts")],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],

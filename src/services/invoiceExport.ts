@@ -1,8 +1,8 @@
 import { Invoice } from "@/types/invoice";
 import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadBlob, safeFilename } from "@/services/download";
 
 /**
  * Split an address string into [street, city/state/zip].
@@ -273,11 +273,11 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   };
 
   const buf = await wb.xlsx.writeBuffer();
-  saveAs(
+  downloadBlob(
     new Blob([buf], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
-    `${invoice.invoiceNumber}.xlsx`
+    safeFilename(`${invoice.invoiceNumber}.xlsx`)
   );
   } catch (err: any) {
     const msg = String(err?.message || err);
@@ -449,5 +449,5 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
     doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
   }
 
-  doc.save(`${invoice.invoiceNumber}.pdf`);
+  downloadBlob(doc.output("blob"), safeFilename(`${invoice.invoiceNumber}.pdf`));
 }

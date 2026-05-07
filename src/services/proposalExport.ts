@@ -16,7 +16,7 @@ import {
   TabStopType,
   TabStopPosition,
 } from "docx";
-import { saveAs } from "file-saver";
+import { downloadBlob, safeFilename } from "@/services/download";
 import type { Proposal, ProposalFeeItem, ProposalClauseSelection, AIContentBlock } from "@/types/proposal";
 import type { ProposalClause } from "@/types/proposal";
 import type { Project, Contact } from "@/types";
@@ -546,8 +546,6 @@ export async function exportProposalDocx(data: ExportData): Promise<void> {
   });
 
   const buffer = await Packer.toBlob(doc);
-  const fileName = `${data.proposal.proposalNumber || "Proposal"}_${data.proposal.siteName || "Draft"}.docx`
-    .replace(/[^a-zA-Z0-9_\-. ]/g, "")
-    .replace(/\s+/g, "_");
-  saveAs(buffer, fileName);
+  const fileName = safeFilename(`${data.proposal.proposalNumber || "Proposal"}_${data.proposal.siteName || "Draft"}.docx`);
+  downloadBlob(buffer, fileName);
 }

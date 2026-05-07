@@ -124,6 +124,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
           <EstimateLinker
             projectId={proposal.projectId || null}
             estimateId={proposal.estimateId || null}
+            feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
             onEstimateSelect={handleEstimateSelect}
           />
         </CardContent>

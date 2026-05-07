@@ -12,16 +12,24 @@ The app is a Vite + React + TypeScript frontend using Supabase for auth, databas
 
 ## Local Setup
 
+Prerequisites:
+
+```text
+Node.js 20 or newer
+npm
+Supabase CLI, via npx or a supported installer
+```
+
 1. Install dependencies:
 
    ```powershell
    npm ci
    ```
 
-2. Create a local `.env` file from `.env.example` and fill in the Supabase values:
+2. Create a local `.env.local` file from `.env.example` and fill in the Supabase values:
 
    ```powershell
-   Copy-Item .env.example .env
+   Copy-Item .env.example .env.local
    ```
 
 3. Start local development:
@@ -41,6 +49,7 @@ The app is a Vite + React + TypeScript frontend using Supabase for auth, databas
 Run these before committing or deploying:
 
 ```powershell
+npm run verify:off-lovable
 npm run typecheck
 npm run lint
 npm run test
@@ -49,32 +58,40 @@ npm run build
 
 Current known lint status: the app passes with warnings from existing React Fast Refresh and hook dependency rules.
 
+For a stricter pre-deploy check after `.env.local` is filled in:
+
+```powershell
+npm run verify:deploy
+```
+
+`verify:off-lovable` confirms the repo has no Lovable runtime dependency, checks the Supabase/Vercel deployment files, and warns about local account tooling or environment values that still need to be configured.
+
 ## Supabase Setup
 
 The current Supabase project ref is:
 
 ```text
-dfhbqyebfpyqfybpjuch
+wzlqrcrwhafzuqtnfhou
 ```
 
 Apply database migrations:
 
 ```powershell
-supabase db push --project-ref dfhbqyebfpyqfybpjuch
+supabase db push --project-ref wzlqrcrwhafzuqtnfhou
 ```
 
 Set AI edge function secrets:
 
 ```powershell
-supabase secrets set OPENAI_API_KEY=your-openai-api-key --project-ref dfhbqyebfpyqfybpjuch
-supabase secrets set OPENAI_MODEL=gpt-5-mini --project-ref dfhbqyebfpyqfybpjuch
+supabase secrets set OPENAI_API_KEY=your-openai-api-key --project-ref wzlqrcrwhafzuqtnfhou
+supabase secrets set OPENAI_MODEL=gpt-5-mini --project-ref wzlqrcrwhafzuqtnfhou
 ```
 
 Deploy edge functions:
 
 ```powershell
-supabase functions deploy generate-proposal-content --project-ref dfhbqyebfpyqfybpjuch
-supabase functions deploy recommend-proposal-clauses --project-ref dfhbqyebfpyqfybpjuch
+supabase functions deploy generate-proposal-content --project-ref wzlqrcrwhafzuqtnfhou
+supabase functions deploy recommend-proposal-clauses --project-ref wzlqrcrwhafzuqtnfhou
 ```
 
 For Google sign-in, enable Google as a Supabase Auth provider and add local plus production URLs to Supabase Auth redirect settings.

@@ -1,4 +1,5 @@
 // Lightweight CSV export utility (no external deps).
+import { downloadText } from "@/services/download";
 
 function escapeCell(value: any): string {
   if (value === null || value === undefined) return "";
@@ -27,15 +28,7 @@ export function exportToCsv(filename: string, rows: Record<string, any>[]) {
 }
 
 function triggerDownload(filename: string, csv: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadText(filename, csv, "text/csv;charset=utf-8;");
 }
 
 export function timestampedFilename(base: string, ext = "csv"): string {
