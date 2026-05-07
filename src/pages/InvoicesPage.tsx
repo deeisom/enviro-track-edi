@@ -19,6 +19,7 @@ import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExpo
 import { toast } from "@/hooks/use-toast";
 import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import type { DownloadedFile } from "@/services/download";
 
 export interface GroupedInvoiceRow {
   invoice: Invoice;
@@ -72,6 +73,7 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
   const { canEdit, isAdmin } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [lastDownload, setLastDownload] = useState<DownloadedFile | null>(null);
 
   const load = async () => {
     const [invs, projs] = await Promise.all([getAllInvoices(), getAllProjects()]);
@@ -87,7 +89,11 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
     load();
   };
   const handleExcelExport = async (inv: Invoice) => {
-    try { await exportInvoiceToExcel(inv); toast({ title: "Excel downloaded" }); }
+    try {
+      const download = await exportInvoiceToExcel(inv);
+      setLastDownload(download);
+      toast({ title: "Excel downloaded" });
+    }
     catch (e) { toast({ title: "Export failed", description: String(e), variant: "destructive" }); }
   };
 
@@ -138,6 +144,16 @@ function InvoiceList({ onNew, onEdit }: { onNew: () => void; onEdit: (inv: Invoi
         {canEdit && <Button onClick={onNew}><Plus className="h-4 w-4 mr-1" /> Create New</Button>}
       </div>
       <Card>
+        {lastDownload && (
+          <Alert className="m-4 mb-0">
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>Download ready: {lastDownload.filename}</span>
+              <a className="font-medium text-primary underline" href={lastDownload.url} download={lastDownload.filename}>
+                Download again
+              </a>
+            </AlertDescription>
+          </Alert>
+        )}
         <CardContent className="p-0">
           <Table>
             <TableHeader>

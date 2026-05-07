@@ -14,8 +14,7 @@ function escapeCell(value: any): string {
 export function exportToCsv(filename: string, rows: Record<string, any>[]) {
   if (rows.length === 0) {
     // Still produce an empty file with no headers
-    triggerDownload(filename, "");
-    return;
+    return triggerDownload(filename, "");
   }
   const headers = Object.keys(rows[0]);
   const lines = [
@@ -24,11 +23,11 @@ export function exportToCsv(filename: string, rows: Record<string, any>[]) {
   ];
   // BOM for Excel UTF-8 compatibility
   const csv = "\uFEFF" + lines.join("\n");
-  triggerDownload(filename, csv);
+  return triggerDownload(filename, csv);
 }
 
 function triggerDownload(filename: string, csv: string) {
-  downloadText(filename, csv, "text/csv;charset=utf-8;");
+  return downloadText(filename, csv, "text/csv;charset=utf-8;");
 }
 
 export function timestampedFilename(base: string, ext = "csv"): string {

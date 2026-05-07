@@ -6,7 +6,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronsUpDown, Download, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllInvoices } from "@/services/invoiceStorage";
-import type { Invoice, InvoiceLineItem } from "@/types/invoice";
+import { invoiceLineItemsToProposalFeeItems } from "@/services/proposalFeeItems";
+import type { Invoice } from "@/types/invoice";
 import type { ProposalFeeItem } from "@/types/proposal";
 
 interface Props {
@@ -56,34 +57,13 @@ export function EstimateLinker({ projectId, estimateId, feeItems, onEstimateSele
 
   const selectedEstimate = allInvoices.find(e => e.id === estimateId);
 
-  const mapLineItemsToFeeItems = (lineItems: InvoiceLineItem[]): ProposalFeeItem[] => {
-    return lineItems
-      .filter(li => li.name.trim() || li.description.trim()) // skip blank rows
-      .map((li, idx) => ({
-        id: crypto.randomUUID(),
-        sourceEstimateItem: li.name,
-        sourceDescription: li.description,
-        sourceQty: Number(li.qty) || 0,
-        sourceRate: Number(li.rate) || 0,
-        sourceAmount: Number(li.amount) || 0,
-        displayItem: li.name.trim(),
-        displayDescription: li.description.trim(),
-        displayQty: Number(li.qty) || 0,
-        displayRate: Number(li.rate) || 0,
-        displayAmount: Number(li.amount) || (Number(li.qty) || 0) * (Number(li.rate) || 0),
-        sortOrder: idx,
-        isOptional: false,
-        manualOverride: false,
-      }));
-  };
-
   useEffect(() => {
     if (!estimateId || feeItems.length > 0 || !selectedEstimate?.lineItems.length) return;
-    onEstimateSelect(estimateId, mapLineItemsToFeeItems(selectedEstimate.lineItems));
+    onEstimateSelect(estimateId, invoiceLineItemsToProposalFeeItems(selectedEstimate.lineItems));
   }, [estimateId, feeItems.length, selectedEstimate, onEstimateSelect]);
 
   const handleSelect = (est: Invoice) => {
-    const feeItems = mapLineItemsToFeeItems(est.lineItems);
+    const feeItems = invoiceLineItemsToProposalFeeItems(est.lineItems);
     onEstimateSelect(est.id, feeItems);
     setOpen(false);
   };

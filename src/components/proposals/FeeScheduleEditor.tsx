@@ -3,14 +3,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { ProposalFeeItem } from "@/types/proposal";
 
 interface Props {
   feeItems: ProposalFeeItem[];
   onUpdate: (items: ProposalFeeItem[]) => void;
+  linkedDocumentLabel?: string;
+  linkedDocumentTotal?: number;
+  linkedDocumentLineCount?: number;
+  onImportLinkedDocument?: () => void;
 }
 
-export function FeeScheduleEditor({ feeItems, onUpdate }: Props) {
+export function FeeScheduleEditor({
+  feeItems,
+  onUpdate,
+  linkedDocumentLabel,
+  linkedDocumentTotal,
+  linkedDocumentLineCount,
+  onImportLinkedDocument,
+}: Props) {
   const addFeeItem = () => {
     const newItem: ProposalFeeItem = {
       id: crypto.randomUUID(),
@@ -48,15 +60,35 @@ export function FeeScheduleEditor({ feeItems, onUpdate }: Props) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Fee Schedule</CardTitle>
-          <Button variant="outline" size="sm" onClick={addFeeItem}>
-            <Plus className="h-4 w-4 mr-1" /> Add Item
-          </Button>
+          <div className="space-y-1">
+            <CardTitle>Fee Schedule</CardTitle>
+            {linkedDocumentLabel && (
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <Badge variant="secondary">{linkedDocumentLabel}</Badge>
+                <span>{linkedDocumentLineCount || 0} line items</span>
+                <span>${(linkedDocumentTotal || 0).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {onImportLinkedDocument && (
+              <Button variant="outline" size="sm" onClick={onImportLinkedDocument}>
+                Import Linked Items
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={addFeeItem}>
+              <Plus className="h-4 w-4 mr-1" /> Add Item
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {feeItems.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">No fee items yet. Add items manually or link an estimate.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">
+            {linkedDocumentLabel
+              ? "No fee items yet. Import the linked items above or add items manually."
+              : "No fee items yet. Add items manually or link an estimate."}
+          </p>
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-[1fr_2fr_80px_100px_100px_40px] gap-2 text-xs font-medium text-muted-foreground">

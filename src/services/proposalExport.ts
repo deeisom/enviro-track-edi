@@ -16,7 +16,7 @@ import {
   TabStopType,
   TabStopPosition,
 } from "docx";
-import { downloadBlob, safeFilename } from "@/services/download";
+import { downloadBlob, safeFilename, type DownloadedFile } from "@/services/download";
 import type { Proposal, ProposalFeeItem, ProposalClauseSelection, AIContentBlock } from "@/types/proposal";
 import type { ProposalClause } from "@/types/proposal";
 import type { Project, Contact } from "@/types";
@@ -522,7 +522,7 @@ function buildAcceptancePage(data: ExportData): Paragraph[] {
   return children;
 }
 
-export async function exportProposalDocx(data: ExportData): Promise<void> {
+export async function exportProposalDocx(data: ExportData): Promise<DownloadedFile> {
   const logoData = await loadImage("/images/edi-globe-logo.png");
 
   const coverSection = buildCoverPage(data, logoData);
@@ -547,5 +547,5 @@ export async function exportProposalDocx(data: ExportData): Promise<void> {
 
   const buffer = await Packer.toBlob(doc);
   const fileName = safeFilename(`${data.proposal.proposalNumber || "Proposal"}_${data.proposal.siteName || "Draft"}.docx`);
-  downloadBlob(buffer, fileName);
+  return downloadBlob(buffer, fileName);
 }

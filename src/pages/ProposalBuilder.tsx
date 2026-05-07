@@ -5,9 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { getProposal, createProposal, updateProposal, getNextProposalNumber, getAllClauses } from "@/services/proposalStorage";
 import { getAllClients, getAllProjects, getContactsByClient } from "@/services/storage";
+import { getInvoice } from "@/services/invoiceStorage";
 import { exportProposalDocx } from "@/services/proposalExport";
 import type { Proposal } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
+import type { Invoice } from "@/types/invoice";
+import type { DownloadedFile } from "@/services/download";
+import { invoiceLineItemsToProposalFeeItems } from "@/services/proposalFeeItems";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ProposalSetup } from "@/components/proposals/ProposalSetup";
 import { ProposalInfoSection, SignersSection } from "@/components/proposals/ProposalDetails";
 import { ProposalPreview } from "@/components/proposals/ProposalPreview";
@@ -57,6 +62,8 @@ export default function ProposalBuilder() {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("setup");
+  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | undefined>();
+  const [lastDownload, setLastDownload] = useState<DownloadedFile | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -104,6 +111,33 @@ export default function ProposalBuilder() {
     setProposal(prev => ({ ...prev, ...partial }));
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLinkedInvoice = async () => {
+      if (!proposal.estimateId) {
+        setLinkedInvoice(undefined);
+        return;
+      }
+
+      const invoice = await getInvoice(proposal.estimateId);
+      if (!cancelled) setLinkedInvoice(invoice);
+    };
+
+    loadLinkedInvoice().catch(() => {
+      if (!cancelled) setLinkedInvoice(undefined);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [proposal.estimateId]);
+
+  useEffect(() => {
+    if (!linkedInvoice?.lineItems.length || (proposal.feeItems || []).length > 0) return;
+    update({ feeItems: invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) });
+  }, [linkedInvoice, proposal.feeItems, update]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -132,7 +166,7 @@ export default function ProposalBuilder() {
       const autoClientAddress = clientObj?.address || "";
       const autoProjectNumber = project?.projectNumber || "";
       const eff = getEffectiveCoverFields(proposal, autoClientName, autoClientAddress, autoProjectNumber);
-      await exportProposalDocx({
+      const download = await exportProposalDocx({
         proposal,
         clientName: eff.clientName,
         clientAddress: eff.clientAddress,
@@ -142,6 +176,7 @@ export default function ProposalBuilder() {
         clauses,
         contacts,
       });
+      setLastDownload(download);
       toast({ title: "DOCX exported successfully" });
     } catch (e: any) {
       toast({ title: "Export failed", description: e.message, variant: "destructive" });
@@ -196,6 +231,16 @@ export default function ProposalBuilder() {
           )}
         </div>
       </div>
+      {lastDownload && (
+        <Alert>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>Download ready: {lastDownload.filename}</span>
+            <a className="font-medium text-primary underline" href={lastDownload.url} download={lastDownload.filename}>
+              Download again
+            </a>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
@@ -253,6 +298,12 @@ export default function ProposalBuilder() {
           <FeeScheduleEditor
             feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
             onUpdate={items => update({ feeItems: items })}
+            linkedDocumentLabel={linkedInvoice ? `${linkedInvoice.invoiceNumber} (${linkedInvoice.type})` : undefined}
+            linkedDocumentTotal={linkedInvoice?.total}
+            linkedDocumentLineCount={linkedInvoice?.lineItems.length}
+            onImportLinkedDocument={linkedInvoice
+              ? () => update({ feeItems: invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) })
+              : undefined}
           />
         </TabsContent>
 

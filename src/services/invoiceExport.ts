@@ -2,7 +2,7 @@ import { Invoice } from "@/types/invoice";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { downloadBlob, safeFilename } from "@/services/download";
+import { downloadBlob, safeFilename, type DownloadedFile } from "@/services/download";
 
 /**
  * Split an address string into [street, city/state/zip].
@@ -29,7 +29,7 @@ function splitAddress(address: string): [string, string] {
  * contains the correct layout, logos, borders, and formatting. We only
  * overwrite the dynamic data cells and clear/fill the line-item rows.
  */
-export async function exportInvoiceToExcel(invoice: Invoice) {
+export async function exportInvoiceToExcel(invoice: Invoice): Promise<DownloadedFile> {
   try {
   const wb = new ExcelJS.Workbook();
   const response = await fetch("/invoice-template.xlsx");
@@ -273,7 +273,7 @@ export async function exportInvoiceToExcel(invoice: Invoice) {
   };
 
   const buf = await wb.xlsx.writeBuffer();
-  downloadBlob(
+  return downloadBlob(
     new Blob([buf], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
@@ -303,7 +303,7 @@ export async function fetchOptionalImageDataUrl(path: string): Promise<string | 
   });
 }
 
-export async function exportInvoiceToPDF(invoice: Invoice) {
+export async function exportInvoiceToPDF(invoice: Invoice): Promise<DownloadedFile> {
   // Custom margins in mm: top=0.85in, left=0.25in, right=0.2in, bottom=0in
   const marginTop = 0.85 * 25.4;   // ~21.6mm
   const marginLeft = 0.25 * 25.4;  // ~6.35mm
@@ -449,5 +449,5 @@ export async function exportInvoiceToPDF(invoice: Invoice) {
     doc.addImage(logosImg, "PNG", imgX, imgY, imgWidth, imgHeight);
   }
 
-  downloadBlob(doc.output("blob"), safeFilename(`${invoice.invoiceNumber}.pdf`));
+  return downloadBlob(doc.output("blob"), safeFilename(`${invoice.invoiceNumber}.pdf`));
 }
