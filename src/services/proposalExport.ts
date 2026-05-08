@@ -67,6 +67,7 @@ async function loadImage(path: string): Promise<Uint8Array | null> {
 
 const HEADER_GREEN = "375623"; // Green, Accent 6, Darker 50%
 const CONSULTANT_GREEN = "375F1F"; // Dark Green, Accent 3, Darker 50%
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 function buildEdiHeader(_showContact = false): Header {
   return new Header({
@@ -546,6 +547,7 @@ export async function exportProposalDocx(data: ExportData): Promise<DownloadedFi
   });
 
   const buffer = await Packer.toBlob(doc);
+  const docxBlob = new Blob([buffer], { type: DOCX_MIME });
   const fileName = safeFilename(`${data.proposal.proposalNumber || "Proposal"}_${data.proposal.siteName || "Draft"}.docx`);
-  return downloadBlob(buffer, fileName);
+  return downloadBlob(docxBlob, fileName);
 }

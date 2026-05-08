@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { getProposal, createProposal, updateProposal, getNextProposalNumber, getAllClauses } from "@/services/proposalStorage";
 import { getAllClients, getAllProjects, getContactsByClient } from "@/services/storage";
-import { getInvoice } from "@/services/invoiceStorage";
+import { getAllInvoices } from "@/services/invoiceStorage";
 import { exportProposalDocx } from "@/services/proposalExport";
 import type { Proposal } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
@@ -62,16 +62,17 @@ export default function ProposalBuilder() {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("setup");
-  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | undefined>();
+  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [lastDownload, setLastDownload] = useState<DownloadedFile | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [c, p, cl] = await Promise.all([getAllClients(), getAllProjects(), getAllClauses()]);
+        const [c, p, cl, inv] = await Promise.all([getAllClients(), getAllProjects(), getAllClauses(), getAllInvoices()]);
         setClients(c);
         setProjects(p);
         setClauses(cl);
+        setAllInvoices(inv);
 
         if (!isNew && id) {
           const existing = await getProposal(id);
@@ -95,7 +96,7 @@ export default function ProposalBuilder() {
       }
     };
     load();
-  }, [id]);
+  }, [id, isNew]);
 
   const handleClientChange = useCallback(async (clientId: string) => {
     setProposal(prev => ({ ...prev, clientId }));
@@ -111,32 +112,36 @@ export default function ProposalBuilder() {
     setProposal(prev => ({ ...prev, ...partial }));
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadLinkedInvoice = async () => {
-      if (!proposal.estimateId) {
-        setLinkedInvoice(undefined);
-        return;
-      }
-
-      const invoice = await getInvoice(proposal.estimateId);
-      if (!cancelled) setLinkedInvoice(invoice);
-    };
-
-    loadLinkedInvoice().catch(() => {
-      if (!cancelled) setLinkedInvoice(undefined);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [proposal.estimateId]);
+  const linkedInvoice = allInvoices.find(inv => inv.id === proposal.estimateId);
 
   useEffect(() => {
     if (!linkedInvoice?.lineItems.length || (proposal.feeItems || []).length > 0) return;
     update({ feeItems: invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) });
   }, [linkedInvoice, proposal.feeItems, update]);
+
+  const importLinkedInvoiceItems = useCallback(async (invoiceId = proposal.estimateId || null) => {
+    const invoice = allInvoices.find(inv => inv.id === invoiceId);
+    if (!invoice) {
+      toast({ title: "No linked document selected", description: "Choose an estimate or invoice first.", variant: "destructive" });
+      return;
+    }
+
+    const feeItems = invoiceLineItemsToProposalFeeItems(invoice.lineItems);
+    if (feeItems.length === 0) {
+      toast({ title: "Nothing to import", description: `${invoice.invoiceNumber} does not have line items.`, variant: "destructive" });
+      return;
+    }
+
+    const nextProposal = { ...proposal, estimateId: invoice.id, feeItems };
+    setProposal(nextProposal);
+
+    if (!isNew && id) {
+      await updateProposal(id, { estimateId: invoice.id, feeItems });
+      toast({ title: "Fee schedule imported and saved", description: `${feeItems.length} items from ${invoice.invoiceNumber}` });
+    } else {
+      toast({ title: "Fee schedule imported", description: `${feeItems.length} items from ${invoice.invoiceNumber}` });
+    }
+  }, [allInvoices, id, isNew, proposal]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -177,7 +182,7 @@ export default function ProposalBuilder() {
         contacts,
       });
       setLastDownload(download);
-      toast({ title: "DOCX exported successfully" });
+      toast({ title: "DOCX ready", description: "Use the Download ready link if the browser does not save it automatically." });
     } catch (e: any) {
       toast({ title: "Export failed", description: e.message, variant: "destructive" });
     } finally {
@@ -196,6 +201,15 @@ export default function ProposalBuilder() {
   const effectiveProject = projectNumber !== autoProjectNumber && project
     ? { ...project, projectNumber }
     : project;
+  const linkedDocumentOptions = allInvoices
+    .filter(inv => !proposal.projectId || inv.projectId === proposal.projectId || inv.id === proposal.estimateId)
+    .map(inv => ({
+      id: inv.id,
+      label: `${inv.invoiceNumber} (${inv.type})`,
+      type: inv.type,
+      total: inv.total,
+      lineCount: inv.lineItems.length,
+    }));
 
   if (loading) {
     return (
@@ -234,8 +248,8 @@ export default function ProposalBuilder() {
       {lastDownload && (
         <Alert>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>Download ready: {lastDownload.filename}</span>
-            <a className="font-medium text-primary underline" href={lastDownload.url} download={lastDownload.filename}>
+            <span>Download ready: {lastDownload.filename}. If it did not save automatically, use this link.</span>
+            <a className="font-medium text-primary underline" href={lastDownload.url} download={lastDownload.filename} target="_blank" rel="noreferrer">
               Download again
             </a>
           </AlertDescription>
@@ -298,12 +312,19 @@ export default function ProposalBuilder() {
           <FeeScheduleEditor
             feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
             onUpdate={items => update({ feeItems: items })}
+            linkedDocumentOptions={linkedDocumentOptions}
+            selectedLinkedDocumentId={proposal.estimateId}
+            onLinkedDocumentChange={invoiceId => {
+              const invoice = allInvoices.find(inv => inv.id === invoiceId);
+              update({ estimateId: invoiceId });
+              if (invoice && (proposal.feeItems || []).length === 0) {
+                importLinkedInvoiceItems(invoiceId);
+              }
+            }}
             linkedDocumentLabel={linkedInvoice ? `${linkedInvoice.invoiceNumber} (${linkedInvoice.type})` : undefined}
             linkedDocumentTotal={linkedInvoice?.total}
             linkedDocumentLineCount={linkedInvoice?.lineItems.length}
-            onImportLinkedDocument={linkedInvoice
-              ? () => update({ feeItems: invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) })
-              : undefined}
+            onImportLinkedDocument={proposal.estimateId ? () => importLinkedInvoiceItems(proposal.estimateId) : undefined}
           />
         </TabsContent>
 
