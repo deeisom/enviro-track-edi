@@ -1,26 +1,40 @@
 import type { InvoiceLineItem } from "@/types/invoice";
 import type { ProposalFeeItem } from "@/types/proposal";
+import { createClientId } from "@/lib/ids";
 
 export function invoiceLineItemsToProposalFeeItems(lineItems: InvoiceLineItem[]): ProposalFeeItem[] {
   return lineItems
-    .filter((item) => item.name.trim() || item.description.trim())
-    .map((item, index) => {
-      const qty = Number(item.qty) || 0;
-      const rate = Number(item.rate) || 0;
-      const amount = Number(item.amount) || qty * rate;
+    .map((item) => {
+      const legacyItem = item as InvoiceLineItem & {
+        item?: string;
+        displayItem?: string;
+        displayDescription?: string;
+        displayQty?: number;
+        displayRate?: number;
+        displayAmount?: number;
+      };
+      const name = String(legacyItem.name ?? legacyItem.item ?? legacyItem.displayItem ?? "").trim();
+      const description = String(legacyItem.description ?? legacyItem.displayDescription ?? "").trim();
+      const qty = Number(legacyItem.qty ?? legacyItem.displayQty) || 0;
+      const rate = Number(legacyItem.rate ?? legacyItem.displayRate) || 0;
+      const amount = Number(legacyItem.amount ?? legacyItem.displayAmount) || qty * rate;
 
+      return { name, description, qty, rate, amount };
+    })
+    .filter((item) => item.name || item.description)
+    .map((item, index) => {
       return {
-        id: crypto.randomUUID(),
+        id: createClientId("fee"),
         sourceEstimateItem: item.name,
         sourceDescription: item.description,
-        sourceQty: qty,
-        sourceRate: rate,
-        sourceAmount: amount,
-        displayItem: item.name.trim(),
-        displayDescription: item.description.trim(),
-        displayQty: qty,
-        displayRate: rate,
-        displayAmount: amount,
+        sourceQty: item.qty,
+        sourceRate: item.rate,
+        sourceAmount: item.amount,
+        displayItem: item.name,
+        displayDescription: item.description,
+        displayQty: item.qty,
+        displayRate: item.rate,
+        displayAmount: item.amount,
         sortOrder: index,
         isOptional: false,
         manualOverride: false,

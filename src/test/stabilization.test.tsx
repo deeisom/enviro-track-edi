@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RequireEdit } from "@/components/AuthGuards";
+import { FeeScheduleEditor } from "@/components/proposals/FeeScheduleEditor";
 import RatesPage from "@/pages/RatesPage";
 import { groupInvoicesForDisplay } from "@/pages/InvoicesPage";
 import { buildDuplicatedProposalInput } from "@/services/proposalStorage";
 import { fetchOptionalImageDataUrl } from "@/services/invoiceExport";
+import { invoiceLineItemsToProposalFeeItems } from "@/services/proposalFeeItems";
+import { useState } from "react";
 import type { Invoice } from "@/types/invoice";
-import type { Proposal } from "@/types/proposal";
+import type { Proposal, ProposalFeeItem } from "@/types/proposal";
 
 const authMock = vi.hoisted(() => ({
   state: {
@@ -177,5 +180,35 @@ describe("stabilization workflow helpers", () => {
     }));
 
     await expect(fetchOptionalImageDataUrl("/images/accreditation-logos.png")).resolves.toBeNull();
+  });
+
+  it("creates editable proposal fee rows when randomUUID is unavailable", () => {
+    vi.stubGlobal("crypto", {});
+
+    function Harness() {
+      const [items, setItems] = useState<ProposalFeeItem[]>([]);
+      return <FeeScheduleEditor feeItems={items} onUpdate={setItems} />;
+    }
+
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("button", { name: /add item/i }));
+
+    expect(screen.queryByText(/no fee items yet/i)).not.toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText("Item")).toHaveLength(1);
+  });
+
+  it("converts linked invoice rows with current or legacy field names", () => {
+    vi.stubGlobal("crypto", {});
+
+    const feeItems = invoiceLineItemsToProposalFeeItems([
+      { id: "current", name: "Final Report", description: "Final Report", qty: 1, rate: 150, amount: 150 },
+      { id: "legacy", item: "Analytical", displayDescription: "Mold in air samples", displayQty: 6, displayRate: 70, displayAmount: 420 } as any,
+    ]);
+
+    expect(feeItems).toMatchObject([
+      { displayItem: "Final Report", displayDescription: "Final Report", displayQty: 1, displayRate: 150, displayAmount: 150 },
+      { displayItem: "Analytical", displayDescription: "Mold in air samples", displayQty: 6, displayRate: 70, displayAmount: 420 },
+    ]);
   });
 });

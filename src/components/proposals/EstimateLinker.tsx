@@ -93,7 +93,7 @@ export function EstimateLinker({ projectId, estimateId, feeItems, onEstimateSele
       <Label>Linked Estimate or Invoice</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className="w-full justify-between mt-1">
+          <Button type="button" variant="outline" role="combobox" className="w-full justify-between mt-1">
           {selectedEstimate ? `${selectedEstimate.invoiceNumber} - $${selectedEstimate.total.toLocaleString()}` : "Select estimate or invoice..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>

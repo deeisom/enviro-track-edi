@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
 import type { ProposalFeeItem } from "@/types/proposal";
+import { createClientId } from "@/lib/ids";
 
 interface Props {
   feeItems: ProposalFeeItem[];
@@ -16,7 +17,7 @@ export function FeeScheduleEditor({
 }: Props) {
   const addFeeItem = () => {
     const newItem: ProposalFeeItem = {
-      id: crypto.randomUUID(),
+      id: createClientId("fee"),
       displayItem: "",
       displayDescription: "",
       displayQty: 1,
@@ -53,7 +54,7 @@ export function FeeScheduleEditor({
         <div className="flex items-center justify-between">
           <CardTitle>Fee Schedule</CardTitle>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={addFeeItem}>
+            <Button type="button" variant="outline" size="sm" onClick={addFeeItem}>
               <Plus className="h-4 w-4 mr-1" /> Add Item
             </Button>
           </div>
@@ -96,7 +97,7 @@ export function FeeScheduleEditor({
                 <div className="flex items-center h-10 px-2 text-sm font-medium">
                   ${item.displayAmount.toLocaleString("en-US", { minimumFractionDigits: 0 })}
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeFeeItem(idx)}>
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeFeeItem(idx)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

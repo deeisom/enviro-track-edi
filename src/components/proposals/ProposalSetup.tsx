@@ -73,7 +73,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
             <Label>Select Project</Label>
             <Popover open={projectOpen} onOpenChange={setProjectOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full justify-between mt-1">
+                <Button type="button" variant="outline" role="combobox" className="w-full justify-between mt-1">
           {selectedProject ? `${selectedProject.projectNumber} - ${selectedProject.name}` : "Select project..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -137,7 +137,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
             <Label>Select Client</Label>
             <Popover open={clientOpen} onOpenChange={setClientOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full justify-between mt-1">
+                <Button type="button" variant="outline" role="combobox" className="w-full justify-between mt-1">
                   {selectedClient?.companyName || "Select client..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -171,7 +171,7 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
             <Label>Contact</Label>
             <Popover open={contactOpen} onOpenChange={setContactOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full justify-between mt-1" disabled={!proposal.clientId}>
+                <Button type="button" variant="outline" role="combobox" className="w-full justify-between mt-1" disabled={!proposal.clientId}>
                   {contacts.find(c => c.id === proposal.proposalDetails?.contactId)?.name || "Select contact..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
