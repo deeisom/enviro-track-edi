@@ -213,6 +213,17 @@ describe("stabilization workflow helpers", () => {
     ]);
   });
 
+  it("keeps blank invoice line items editable in proposal fees", () => {
+    vi.stubGlobal("crypto", {});
+
+    const feeItems = invoiceLineItemsToProposalFeeItems([
+      { id: "blank", name: "", description: "", qty: 1, rate: 0, amount: 0 },
+    ]);
+
+    expect(feeItems).toHaveLength(1);
+    expect(feeItems[0]).toMatchObject({ displayItem: "", displayDescription: "", displayQty: 1, displayRate: 0, displayAmount: 0 });
+  });
+
   it("sends the selected invoice id to the proposal builder", async () => {
     vi.stubGlobal("ResizeObserver", class {
       observe() {}

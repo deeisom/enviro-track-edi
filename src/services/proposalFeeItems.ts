@@ -4,6 +4,7 @@ import { createClientId } from "@/lib/ids";
 
 export function invoiceLineItemsToProposalFeeItems(lineItems: InvoiceLineItem[]): ProposalFeeItem[] {
   return lineItems
+    .filter(Boolean)
     .map((item) => {
       const legacyItem = item as InvoiceLineItem & {
         item?: string;
@@ -21,7 +22,6 @@ export function invoiceLineItemsToProposalFeeItems(lineItems: InvoiceLineItem[])
 
       return { name, description, qty, rate, amount };
     })
-    .filter((item) => item.name || item.description)
     .map((item, index) => {
       return {
         id: createClientId("fee"),

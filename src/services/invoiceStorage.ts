@@ -132,6 +132,23 @@ export async function deleteInvoice(id: string) {
 }
 
 function mapInvoice(row: any): Invoice {
+  const rawLineItems = row.line_items;
+  let lineItems: InvoiceLineItem[] = [];
+  if (Array.isArray(rawLineItems)) {
+    lineItems = rawLineItems as InvoiceLineItem[];
+  } else if (typeof rawLineItems === "string") {
+    try {
+      const parsed = JSON.parse(rawLineItems);
+      lineItems = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+    } catch {
+      lineItems = [];
+    }
+  } else if (rawLineItems && typeof rawLineItems === "object") {
+    lineItems = "name" in rawLineItems || "description" in rawLineItems
+      ? [rawLineItems as InvoiceLineItem]
+      : Object.values(rawLineItems).filter(Boolean) as InvoiceLineItem[];
+  }
+
   return {
     id: row.id,
     invoiceNumber: row.invoice_number,
@@ -145,7 +162,7 @@ function mapInvoice(row: any): Invoice {
     dueDate: row.due_date || "",
     terms: row.terms || "",
     projectSummary: row.project_summary || "",
-    lineItems: (row.line_items as InvoiceLineItem[]) || [],
+    lineItems,
     total: Number(row.total),
     status: row.status as Invoice["status"],
     createdAt: row.created_at,

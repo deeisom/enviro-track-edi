@@ -113,14 +113,17 @@ export default function ProposalBuilder() {
   }, []);
 
   const getLinkedInvoice = useCallback(async (estimateId: string) => {
-    const listedInvoice = allInvoices.find(inv => inv.id === estimateId);
-    if (listedInvoice) return listedInvoice;
-
     const fetchedInvoice = await getInvoice(estimateId);
     if (fetchedInvoice) {
-      setAllInvoices(prev => prev.some(inv => inv.id === fetchedInvoice.id) ? prev : [fetchedInvoice, ...prev]);
+      setAllInvoices(prev => {
+        const idx = prev.findIndex(inv => inv.id === fetchedInvoice.id);
+        if (idx < 0) return [fetchedInvoice, ...prev];
+        return prev.map(inv => inv.id === fetchedInvoice.id ? fetchedInvoice : inv);
+      });
+      return fetchedInvoice;
     }
-    return fetchedInvoice;
+
+    return allInvoices.find(inv => inv.id === estimateId);
   }, [allInvoices]);
 
   const handleEstimateSelect = useCallback(async (estimateId: string) => {
