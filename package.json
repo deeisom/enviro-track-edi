@@ -12,6 +12,8 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "import:legacy:dry-run": "node scripts/import-legacy-data.mjs",
+    "import:legacy": "node scripts/import-legacy-data.mjs --apply",
     "verify:off-lovable": "node scripts/verify-off-lovable.mjs",
     "verify:deploy": "node scripts/verify-off-lovable.mjs --strict-env && npm run typecheck && npm run lint && npm run test && npm run build"
   },
