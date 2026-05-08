@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -63,7 +63,6 @@ export default function ProposalBuilder() {
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("setup");
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
-  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | undefined>();
   const [lastDownload, setLastDownload] = useState<DownloadedFile | null>(null);
 
   useEffect(() => {
@@ -113,60 +112,73 @@ export default function ProposalBuilder() {
     setProposal(prev => ({ ...prev, ...partial }));
   }, []);
 
+  const getLinkedInvoice = useCallback(async (estimateId: string) => {
+    const listedInvoice = allInvoices.find(inv => inv.id === estimateId);
+    if (listedInvoice) return listedInvoice;
+
+    const fetchedInvoice = await getInvoice(estimateId);
+    if (fetchedInvoice) {
+      setAllInvoices(prev => prev.some(inv => inv.id === fetchedInvoice.id) ? prev : [fetchedInvoice, ...prev]);
+    }
+    return fetchedInvoice;
+  }, [allInvoices]);
+
+  const handleEstimateSelect = useCallback(async (estimateId: string) => {
+    try {
+      const invoice = await getLinkedInvoice(estimateId);
+      if (!invoice) {
+        setProposal(prev => ({ ...prev, estimateId, feeItems: [] }));
+        toast({ title: "Invoice not found", description: "The selected invoice could not be loaded.", variant: "destructive" });
+        return;
+      }
+
+      const feeItems = invoiceLineItemsToProposalFeeItems(invoice.lineItems || []);
+      setProposal(prev => ({ ...prev, estimateId: invoice.id, feeItems }));
+
+      if (feeItems.length === 0) {
+        toast({ title: "No fee items found", description: `${invoice.invoiceNumber} does not have line items yet.` });
+      } else {
+        toast({ title: "Fee schedule loaded", description: `${feeItems.length} items from ${invoice.invoiceNumber}` });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not load fee schedule", description: e.message, variant: "destructive" });
+    }
+  }, [getLinkedInvoice]);
+
   useEffect(() => {
     let cancelled = false;
 
-    const loadLinkedInvoice = async () => {
-      if (!proposal.estimateId) {
-        setLinkedInvoice(undefined);
-        return;
-      }
+    const hydrateLinkedFeeItems = async () => {
+      if (!proposal.estimateId || (proposal.feeItems || []).length > 0) return;
+      const invoice = await getLinkedInvoice(proposal.estimateId);
+      if (cancelled || !invoice || !invoice.lineItems.length) return;
 
-      const listedInvoice = allInvoices.find(inv => inv.id === proposal.estimateId);
-      if (listedInvoice) {
-        setLinkedInvoice(listedInvoice);
-        return;
-      }
+      const feeItems = invoiceLineItemsToProposalFeeItems(invoice.lineItems);
+      if (feeItems.length === 0) return;
 
-      const fetchedInvoice = await getInvoice(proposal.estimateId);
-      if (!cancelled) setLinkedInvoice(fetchedInvoice);
+      setProposal(prev => {
+        if (prev.estimateId !== invoice.id || (prev.feeItems || []).length > 0) return prev;
+        return { ...prev, feeItems };
+      });
     };
 
-    loadLinkedInvoice().catch(() => {
-      if (!cancelled) setLinkedInvoice(undefined);
-    });
+    hydrateLinkedFeeItems().catch(() => undefined);
 
     return () => {
       cancelled = true;
     };
-  }, [allInvoices, proposal.estimateId]);
-
-  const storedFeeItems = (proposal.feeItems || []) as ProposalFeeItem[];
-  const linkedFeeItems = useMemo(
-    () => linkedInvoice?.lineItems?.length ? invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) : [],
-    [linkedInvoice],
-  );
-  const effectiveFeeItems = storedFeeItems.length > 0 ? storedFeeItems : linkedFeeItems;
-  const proposalWithEffectiveFees = useMemo(
-    () => ({ ...proposal, feeItems: effectiveFeeItems }),
-    [proposal, effectiveFeeItems],
-  );
-
-  useEffect(() => {
-    if (!linkedInvoice?.lineItems.length || (proposal.feeItems || []).length > 0) return;
-    update({ feeItems: invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) });
-  }, [linkedInvoice, proposal.feeItems, update]);
+  }, [getLinkedInvoice, proposal.estimateId, proposal.feeItems]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       if (isNew) {
         const proposalNumber = await getNextProposalNumber();
-        const created = await createProposal({ ...proposalWithEffectiveFees, proposalNumber } as any);
+        const created = await createProposal({ ...proposal, proposalNumber } as any);
         toast({ title: "Proposal created", description: created.proposalNumber });
         navigate(`/proposals/${created.id}`, { replace: true });
       } else {
-        await updateProposal(id!, proposalWithEffectiveFees);
+        await updateProposal(id!, proposal);
         toast({ title: "Proposal saved" });
       }
     } catch (e: any) {
@@ -184,9 +196,9 @@ export default function ProposalBuilder() {
       const autoClientName = clientObj?.companyName || "";
       const autoClientAddress = clientObj?.address || "";
       const autoProjectNumber = project?.projectNumber || "";
-      const eff = getEffectiveCoverFields(proposalWithEffectiveFees, autoClientName, autoClientAddress, autoProjectNumber);
+      const eff = getEffectiveCoverFields(proposal, autoClientName, autoClientAddress, autoProjectNumber);
       const download = await exportProposalDocx({
-        proposal: proposalWithEffectiveFees,
+        proposal,
         clientName: eff.clientName,
         clientAddress: eff.clientAddress,
         project: eff.projectNumber !== autoProjectNumber && project
@@ -277,8 +289,10 @@ export default function ProposalBuilder() {
             clients={clients}
             projects={projects}
             contacts={contacts}
+            invoices={allInvoices}
             onUpdate={update}
             onClientChange={handleClientChange}
+            onEstimateSelect={handleEstimateSelect}
           />
           <SignersSection proposal={proposal} onUpdate={update} />
         </TabsContent>
@@ -315,7 +329,7 @@ export default function ProposalBuilder() {
 
         <TabsContent value="fees" className="mt-4">
           <FeeScheduleEditor
-            feeItems={effectiveFeeItems}
+            feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
             onUpdate={items => update({ feeItems: items })}
           />
         </TabsContent>
@@ -335,7 +349,7 @@ export default function ProposalBuilder() {
 
         <TabsContent value="preview" className="mt-4">
           <ProposalPreview
-            proposal={proposalWithEffectiveFees}
+            proposal={proposal}
             clientName={clientName}
             clientAddress={clientAddress}
             project={effectiveProject}

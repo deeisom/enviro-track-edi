@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RequireEdit } from "@/components/AuthGuards";
+import { EstimateLinker } from "@/components/proposals/EstimateLinker";
 import { FeeScheduleEditor } from "@/components/proposals/FeeScheduleEditor";
 import RatesPage from "@/pages/RatesPage";
 import { groupInvoicesForDisplay } from "@/pages/InvoicesPage";
@@ -210,5 +211,37 @@ describe("stabilization workflow helpers", () => {
       { displayItem: "Final Report", displayDescription: "Final Report", displayQty: 1, displayRate: 150, displayAmount: 150 },
       { displayItem: "Analytical", displayDescription: "Mold in air samples", displayQty: 6, displayRate: 70, displayAmount: 420 },
     ]);
+  });
+
+  it("sends the selected invoice id to the proposal builder", async () => {
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const invoice = makeInvoice("invoice-1", "INV-0001");
+    invoice.projectId = "project-1";
+    invoice.lineItems = [
+      { id: "line-1", name: "Final Report", description: "Final Report", qty: 1, rate: 150, amount: 150 },
+    ];
+    const onEstimateSelect = vi.fn();
+
+    render(
+      <EstimateLinker
+        projectId="project-1"
+        estimateId={null}
+        invoices={[invoice]}
+        onEstimateSelect={onEstimateSelect}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByText("INV-0001"));
+
+    expect(onEstimateSelect).toHaveBeenCalledWith("invoice-1");
   });
 });

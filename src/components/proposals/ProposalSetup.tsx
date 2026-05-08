@@ -6,8 +6,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "cmdk";
 import { Check, ChevronsUpDown, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Proposal, ProposalFeeItem } from "@/types/proposal";
+import type { Proposal } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
+import type { Invoice } from "@/types/invoice";
 import { EstimateLinker } from "./EstimateLinker";
 
 interface Props {
@@ -15,11 +16,14 @@ interface Props {
   clients: Client[];
   projects: Project[];
   contacts: Contact[];
+  invoices: Invoice[];
+  invoicesLoading?: boolean;
   onUpdate: (p: Partial<Proposal>) => void;
   onClientChange: (clientId: string) => void;
+  onEstimateSelect: (estimateId: string) => void;
 }
 
-export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate, onClientChange }: Props) {
+export function ProposalSetup({ proposal, clients, projects, contacts, invoices, invoicesLoading = false, onUpdate, onClientChange, onEstimateSelect }: Props) {
   const [clientOpen, setClientOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -40,10 +44,6 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
     }
     return { associated, others };
   }, [clients, projectClientId]);
-
-  const handleEstimateSelect = (estimateId: string, feeItems: ProposalFeeItem[]) => {
-    onUpdate({ estimateId, feeItems });
-  };
 
   const renderClientItem = (c: Client, isAssociated: boolean) => (
     <CommandItem
@@ -124,8 +124,9 @@ export function ProposalSetup({ proposal, clients, projects, contacts, onUpdate,
           <EstimateLinker
             projectId={proposal.projectId || null}
             estimateId={proposal.estimateId || null}
-            feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
-            onEstimateSelect={handleEstimateSelect}
+            invoices={invoices}
+            loading={invoicesLoading}
+            onEstimateSelect={onEstimateSelect}
           />
         </CardContent>
       </Card>

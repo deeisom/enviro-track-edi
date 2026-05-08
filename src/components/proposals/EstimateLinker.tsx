@@ -1,48 +1,28 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "cmdk";
 import { Check, ChevronsUpDown, Download, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAllInvoices } from "@/services/invoiceStorage";
-import { invoiceLineItemsToProposalFeeItems } from "@/services/proposalFeeItems";
 import type { Invoice } from "@/types/invoice";
-import type { ProposalFeeItem } from "@/types/proposal";
 
 interface Props {
   projectId: string | null;
   estimateId: string | null;
-  feeItems: ProposalFeeItem[];
-  onEstimateSelect: (estimateId: string, feeItems: ProposalFeeItem[]) => void;
+  invoices: Invoice[];
+  loading?: boolean;
+  onEstimateSelect: (estimateId: string) => void;
 }
 
-export function EstimateLinker({ projectId, estimateId, feeItems, onEstimateSelect }: Props) {
-  const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+export function EstimateLinker({ projectId, estimateId, invoices, loading = false, onEstimateSelect }: Props) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const all = await getAllInvoices();
-      // Include both estimates AND invoices; user can attach either.
-        setAllInvoices(all);
-      } catch {
-        // silently fail
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
 
   // Sort: project-associated first (with star), then the rest. Within each group: estimates before invoices, newest first.
   const sortedInvoices = useMemo(() => {
     const associated: Invoice[] = [];
     const others: Invoice[] = [];
-    for (const inv of allInvoices) {
+    for (const inv of invoices) {
       if (projectId && inv.projectId === projectId) associated.push(inv);
       else others.push(inv);
     }
@@ -53,20 +33,14 @@ export function EstimateLinker({ projectId, estimateId, feeItems, onEstimateSele
     associated.sort(byTypeThenDate);
     others.sort(byTypeThenDate);
     return { associated, others };
-  }, [allInvoices, projectId]);
-
-  const selectedEstimate = allInvoices.find(e => e.id === estimateId);
-
-  useEffect(() => {
-    if (!estimateId || feeItems.length > 0 || !selectedEstimate?.lineItems.length) return;
-    onEstimateSelect(estimateId, invoiceLineItemsToProposalFeeItems(selectedEstimate.lineItems));
-  }, [estimateId, feeItems.length, selectedEstimate, onEstimateSelect]);
+  }, [invoices, projectId]);
 
   const handleSelect = (est: Invoice) => {
-    const feeItems = invoiceLineItemsToProposalFeeItems(est.lineItems);
-    onEstimateSelect(est.id, feeItems);
+    onEstimateSelect(est.id);
     setOpen(false);
   };
+
+  const selectedEstimate = invoices.find(e => e.id === estimateId);
 
   const renderItem = (inv: Invoice, isAssociated: boolean) => (
     <CommandItem
