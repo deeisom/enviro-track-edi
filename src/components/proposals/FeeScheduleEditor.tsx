@@ -2,41 +2,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import type { ProposalFeeItem } from "@/types/proposal";
-
-export interface LinkedFeeDocumentOption {
-  id: string;
-  label: string;
-  type: "estimate" | "invoice";
-  total: number;
-  lineCount: number;
-}
 
 interface Props {
   feeItems: ProposalFeeItem[];
   onUpdate: (items: ProposalFeeItem[]) => void;
-  linkedDocumentOptions?: LinkedFeeDocumentOption[];
-  selectedLinkedDocumentId?: string | null;
-  onLinkedDocumentChange?: (id: string) => void;
-  linkedDocumentLabel?: string;
-  linkedDocumentTotal?: number;
-  linkedDocumentLineCount?: number;
-  onImportLinkedDocument?: () => void;
 }
 
 export function FeeScheduleEditor({
   feeItems,
   onUpdate,
-  linkedDocumentOptions = [],
-  selectedLinkedDocumentId,
-  onLinkedDocumentChange,
-  linkedDocumentLabel,
-  linkedDocumentTotal,
-  linkedDocumentLineCount,
-  onImportLinkedDocument,
 }: Props) {
   const addFeeItem = () => {
     const newItem: ProposalFeeItem = {
@@ -75,26 +51,8 @@ export function FeeScheduleEditor({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <CardTitle>Fee Schedule</CardTitle>
-            {linkedDocumentLabel ? (
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <Badge variant="secondary">{linkedDocumentLabel}</Badge>
-                <span>{linkedDocumentLineCount || 0} line items</span>
-                <span>${(linkedDocumentTotal || 0).toLocaleString()}</span>
-              </div>
-            ) : linkedDocumentOptions.length > 0 ? (
-              <p className="text-sm text-muted-foreground">Choose an estimate or invoice to bring its line items into this proposal.</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Add proposal fee items manually or link an estimate/invoice from Setup.</p>
-            )}
-          </div>
+          <CardTitle>Fee Schedule</CardTitle>
           <div className="flex gap-2">
-            {onImportLinkedDocument && linkedDocumentOptions.length === 0 && (
-              <Button variant="outline" size="sm" onClick={onImportLinkedDocument}>
-                Import Linked Items
-              </Button>
-            )}
             <Button variant="outline" size="sm" onClick={addFeeItem}>
               <Plus className="h-4 w-4 mr-1" /> Add Item
             </Button>
@@ -102,35 +60,9 @@ export function FeeScheduleEditor({
         </div>
       </CardHeader>
       <CardContent>
-        {linkedDocumentOptions.length > 0 && onLinkedDocumentChange && (
-          <div className="mb-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Linked estimate or invoice</label>
-              <Select value={selectedLinkedDocumentId || ""} onValueChange={onLinkedDocumentChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select estimate or invoice..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {linkedDocumentOptions.map((doc) => (
-                    <SelectItem key={doc.id} value={doc.id}>
-                      {doc.label} - {doc.lineCount} items - ${doc.total.toLocaleString()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {onImportLinkedDocument && (
-              <Button variant="secondary" onClick={onImportLinkedDocument}>
-                Import Linked Items
-              </Button>
-            )}
-          </div>
-        )}
         {feeItems.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
-            {linkedDocumentLabel
-              ? "No fee items yet. Import the linked items above or add items manually."
-              : "No fee items yet. Add items manually or link an estimate."}
+            No fee items yet. Connect an estimate or invoice in Setup, or add items manually.
           </p>
         ) : (
           <div className="space-y-3">

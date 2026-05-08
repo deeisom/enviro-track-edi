@@ -119,30 +119,6 @@ export default function ProposalBuilder() {
     update({ feeItems: invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) });
   }, [linkedInvoice, proposal.feeItems, update]);
 
-  const importLinkedInvoiceItems = useCallback(async (invoiceId = proposal.estimateId || null) => {
-    const invoice = allInvoices.find(inv => inv.id === invoiceId);
-    if (!invoice) {
-      toast({ title: "No linked document selected", description: "Choose an estimate or invoice first.", variant: "destructive" });
-      return;
-    }
-
-    const feeItems = invoiceLineItemsToProposalFeeItems(invoice.lineItems);
-    if (feeItems.length === 0) {
-      toast({ title: "Nothing to import", description: `${invoice.invoiceNumber} does not have line items.`, variant: "destructive" });
-      return;
-    }
-
-    const nextProposal = { ...proposal, estimateId: invoice.id, feeItems };
-    setProposal(nextProposal);
-
-    if (!isNew && id) {
-      await updateProposal(id, { estimateId: invoice.id, feeItems });
-      toast({ title: "Fee schedule imported and saved", description: `${feeItems.length} items from ${invoice.invoiceNumber}` });
-    } else {
-      toast({ title: "Fee schedule imported", description: `${feeItems.length} items from ${invoice.invoiceNumber}` });
-    }
-  }, [allInvoices, id, isNew, proposal]);
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -201,15 +177,6 @@ export default function ProposalBuilder() {
   const effectiveProject = projectNumber !== autoProjectNumber && project
     ? { ...project, projectNumber }
     : project;
-  const linkedDocumentOptions = allInvoices
-    .filter(inv => !proposal.projectId || inv.projectId === proposal.projectId || inv.id === proposal.estimateId)
-    .map(inv => ({
-      id: inv.id,
-      label: `${inv.invoiceNumber} (${inv.type})`,
-      type: inv.type,
-      total: inv.total,
-      lineCount: inv.lineItems.length,
-    }));
 
   if (loading) {
     return (
@@ -312,19 +279,6 @@ export default function ProposalBuilder() {
           <FeeScheduleEditor
             feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
             onUpdate={items => update({ feeItems: items })}
-            linkedDocumentOptions={linkedDocumentOptions}
-            selectedLinkedDocumentId={proposal.estimateId}
-            onLinkedDocumentChange={invoiceId => {
-              const invoice = allInvoices.find(inv => inv.id === invoiceId);
-              update({ estimateId: invoiceId });
-              if (invoice && (proposal.feeItems || []).length === 0) {
-                importLinkedInvoiceItems(invoiceId);
-              }
-            }}
-            linkedDocumentLabel={linkedInvoice ? `${linkedInvoice.invoiceNumber} (${linkedInvoice.type})` : undefined}
-            linkedDocumentTotal={linkedInvoice?.total}
-            linkedDocumentLineCount={linkedInvoice?.lineItems.length}
-            onImportLinkedDocument={proposal.estimateId ? () => importLinkedInvoiceItems(proposal.estimateId) : undefined}
           />
         </TabsContent>
 
