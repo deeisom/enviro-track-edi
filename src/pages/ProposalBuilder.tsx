@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { getProposal, createProposal, updateProposal, getNextProposalNumber, getAllClauses } from "@/services/proposalStorage";
 import { getAllClients, getAllProjects, getContactsByClient } from "@/services/storage";
-import { getAllInvoices } from "@/services/invoiceStorage";
+import { getAllInvoices, getInvoice } from "@/services/invoiceStorage";
 import { exportProposalDocx } from "@/services/proposalExport";
 import type { Proposal } from "@/types/proposal";
 import type { Client, Project, Contact } from "@/types";
@@ -63,6 +63,7 @@ export default function ProposalBuilder() {
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("setup");
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+  const [linkedInvoice, setLinkedInvoice] = useState<Invoice | undefined>();
   const [lastDownload, setLastDownload] = useState<DownloadedFile | null>(null);
 
   useEffect(() => {
@@ -112,7 +113,44 @@ export default function ProposalBuilder() {
     setProposal(prev => ({ ...prev, ...partial }));
   }, []);
 
-  const linkedInvoice = allInvoices.find(inv => inv.id === proposal.estimateId);
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLinkedInvoice = async () => {
+      if (!proposal.estimateId) {
+        setLinkedInvoice(undefined);
+        return;
+      }
+
+      const listedInvoice = allInvoices.find(inv => inv.id === proposal.estimateId);
+      if (listedInvoice) {
+        setLinkedInvoice(listedInvoice);
+        return;
+      }
+
+      const fetchedInvoice = await getInvoice(proposal.estimateId);
+      if (!cancelled) setLinkedInvoice(fetchedInvoice);
+    };
+
+    loadLinkedInvoice().catch(() => {
+      if (!cancelled) setLinkedInvoice(undefined);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allInvoices, proposal.estimateId]);
+
+  const storedFeeItems = (proposal.feeItems || []) as ProposalFeeItem[];
+  const linkedFeeItems = useMemo(
+    () => linkedInvoice?.lineItems?.length ? invoiceLineItemsToProposalFeeItems(linkedInvoice.lineItems) : [],
+    [linkedInvoice],
+  );
+  const effectiveFeeItems = storedFeeItems.length > 0 ? storedFeeItems : linkedFeeItems;
+  const proposalWithEffectiveFees = useMemo(
+    () => ({ ...proposal, feeItems: effectiveFeeItems }),
+    [proposal, effectiveFeeItems],
+  );
 
   useEffect(() => {
     if (!linkedInvoice?.lineItems.length || (proposal.feeItems || []).length > 0) return;
@@ -124,11 +162,11 @@ export default function ProposalBuilder() {
     try {
       if (isNew) {
         const proposalNumber = await getNextProposalNumber();
-        const created = await createProposal({ ...proposal, proposalNumber } as any);
+        const created = await createProposal({ ...proposalWithEffectiveFees, proposalNumber } as any);
         toast({ title: "Proposal created", description: created.proposalNumber });
         navigate(`/proposals/${created.id}`, { replace: true });
       } else {
-        await updateProposal(id!, proposal);
+        await updateProposal(id!, proposalWithEffectiveFees);
         toast({ title: "Proposal saved" });
       }
     } catch (e: any) {
@@ -146,9 +184,9 @@ export default function ProposalBuilder() {
       const autoClientName = clientObj?.companyName || "";
       const autoClientAddress = clientObj?.address || "";
       const autoProjectNumber = project?.projectNumber || "";
-      const eff = getEffectiveCoverFields(proposal, autoClientName, autoClientAddress, autoProjectNumber);
+      const eff = getEffectiveCoverFields(proposalWithEffectiveFees, autoClientName, autoClientAddress, autoProjectNumber);
       const download = await exportProposalDocx({
-        proposal,
+        proposal: proposalWithEffectiveFees,
         clientName: eff.clientName,
         clientAddress: eff.clientAddress,
         project: eff.projectNumber !== autoProjectNumber && project
@@ -277,7 +315,7 @@ export default function ProposalBuilder() {
 
         <TabsContent value="fees" className="mt-4">
           <FeeScheduleEditor
-            feeItems={(proposal.feeItems || []) as ProposalFeeItem[]}
+            feeItems={effectiveFeeItems}
             onUpdate={items => update({ feeItems: items })}
           />
         </TabsContent>
@@ -297,7 +335,7 @@ export default function ProposalBuilder() {
 
         <TabsContent value="preview" className="mt-4">
           <ProposalPreview
-            proposal={proposal}
+            proposal={proposalWithEffectiveFees}
             clientName={clientName}
             clientAddress={clientAddress}
             project={effectiveProject}
