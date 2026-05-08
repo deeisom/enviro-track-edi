@@ -16,6 +16,7 @@ import { getAllProjects, getAllClients, getClient, getProject, addInvoiceActivit
 import { Invoice, InvoiceLineItem, InvoiceType, RateItem, RATE_CATEGORIES } from "@/types/invoice";
 import { Project, Client } from "@/types";
 import { exportInvoiceToExcel, exportInvoiceToPDF } from "@/services/invoiceExport";
+import { rateItemToInvoiceLineItem } from "@/services/invoiceLineItems";
 import { toast } from "@/hooks/use-toast";
 import { Plus, FileSpreadsheet, FileText, Trash2, ArrowLeft, Pencil, Leaf, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -253,6 +254,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   const [clients, setClients] = useState<Client[]>([]);
   const [rates, setRates] = useState<RateItem[]>([]);
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
+  const [rateSelectValue, setRateSelectValue] = useState("");
 
   const isEditing = !!existingInvoice;
 
@@ -323,16 +325,7 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
   }, [date, terms]);
 
   const addLineItem = (rateItem?: RateItem) => {
-    const item: InvoiceLineItem = {
-      id: crypto.randomUUID(),
-      rateItemId: rateItem?.id,
-      name: rateItem?.item || "",
-      description: rateItem?.itemDescription || "",
-      qty: 1,
-      rate: rateItem?.defaultRate || 0,
-      amount: rateItem?.defaultRate || 0,
-    };
-    setLineItems(prev => [...prev, item]);
+    setLineItems(prev => [...prev, rateItemToInvoiceLineItem(rateItem)]);
   };
 
   const updateLineItem = (id: string, field: string, value: any) => {
@@ -524,7 +517,11 @@ function InvoiceEditor({ onBack, prefillProjectId, existingInvoice }: { onBack: 
             <h3 className="font-semibold">Line Items</h3>
             <div className="flex gap-2">
               {ratesByCategory.length > 0 && (
-                <Select onValueChange={v => { const r = rates.find(ri => ri.id === v); if (r) addLineItem(r); }}>
+                <Select value={rateSelectValue} onValueChange={v => {
+                  const r = rates.find(ri => ri.id === v);
+                  if (r) addLineItem(r);
+                  setRateSelectValue("");
+                }}>
                   <SelectTrigger className="w-48"><SelectValue placeholder="Add from rate table" /></SelectTrigger>
                   <SelectContent>
                     {ratesByCategory.map(g => (

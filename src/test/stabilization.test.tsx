@@ -9,8 +9,9 @@ import { groupInvoicesForDisplay } from "@/pages/InvoicesPage";
 import { buildDuplicatedProposalInput } from "@/services/proposalStorage";
 import { fetchOptionalImageDataUrl } from "@/services/invoiceExport";
 import { invoiceLineItemsToProposalFeeItems } from "@/services/proposalFeeItems";
+import { rateItemToInvoiceLineItem } from "@/services/invoiceLineItems";
 import { useState } from "react";
-import type { Invoice } from "@/types/invoice";
+import type { Invoice, RateItem } from "@/types/invoice";
 import type { Proposal, ProposalFeeItem } from "@/types/proposal";
 
 const authMock = vi.hoisted(() => ({
@@ -160,6 +161,50 @@ describe("stabilization workflow helpers", () => {
     expect(rows[0].childCount).toBe(2);
     expect(rows[1]).toMatchObject({ isChild: true, suffix: "-01" });
     expect(rows[3]).toMatchObject({ isChild: false, suffix: "" });
+  });
+
+  it("creates invoice rows from rate table item and description fields", () => {
+    vi.stubGlobal("crypto", {});
+
+    const rate: RateItem = {
+      id: "rate-analytical",
+      name: "Mold in Air Samples",
+      item: "Analytical",
+      itemDescription: "Mold in air samples",
+      category: "analytical",
+      defaultRate: 70,
+      unit: "per sample",
+    };
+
+    expect(rateItemToInvoiceLineItem(rate)).toMatchObject({
+      rateItemId: "rate-analytical",
+      name: "Analytical",
+      description: "Mold in air samples",
+      qty: 1,
+      rate: 70,
+      amount: 70,
+    });
+  });
+
+  it("keeps rate table invoice rows useful when item fields are blank", () => {
+    vi.stubGlobal("crypto", {});
+
+    const rate: RateItem = {
+      id: "rate-final-report",
+      name: "Final Report",
+      item: "",
+      itemDescription: "",
+      category: "services",
+      defaultRate: 150,
+      unit: "flat",
+    };
+
+    expect(rateItemToInvoiceLineItem(rate)).toMatchObject({
+      name: "Final Report",
+      description: "Final Report",
+      rate: 150,
+      amount: 150,
+    });
   });
 
   it("duplicates proposals as a fresh draft and locks copied AI sections", () => {

@@ -4,6 +4,8 @@ import { fetchAllPaged } from "./storage";
 
 // --- Rate Items ---
 
+const text = (value: unknown) => typeof value === "string" ? value.trim() : "";
+
 export async function getAllRates(): Promise<RateItem[]> {
   const { data, error } = await supabase.from("rates").select("*").order("name");
   if (error) throw error;
@@ -11,10 +13,13 @@ export async function getAllRates(): Promise<RateItem[]> {
 }
 
 export async function createRate(input: Omit<RateItem, "id">): Promise<RateItem> {
+  const item = text(input.item) || text(input.name);
+  const itemDescription = text(input.itemDescription) || item;
   const { data, error } = await supabase.from("rates").insert({
     name: input.name,
-    item: input.item,
-    item_description: input.itemDescription,
+    description: itemDescription,
+    item,
+    item_description: itemDescription,
     category: input.category,
     default_rate: input.defaultRate,
     unit: input.unit,
@@ -27,7 +32,10 @@ export async function updateRate(id: string, input: Partial<RateItem>): Promise<
   const updateData: any = {};
   if (input.name !== undefined) updateData.name = input.name;
   if (input.item !== undefined) updateData.item = input.item;
-  if (input.itemDescription !== undefined) updateData.item_description = input.itemDescription;
+  if (input.itemDescription !== undefined) {
+    updateData.description = input.itemDescription;
+    updateData.item_description = input.itemDescription;
+  }
   if (input.category !== undefined) updateData.category = input.category;
   if (input.defaultRate !== undefined) updateData.default_rate = input.defaultRate;
   if (input.unit !== undefined) updateData.unit = input.unit;
@@ -45,11 +53,15 @@ export async function deleteRate(id: string) {
 export function seedRatesIfEmpty() {}
 
 function mapRate(row: any): RateItem {
+  const name = text(row.name);
+  const item = text(row.item) || name;
+  const itemDescription = text(row.item_description) || text(row.description) || item || name;
+
   return {
     id: row.id,
-    name: row.name,
-    item: row.item || "",
-    itemDescription: row.item_description || "",
+    name,
+    item,
+    itemDescription,
     category: row.category as RateItem["category"],
     defaultRate: Number(row.default_rate),
     unit: row.unit,

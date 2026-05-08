@@ -42,12 +42,18 @@ export default function RatesPage() {
   const handleSave = async () => {
     if (!canEdit) return;
     if (!form.name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
+    const normalizedForm = {
+      ...form,
+      name: form.name.trim(),
+      item: form.item.trim() || form.name.trim(),
+      itemDescription: form.itemDescription.trim() || form.item.trim() || form.name.trim(),
+    };
     try {
       if (editId) {
-        await updateRate(editId, form);
+        await updateRate(editId, normalizedForm);
         toast({ title: "Rate item updated" });
       } else {
-        await createRate(form);
+        await createRate(normalizedForm);
         toast({ title: "Rate item created" });
       }
       setDialog(false);
