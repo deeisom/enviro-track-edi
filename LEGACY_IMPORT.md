@@ -1,10 +1,10 @@
 # Legacy Contact And Project Import
 
-Use this for a one-time import from the old system after exporting the old data as CSV, TSV, or XLSX.
+Use this for a one-time import from the old system after exporting the old data as CSV, TSV, XLSX, or XLS.
 
 ## Files
 
-The importer accepts separate files for clients, contacts, and projects. You can provide one, two, or all three.
+The importer accepts separate files for clients, contacts, and projects. You can provide one, two, or all three. On Windows, old `.xls` files are converted through Excel automatically during the import preview.
 
 Expected columns can use common names. These are the clearest headers:
 

@@ -82,4 +82,40 @@ describe("legacy import helpers", () => {
     expect(plan.creates.projects).toHaveLength(3);
     expect(plan.issues.filter(issue => issue.type === "project_unlinked_client")).toHaveLength(3);
   });
+
+  it("carries company names down contact rows and reads Outlook-style contact headers", () => {
+    const contacts = rowsToObjects(parseCsv([
+      "Company Name,Business Phone,Business Web Site,Contacts,Mobile Phone,E-mail Address,E-mail 2 Address",
+      "\"Access Training Services, Inc.\",(856) 665-3449,http://accesstrainingonline.com,Mark Schlager,,accesstsinc@aol.com,",
+      ",,,Craig Andres,,c.andres@cpyramid.com,craig.secondary@example.com",
+    ].join("\n")));
+
+    const plan = buildImportPlan({ contacts });
+
+    expect(plan.creates.clients).toMatchObject([
+      { companyName: "Access Training Services, Inc.", phone: "(856) 665-3449", website: "http://accesstrainingonline.com" },
+    ]);
+    expect(plan.creates.contacts).toMatchObject([
+      { companyName: "Access Training Services, Inc.", name: "Mark Schlager", email: "accesstsinc@aol.com" },
+      { companyName: "Access Training Services, Inc.", name: "Craig Andres", email: "c.andres@cpyramid.com", secondaryEmail: "craig.secondary@example.com" },
+    ]);
+  });
+
+  it("does not create clients from project-only legacy client text", () => {
+    const projects = rowsToObjects(parseCsv([
+      "Project,Number,Stage,Type,Client",
+      "ACBWH - Delila's Den,PR-240304-1170,1.0 Proposal Phase,ACM/LBP Inspection,\"Hughes, Clark\"",
+      "ACBWH - West Hall,PR-241011-1326,3.0 Fieldwork/Active Phase,Asbestos,\"SPECTRA Venue Management\"",
+    ].join("\n")));
+    const clients = rowsToObjects(parseCsv("Company Name\nSPECTRA Venue Management\n"));
+
+    const plan = buildImportPlan({ clients, projects });
+
+    expect(plan.creates.clients).toMatchObject([{ companyName: "SPECTRA Venue Management" }]);
+    expect(plan.creates.projects).toMatchObject([
+      { projectNumber: "PR-240304-1170", name: "ACBWH - Delila's Den", status: "1.0", description: "ACM/LBP Inspection", companyName: "", legacyClientText: "Hughes, Clark" },
+      { projectNumber: "PR-241011-1326", name: "ACBWH - West Hall", status: "3.0", description: "Asbestos", companyName: "SPECTRA Venue Management" },
+    ]);
+    expect(plan.issues.map(issue => issue.type)).toEqual(expect.arrayContaining(["project_unmatched_client"]));
+  });
 });

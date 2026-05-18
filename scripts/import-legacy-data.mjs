@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
@@ -42,20 +44,20 @@ const FIELD_ALIASES = {
   },
   contact: {
     company: ["company", "company name", "client", "client name", "organization", "customer", "business"],
-    name: ["contact name", "name", "full name", "contact"],
+    name: ["contact name", "contacts", "name", "full name", "contact"],
     title: ["title", "job title", "position"],
-    email: ["email", "e-mail", "primary email", "contact email"],
-    phone: ["phone", "office phone", "contact phone"],
+    email: ["email", "e-mail", "email address", "e-mail address", "primary email", "contact email"],
+    phone: ["phone", "business phone", "office phone", "home phone", "contact phone"],
     mobilePhone: ["mobile phone", "mobile", "cell", "cell phone"],
-    secondaryEmail: ["secondary email", "email 2", "email2", "alternate email", "alt email"],
+    secondaryEmail: ["secondary email", "email 2", "email2", "e-mail 2 address", "email 2 address", "alternate email", "alt email"],
   },
   project: {
-    projectNumber: ["project number", "project #", "project no", "project id", "job number", "edi project #"],
-    name: ["project name", "name", "job name", "site name"],
-    description: ["description", "project description", "scope"],
+    projectNumber: ["project number", "number", "project #", "project no", "project id", "job number", "edi project #"],
+    name: ["project name", "project", "name", "job name", "site name"],
+    description: ["description", "project description", "type", "project type", "service type", "scope"],
     company: ["company", "company name", "client", "client name", "organization", "customer", "business"],
     location: ["location", "address", "site address", "project location"],
-    status: ["status", "status code", "project status"],
+    status: ["status", "stage", "status code", "project status"],
     assignedTo: ["assigned to", "assigned", "staff", "team", "project manager"],
     notes: ["notes", "note", "comments", "comment"],
   },
@@ -108,6 +110,32 @@ function splitAssignedTo(value) {
     .split(/[;,]/)
     .map(part => part.trim())
     .filter(Boolean);
+}
+
+function pickAny(row, aliases) {
+  return pick(row, aliases);
+}
+
+function buildBusinessAddress(row) {
+  const street = pickAny(row, ["business street", "street", "street address"]);
+  const city = pickAny(row, ["business city", "city"]);
+  const state = pickAny(row, ["business state", "state"]);
+  const postal = pickAny(row, ["business postal code", "postal code", "zip", "zip code"]);
+  const country = pickAny(row, ["business country/region", "country", "country/region"]);
+  return [street, city, state, postal, country].filter(Boolean).join(", ");
+}
+
+function carryForwardCompany(rows, aliases) {
+  let currentCompany = "";
+  return rows.map(row => {
+    const company = pick(row, aliases);
+    if (company) currentCompany = company;
+    if (!currentCompany || company) return row;
+
+    const next = { ...row };
+    next[normalizeKey(aliases[0])] = currentCompany;
+    return next;
+  });
 }
 
 export function parseCsv(text) {
@@ -177,6 +205,56 @@ function excelCellToText(cell) {
   return cleanText(cell);
 }
 
+function convertLegacyXlsToXlsx(filePath) {
+  if (process.platform !== "win32") {
+    throw new Error(`Legacy .xls files require conversion to .xlsx before import: ${filePath}`);
+  }
+
+  const target = path.join(os.tmpdir(), `legacy-import-${Date.now()}-${Math.random().toString(36).slice(2)}.xlsx`);
+  const command = `
+$src = $env:LEGACY_IMPORT_XLS_SOURCE
+$out = $env:LEGACY_IMPORT_XLS_TARGET
+$excel = New-Object -ComObject Excel.Application
+$excel.Visible = $false
+$excel.DisplayAlerts = $false
+try {
+  $wb = $excel.Workbooks.Open($src)
+  $wb.SaveAs($out, 51)
+  $wb.Close($false)
+} finally {
+  $excel.Quit()
+  [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null
+}
+`;
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], {
+    env: {
+      ...process.env,
+      LEGACY_IMPORT_XLS_SOURCE: filePath,
+      LEGACY_IMPORT_XLS_TARGET: target,
+    },
+    encoding: "utf8",
+  });
+
+  if (result.status !== 0) {
+    const detail = result.stderr || result.stdout || "Unknown Excel conversion error";
+    throw new Error(`Could not convert legacy .xls file to .xlsx. Open it in Excel and save as .xlsx, then rerun. ${detail}`);
+  }
+
+  return target;
+}
+
+async function readXlsxRows(filePath, sheetName) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const worksheet = sheetName ? workbook.getWorksheet(sheetName) : workbook.worksheets[0];
+  if (!worksheet) throw new Error(`Could not find worksheet "${sheetName}" in ${filePath}`);
+  const rows = [];
+  worksheet.eachRow({ includeEmpty: false }, row => {
+    rows.push(row.values.slice(1).map(excelCellToText));
+  });
+  return rowsToObjects(rows);
+}
+
 async function readTabularFile(filePath, sheetName) {
   const resolved = path.resolve(filePath);
   const ext = path.extname(resolved).toLowerCase();
@@ -189,23 +267,21 @@ async function readTabularFile(filePath, sheetName) {
   }
 
   if (ext === ".xlsx") {
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(resolved);
-    const worksheet = sheetName ? workbook.getWorksheet(sheetName) : workbook.worksheets[0];
-    if (!worksheet) throw new Error(`Could not find worksheet "${sheetName}" in ${resolved}`);
-    const rows = [];
-    worksheet.eachRow({ includeEmpty: false }, row => {
-      rows.push(row.values.slice(1).map(excelCellToText));
-    });
-    return rowsToObjects(rows);
+    return readXlsxRows(resolved, sheetName);
   }
 
-  throw new Error(`Unsupported import file type: ${resolved}. Use CSV, TSV, or XLSX.`);
+  if (ext === ".xls") {
+    return readXlsxRows(convertLegacyXlsToXlsx(resolved), sheetName);
+  }
+
+  throw new Error(`Unsupported import file type: ${resolved}. Use CSV, TSV, XLSX, or XLS.`);
 }
 
 function normalizeProjectStatus(value) {
   const cleaned = cleanText(value);
   if (!cleaned) return { status: "1.0", warning: null };
+  const codeMatch = cleaned.match(/\b([1-7](?:\.[0-9])?)\b/);
+  if (codeMatch && VALID_PROJECT_STATUSES.has(codeMatch[1])) return { status: codeMatch[1], warning: null };
   if (VALID_PROJECT_STATUSES.has(cleaned)) return { status: cleaned, warning: null };
 
   const mapped = STATUS_LABELS.get(normalizeKey(cleaned));
@@ -216,31 +292,41 @@ function normalizeProjectStatus(value) {
 
 function normalizeClientRow(row, sourceName) {
   const a = FIELD_ALIASES.client;
+  const address = pick(row, a.address) || buildBusinessAddress(row);
   return {
     sourceName,
     rowNumber: row.__rowNumber,
     companyName: pick(row, a.companyName),
-    address: pick(row, a.address),
+    address,
     industryType: pick(row, a.industryType),
     notes: pick(row, a.notes),
-    phone: pick(row, a.phone),
-    fax: pick(row, a.fax),
-    website: pick(row, a.website),
+    phone: pick(row, [...a.phone, "business phone"]),
+    fax: pick(row, [...a.fax, "business fax"]),
+    website: pick(row, [...a.website, "business web site", "business website"]),
   };
 }
 
 function normalizeContactRow(row, sourceName) {
   const a = FIELD_ALIASES.contact;
+  const company = pick(row, a.company);
   return {
     sourceName,
     rowNumber: row.__rowNumber,
-    company: pick(row, a.company),
+    company,
     name: pick(row, a.name),
     title: pick(row, a.title),
     email: pick(row, a.email),
     phone: pick(row, a.phone),
     mobilePhone: pick(row, a.mobilePhone),
     secondaryEmail: pick(row, a.secondaryEmail),
+    clientDetails: {
+      companyName: company,
+      address: buildBusinessAddress(row),
+      notes: pick(row, FIELD_ALIASES.client.notes),
+      phone: pick(row, ["business phone", "phone"]),
+      fax: pick(row, ["business fax", "fax"]),
+      website: pick(row, ["business web site", "business website", "website"]),
+    },
   };
 }
 
@@ -248,6 +334,7 @@ function normalizeProjectRow(row, sourceName) {
   const a = FIELD_ALIASES.project;
   const status = normalizeProjectStatus(pick(row, a.status));
   const projectNumber = pick(row, a.projectNumber);
+  const company = pick(row, a.company);
 
   return {
     sourceName,
@@ -255,7 +342,8 @@ function normalizeProjectRow(row, sourceName) {
     projectNumber,
     name: pick(row, a.name) || projectNumber,
     description: pick(row, a.description),
-    company: pick(row, a.company),
+    company,
+    legacyClientText: company,
     location: pick(row, a.location),
     status: status.status,
     assignedTo: splitAssignedTo(pick(row, a.assignedTo)),
@@ -400,6 +488,25 @@ export function buildImportPlan({
     return { status: "planned", clientRef, label: cleanedCompany };
   }
 
+  function findClient(companyName) {
+    const cleanedCompany = cleanText(companyName);
+    const norm = normalizeCompanyName(cleanedCompany);
+    if (!norm) return { status: "missing" };
+
+    const existingMatches = existingClientGroups.get(norm) || [];
+    if (existingMatches.length === 1) {
+      return { status: "existing", id: existingMatches[0].id, label: existingMatches[0].companyName };
+    }
+    if (existingMatches.length > 1) {
+      return { status: "ambiguous", label: cleanedCompany, existingClientIds: existingMatches.map(client => client.id) };
+    }
+
+    const planned = plannedClientsByNorm.get(norm);
+    if (planned) return { status: "planned", clientRef: planned.clientRef, label: planned.companyName };
+
+    return { status: "missing", label: cleanedCompany };
+  }
+
   for (const rawClient of clients.map(row => normalizeClientRow(row, "clients"))) {
     if (!rawClient.companyName) {
       issues.push({ type: "missing_client_company", message: "Client row skipped because company name is blank.", source: `${rawClient.sourceName} row ${rawClient.rowNumber}` });
@@ -412,15 +519,12 @@ export function buildImportPlan({
     }
   }
 
-  const normalizedContacts = contacts.map(row => normalizeContactRow(row, "contacts"));
+  const normalizedContacts = carryForwardCompany(contacts, FIELD_ALIASES.contact.company).map(row => normalizeContactRow(row, "contacts"));
   for (const contact of normalizedContacts) {
-    if (contact.company) resolveClient(contact.company, { companyName: contact.company }, "contact file");
+    if (contact.company) resolveClient(contact.company, contact.clientDetails, "contact file");
   }
 
   const normalizedProjects = projects.map(row => normalizeProjectRow(row, "projects"));
-  for (const project of normalizedProjects) {
-    if (project.company) resolveClient(project.company, { companyName: project.company }, "project file");
-  }
 
   for (const contact of normalizedContacts) {
     const source = `${contact.sourceName} row ${contact.rowNumber}`;
@@ -433,7 +537,7 @@ export function buildImportPlan({
       continue;
     }
 
-    const client = resolveClient(contact.company, { companyName: contact.company }, "contact file");
+    const client = resolveClient(contact.company, contact.clientDetails, "contact file");
     if (client.status === "ambiguous") {
       issues.push({ type: "contact_ambiguous_client", message: `Contact "${contact.name}" skipped because "${contact.company}" has multiple matches.`, source });
       continue;
@@ -492,11 +596,13 @@ export function buildImportPlan({
     }
 
     let client = { status: "missing" };
-    if (project.company) client = resolveClient(project.company, { companyName: project.company }, "project file");
+    if (project.company) client = findClient(project.company);
     if (!project.company) {
       issues.push({ type: "project_unlinked_client", message: `Project ${project.projectNumber} has no company and will be imported without a client link.`, source });
     } else if (client.status === "ambiguous") {
       issues.push({ type: "project_ambiguous_client", message: `Project ${project.projectNumber} will be imported without a client link because "${project.company}" has multiple matches.`, source });
+    } else if (client.status === "missing") {
+      issues.push({ type: "project_unmatched_client", message: `Project ${project.projectNumber} references "${project.company}", but no matching client was found; it will be imported without a client link.`, source });
     }
     if (project.warning) {
       issues.push({ type: "project_status_defaulted", message: `${project.warning} for project ${project.projectNumber}.`, source });
@@ -509,7 +615,8 @@ export function buildImportPlan({
       description: project.description,
       clientRef: client.clientRef || null,
       existingClientId: client.id || null,
-      companyName: client.label || project.company || "",
+      companyName: client.status === "existing" || client.status === "planned" ? client.label : "",
+      legacyClientText: project.legacyClientText,
       location: project.location,
       assignedTo: project.assignedTo,
       notes: project.notes,
@@ -633,9 +740,9 @@ Apply after reviewing the report:
   node scripts/import-legacy-data.mjs --clients old-clients.csv --contacts old-contacts.xlsx --projects old-projects.csv --apply
 
 Options:
-  --clients <file>          CSV, TSV, or XLSX clients file
-  --contacts <file>         CSV, TSV, or XLSX contacts file
-  --projects <file>         CSV, TSV, or XLSX projects file
+  --clients <file>          CSV, TSV, XLSX, or XLS clients file
+  --contacts <file>         CSV, TSV, XLSX, or XLS contacts file
+  --projects <file>         CSV, TSV, XLSX, or XLS projects file
   --clients-sheet <name>    Worksheet name when using XLSX
   --contacts-sheet <name>   Worksheet name when using XLSX
   --projects-sheet <name>   Worksheet name when using XLSX
@@ -677,7 +784,7 @@ export function buildMarkdownReport(plan) {
   lines.push("\n## New Contacts\n");
   lines.push(formatList(plan.creates.contacts, item => `- ${item.name} / ${item.companyName}${item.email ? ` / ${item.email}` : ""} (${item.source})\n`));
   lines.push("\n## New Projects\n");
-  lines.push(formatList(plan.creates.projects, item => `- ${item.projectNumber} / ${item.name}${item.companyName ? ` / ${item.companyName}` : ""} (${item.source})\n`));
+  lines.push(formatList(plan.creates.projects, item => `- ${item.projectNumber} / ${item.name}${item.companyName ? ` / ${item.companyName}` : ""}${!item.companyName && item.legacyClientText ? ` / legacy client: ${item.legacyClientText}` : ""} (${item.source})\n`));
   lines.push("\n## Skipped\n");
   lines.push(formatList(plan.skipped.clients, item => `- Client: ${item.companyName} - ${item.reason} (${item.source})\n`));
   lines.push(formatList(plan.skipped.contacts, item => `- Contact: ${item.name} / ${item.companyName} - ${item.reason} (${item.source})\n`));
@@ -746,6 +853,9 @@ async function applyImportPlan(supabase, plan) {
 
   for (const project of plan.creates.projects) {
     const clientId = project.existingClientId || (project.clientRef ? clientIdByRef.get(project.clientRef) : null);
+    const notes = [project.notes, !clientId && project.legacyClientText ? `Legacy client/contact: ${project.legacyClientText}` : ""]
+      .filter(Boolean)
+      .join("\n");
     const { data, error } = await supabase.from("projects").insert({
       project_number: project.projectNumber,
       name: project.name,
@@ -754,7 +864,7 @@ async function applyImportPlan(supabase, plan) {
       contact_id: null,
       location: project.location,
       assigned_to: project.assignedTo,
-      notes: project.notes,
+      notes,
       status: project.status,
       parent_project_id: project.parentProjectId,
     }).select().single();
