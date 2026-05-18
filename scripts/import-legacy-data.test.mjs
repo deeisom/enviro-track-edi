@@ -139,4 +139,47 @@ describe("legacy import helpers", () => {
     ]);
     expect(plan.issues.map(issue => issue.type)).not.toContain("project_unmatched_client");
   });
+
+  it("links legacy projects from the project name when the client column is blank", () => {
+    const clients = rowsToObjects(parseCsv([
+      "Company Name",
+      "AECOM",
+      "Bergen County",
+      "East Brunswick BOE",
+    ].join("\n")));
+    const projects = rowsToObjects(parseCsv([
+      "Project,Number,Stage,Type,Client",
+      "AECOM-PHL - B/C Baggage Claim Roof sampling,PR-250402-1435,1.0 Proposal Phase,Asbestos,",
+      "Bergen County - ACM Survey @ New Bridge Medical Center,PR-211202-1905,3.0 Fieldwork/Active Phase,Asbestos,",
+      "East Brunswick BOE - Lead in Water Testing,PR-240424-1198,3.0 Fieldwork/Active Phase,Lead,",
+    ].join("\n")));
+
+    const plan = buildImportPlan({ clients, projects });
+
+    expect(plan.creates.projects).toMatchObject([
+      { projectNumber: "PR-250402-1435", companyName: "AECOM" },
+      { projectNumber: "PR-211202-1905", companyName: "Bergen County" },
+      { projectNumber: "PR-240424-1198", companyName: "East Brunswick BOE" },
+    ]);
+    expect(plan.issues.map(issue => issue.type)).not.toContain("project_unlinked_client");
+  });
+
+  it("uses the project name to resolve ambiguous contact-name project clients", () => {
+    const contacts = rowsToObjects(parseCsv([
+      "Company Name,Contacts,E-mail Address",
+      "East Brunswick BOE,Bernardo Giuliana,bg-east@example.com",
+      "Another District,Bernardo Giuliana,bg-other@example.com",
+    ].join("\n")));
+    const projects = rowsToObjects(parseCsv([
+      "Project,Number,Stage,Type,Client",
+      "East Brunswick BOE - Bowne-Munro ACM Sampling,PR-250312-1415,1.0 Proposal Phase,Asbestos,Bernardo Giuliana",
+    ].join("\n")));
+
+    const plan = buildImportPlan({ contacts, projects });
+
+    expect(plan.creates.projects).toMatchObject([
+      { projectNumber: "PR-250312-1415", companyName: "East Brunswick BOE" },
+    ]);
+    expect(plan.issues.map(issue => issue.type)).not.toContain("project_ambiguous_client");
+  });
 });

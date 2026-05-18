@@ -528,6 +528,46 @@ export function buildImportPlan({
     return { status: "missing", label: cleanedCompany };
   }
 
+  function knownClientMatches() {
+    const matches = [];
+    for (const [norm, existingMatches] of existingClientGroups) {
+      if (existingMatches.length === 1) {
+        matches.push({
+          key: existingMatches[0].id,
+          norm,
+          client: { status: "existing", id: existingMatches[0].id, label: existingMatches[0].companyName },
+        });
+      }
+    }
+    for (const [norm, planned] of plannedClientsByNorm) {
+      matches.push({
+        key: planned.clientRef,
+        norm,
+        client: { status: "planned", clientRef: planned.clientRef, label: planned.companyName },
+      });
+    }
+    return matches;
+  }
+
+  function findProjectClientByName(projectName, allowedKeys = null) {
+    const projectNorm = normalizeCompanyName(projectName);
+    if (!projectNorm) return { status: "missing" };
+
+    const matches = knownClientMatches()
+      .filter(match => (!allowedKeys || allowedKeys.has(match.key)) && match.norm.length >= 4 && projectNorm.startsWith(match.norm))
+      .sort((a, b) => b.norm.length - a.norm.length);
+
+    if (!matches.length) return { status: "missing" };
+
+    const bestLength = matches[0].norm.length;
+    const bestMatches = matches.filter(match => match.norm.length === bestLength);
+    if (bestMatches.length === 1) {
+      return { ...bestMatches[0].client, matchType: "project-name", matchedFrom: bestMatches[0].client.label };
+    }
+
+    return { status: "ambiguous", label: projectName, matchType: "project-name" };
+  }
+
   const contactClientsByPersonKey = new Map();
 
   function addContactClientMatch(contact) {
@@ -542,7 +582,7 @@ export function buildImportPlan({
     }
   }
 
-  function findProjectClient(clientText) {
+  function findProjectClient(clientText, projectName = "") {
     const candidates = projectClientCandidates(clientText);
 
     for (const candidate of candidates) {
@@ -566,8 +606,13 @@ export function buildImportPlan({
       return { ...client, matchType: "contact" };
     }
     if (contactMatches.size > 1) {
+      const projectNameMatch = findProjectClientByName(projectName, new Set(contactMatches.keys()));
+      if (projectNameMatch.status === "existing" || projectNameMatch.status === "planned") return projectNameMatch;
       return { status: "ambiguous", label: clientText, matchType: "contact" };
     }
+
+    const projectNameMatch = findProjectClientByName(projectName);
+    if (projectNameMatch.status === "existing" || projectNameMatch.status === "planned") return projectNameMatch;
 
     return { status: "missing", label: clientText };
   }
@@ -663,9 +708,8 @@ export function buildImportPlan({
       continue;
     }
 
-    let client = { status: "missing" };
-    if (project.company) client = findProjectClient(project.company);
-    if (!project.company) {
+    let client = project.company ? findProjectClient(project.company, project.name) : findProjectClientByName(project.name);
+    if (!project.company && client.status === "missing") {
       issues.push({ type: "project_unlinked_client", message: `Project ${project.projectNumber} has no company and will be imported without a client link.`, source });
     } else if (client.status === "ambiguous") {
       issues.push({ type: "project_ambiguous_client", message: `Project ${project.projectNumber} will be imported without a client link because "${project.company}" has multiple matches.`, source });
