@@ -118,4 +118,25 @@ describe("legacy import helpers", () => {
     ]);
     expect(plan.issues.map(issue => issue.type)).toEqual(expect.arrayContaining(["project_unmatched_client"]));
   });
+
+  it("links projects through company lines and unique contact name matches", () => {
+    const contacts = rowsToObjects(parseCsv([
+      "Company Name,Contacts,E-mail Address",
+      "SPECTRA Venue Management,Clark Hughes,clark@example.com",
+      "Bergen County Tech Schools,Joann DeFalco,joann@example.com",
+    ].join("\n")));
+    const projects = rowsToObjects(parseCsv([
+      "Project,Number,Stage,Type,Client",
+      "ACBWH - Delila's Den,PR-240304-1170,1.0 Proposal Phase,ACM/LBP Inspection,\"Hughes, Clark\"",
+      "Bergen County Project,PR-240305-1171,2.0 Planning Phase,Mold,\"Someone Else\nBergen County Tech Schools\"",
+    ].join("\n")));
+
+    const plan = buildImportPlan({ contacts, projects });
+
+    expect(plan.creates.projects).toMatchObject([
+      { projectNumber: "PR-240304-1170", companyName: "SPECTRA Venue Management" },
+      { projectNumber: "PR-240305-1171", companyName: "Bergen County Tech Schools" },
+    ]);
+    expect(plan.issues.map(issue => issue.type)).not.toContain("project_unmatched_client");
+  });
 });

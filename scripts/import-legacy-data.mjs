@@ -92,6 +92,17 @@ function normalizePersonName(value) {
   return normalizeKey(value);
 }
 
+function personNameKeys(value) {
+  const raw = cleanText(value);
+  if (!raw) return [];
+  const keys = [normalizePersonName(raw)];
+  const commaMatch = raw.match(/^([^,]+),\s*(.+)$/);
+  if (commaMatch) {
+    keys.push(normalizePersonName(`${commaMatch[2]} ${commaMatch[1]}`));
+  }
+  return [...new Set(keys)].filter(Boolean);
+}
+
 function normalizeEmail(value) {
   return cleanText(value).toLowerCase();
 }
@@ -136,6 +147,16 @@ function carryForwardCompany(rows, aliases) {
     next[normalizeKey(aliases[0])] = currentCompany;
     return next;
   });
+}
+
+function projectClientCandidates(value) {
+  const raw = cleanText(value);
+  if (!raw) return [];
+  const lines = raw.split(/\r?\n/).map(line => cleanField(line)).filter(Boolean);
+  const parenthetical = [...raw.matchAll(/\(([^)]+)\)/g)].map(match => cleanField(match[1])).filter(Boolean);
+  const candidates = [...lines, ...parenthetical];
+  if (!lines.length || lines.length === 1) candidates.push(raw);
+  return [...new Set(candidates.map(cleanField).filter(Boolean))];
 }
 
 export function parseCsv(text) {
@@ -507,6 +528,50 @@ export function buildImportPlan({
     return { status: "missing", label: cleanedCompany };
   }
 
+  const contactClientsByPersonKey = new Map();
+
+  function addContactClientMatch(contact) {
+    if (!contact.name || !contact.company) return;
+    const client = findClient(contact.company);
+    if (client.status !== "existing" && client.status !== "planned") return;
+    const key = client.id || client.clientRef;
+    for (const personKey of personNameKeys(contact.name)) {
+      const matches = contactClientsByPersonKey.get(personKey) || new Map();
+      matches.set(key, client);
+      contactClientsByPersonKey.set(personKey, matches);
+    }
+  }
+
+  function findProjectClient(clientText) {
+    const candidates = projectClientCandidates(clientText);
+
+    for (const candidate of candidates) {
+      const direct = findClient(candidate);
+      if (direct.status === "existing" || direct.status === "planned" || direct.status === "ambiguous") {
+        return { ...direct, matchedFrom: candidate, matchType: "company" };
+      }
+    }
+
+    const contactMatches = new Map();
+    for (const candidate of candidates) {
+      for (const personKey of personNameKeys(candidate)) {
+        const matches = contactClientsByPersonKey.get(personKey);
+        if (!matches) continue;
+        for (const [key, client] of matches) contactMatches.set(key, client);
+      }
+    }
+
+    if (contactMatches.size === 1) {
+      const client = [...contactMatches.values()][0];
+      return { ...client, matchType: "contact" };
+    }
+    if (contactMatches.size > 1) {
+      return { status: "ambiguous", label: clientText, matchType: "contact" };
+    }
+
+    return { status: "missing", label: clientText };
+  }
+
   for (const rawClient of clients.map(row => normalizeClientRow(row, "clients"))) {
     if (!rawClient.companyName) {
       issues.push({ type: "missing_client_company", message: "Client row skipped because company name is blank.", source: `${rawClient.sourceName} row ${rawClient.rowNumber}` });
@@ -522,6 +587,9 @@ export function buildImportPlan({
   const normalizedContacts = carryForwardCompany(contacts, FIELD_ALIASES.contact.company).map(row => normalizeContactRow(row, "contacts"));
   for (const contact of normalizedContacts) {
     if (contact.company) resolveClient(contact.company, contact.clientDetails, "contact file");
+  }
+  for (const contact of normalizedContacts) {
+    addContactClientMatch(contact);
   }
 
   const normalizedProjects = projects.map(row => normalizeProjectRow(row, "projects"));
@@ -596,7 +664,7 @@ export function buildImportPlan({
     }
 
     let client = { status: "missing" };
-    if (project.company) client = findClient(project.company);
+    if (project.company) client = findProjectClient(project.company);
     if (!project.company) {
       issues.push({ type: "project_unlinked_client", message: `Project ${project.projectNumber} has no company and will be imported without a client link.`, source });
     } else if (client.status === "ambiguous") {
