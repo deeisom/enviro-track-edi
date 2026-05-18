@@ -64,4 +64,22 @@ describe("legacy import helpers", () => {
     expect(plan.issues.map(issue => issue.type)).toEqual(expect.arrayContaining(["missing_contact_name", "project_status_defaulted"]));
     expect(plan.counterUpdate).toEqual({ year: 2026, from: 1, to: 7 });
   });
+
+  it("treats placeholder client values as unlinked projects in the preview report", () => {
+    const projects = rowsToObjects(parseCsv([
+      "Project Number,Project Name,Client,Status",
+      "PR-240909-1302,River Edge BOE - Mold Testing,—,2.0",
+      "PR-240711-1263,River Edge BOE - Gym Floor,â€”,1.0",
+      "PR-200812-1578,YMCA IEHA,N/A,4.0",
+    ].join("\n")));
+
+    const plan = buildImportPlan({
+      projects,
+      now: new Date("2026-05-08T12:00:00.000Z"),
+    });
+
+    expect(plan.creates.clients).toHaveLength(0);
+    expect(plan.creates.projects).toHaveLength(3);
+    expect(plan.issues.filter(issue => issue.type === "project_unlinked_client")).toHaveLength(3);
+  });
 });

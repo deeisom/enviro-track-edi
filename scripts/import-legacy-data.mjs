@@ -66,6 +66,14 @@ function cleanText(value) {
   return String(value).replace(/\uFEFF/g, "").trim();
 }
 
+function cleanField(value) {
+  const cleaned = cleanText(value);
+  const normalized = normalizeKey(cleaned);
+  if (!normalized) return "";
+  if (["na", "none", "null", "undefined", "unknown", "notapplicable"].includes(normalized)) return "";
+  return cleaned;
+}
+
 export function normalizeKey(value) {
   return cleanText(value).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
 }
@@ -89,7 +97,7 @@ function normalizeEmail(value) {
 function pick(row, aliases) {
   for (const alias of aliases) {
     const value = row[normalizeKey(alias)];
-    const cleaned = cleanText(value);
+    const cleaned = cleanField(value);
     if (cleaned) return cleaned;
   }
   return "";
